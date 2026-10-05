@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,6 +9,8 @@ import {
   Dimensions,
   StatusBar,
   RefreshControl,
+  Animated,
+  Vibration,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -85,22 +87,6 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     timeAgo: "4h ago",
   },
   {
-    id: "p3",
-    type: "reel",
-    category: "Travel",
-    image: IMG_SANTORINI,
-    author: {
-      username: "alex_wanderer",
-      fullName: "Alex Rivera",
-      avatar: { uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&q=80" },
-      isMe: false,
-    },
-    caption: "Living inside a postcard in Santorini. The Aegean blue hits different in October 🇬🇷💙",
-    likes: 34100,
-    comments: 890,
-    timeAgo: "6h ago",
-  },
-  {
     id: "p4",
     type: "carousel",
     category: "Travel",
@@ -115,6 +101,22 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     likes: 15300,
     comments: 312,
     timeAgo: "8h ago",
+  },
+  {
+    id: "p3",
+    type: "reel",
+    category: "Travel",
+    image: IMG_SANTORINI,
+    author: {
+      username: "alex_wanderer",
+      fullName: "Alex Rivera",
+      avatar: { uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&q=80" },
+      isMe: false,
+    },
+    caption: "Living inside a postcard in Santorini. The Aegean blue hits different in October 🇬🇷💙",
+    likes: 34100,
+    comments: 890,
+    timeAgo: "6h ago",
   },
   {
     id: "p5",
@@ -149,22 +151,6 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     timeAgo: "12h ago",
   },
   {
-    id: "p7",
-    type: "reel",
-    category: "Nature",
-    image: IMG_SLIDE_2,
-    author: {
-      username: "maya_lin",
-      fullName: "Maya Lin",
-      avatar: { uri: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&q=80" },
-      isMe: false,
-    },
-    caption: "Chasing the early dawn rays across the coastline. Keep creating what makes you feel alive ✨",
-    likes: 28400,
-    comments: 520,
-    timeAgo: "14h ago",
-  },
-  {
     id: "p8",
     type: "photo",
     category: "Architecture",
@@ -195,6 +181,22 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     likes: 13900,
     comments: 295,
     timeAgo: "18h ago",
+  },
+  {
+    id: "p7",
+    type: "reel",
+    category: "Nature",
+    image: IMG_SLIDE_2,
+    author: {
+      username: "maya_lin",
+      fullName: "Maya Lin",
+      avatar: { uri: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&q=80" },
+      isMe: false,
+    },
+    caption: "Chasing the early dawn rays across the coastline. Keep creating what makes you feel alive ✨",
+    likes: 28400,
+    comments: 520,
+    timeAgo: "14h ago",
   },
   {
     id: "p10",
@@ -328,7 +330,7 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     id: "p18",
     type: "reel",
     category: "Travel",
-    image: IMG_CINQUE,
+    image: IMG_SLIDE_2,
     author: {
       username: "elena_travels",
       fullName: "Elena Rossi",
@@ -341,6 +343,15 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     timeAgo: "4d ago",
   },
 ];
+
+const USERNAME_TO_CHAT: Record<string, string> = {
+  alex_wanderer: "c1",
+  sarah_jenkins: "c2",
+  david_design: "c3",
+  daniel_k: "c4",
+  elena_travels: "c5",
+  chef_marco: "c6",
+};
 
 const CATEGORIES = [
   { id: "all", label: "All", icon: "sparkles" },
@@ -364,6 +375,11 @@ export function ExploreScreen() {
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
   const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
 
+  // Animation values for Instagram Peek & Pop
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const actionsAnim = useRef(new Animated.Value(0)).current;
+
   // Route to My Profile or Others' Profile based on ownership
   const handleAuthorPress = (author: { username: string; fullName: string; isMe?: boolean }) => {
     if (author.isMe || author.username === "gokul_ssb" || author.username === "gokul7") {
@@ -383,11 +399,67 @@ export function ExploreScreen() {
     router.push({ pathname: "/post/[id]", params: { id: post.id } });
   };
 
+  // Instagram-style long-press Peek with spring physics animation & tactile feedback
   const handlePostLongPress = (post: ExplorePost) => {
+    try {
+      Vibration.vibrate(35);
+    } catch (_) {}
+
     setPreviewPost(post);
+    scaleAnim.setValue(0.85);
+    backdropAnim.setValue(0);
+    actionsAnim.setValue(0);
+
+    Animated.parallel([
+      Animated.timing(backdropAnim, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 110,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.spring(actionsAnim, {
+        toValue: 1,
+        tension: 90,
+        friction: 8,
+        delay: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  // Smooth Instagram exit animation
+  const closePreview = (callback?: () => void) => {
+    Animated.parallel([
+      Animated.timing(backdropAnim, {
+        toValue: 0,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 0.88,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+      Animated.timing(actionsAnim, {
+        toValue: 0,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setPreviewPost(null);
+      if (callback) callback();
+    });
   };
 
   const toggleLike = (postId: string) => {
+    try {
+      Vibration.vibrate(25);
+    } catch (_) {}
     setLikedPosts((prev) => ({
       ...prev,
       [postId]: !prev[postId],
@@ -395,6 +467,9 @@ export function ExploreScreen() {
   };
 
   const toggleSave = (postId: string) => {
+    try {
+      Vibration.vibrate(25);
+    } catch (_) {}
     setSavedPosts((prev) => ({
       ...prev,
       [postId]: !prev[postId],
@@ -408,34 +483,57 @@ export function ExploreScreen() {
     return filtered.length > 0 ? filtered : EXPLORE_POSTS;
   }, [selectedCategory]);
 
-  // Perfectly balanced, seamless gapless grid sections (NEVER leaves any empty slots or holes)
+  // Perfectly balanced, seamless gapless grid sections.
+  // 1. Starts with a standard 3-square row (Row 1):
+  //    Item 0 (Elena Rossi - Cinque Terre) is a 1:1 SQUARE tile, ensuring the full village,
+  //    cliffs, harbor, and sunset sky are visible in the grid without zoom distortion!
+  // 2. Alternates Pattern A (4 squares left + 1 tall reel right) and Pattern B (1 tall reel left + 4 squares right),
+  //    guaranteeing that tall vertical slots receive actual vertical reels!
   const gridSections = useMemo<GridSection[]>(() => {
     const list = [...filteredPosts];
     const sections: GridSection[] = [];
     let cursor = 0;
     let patternToggle = 0;
 
+    // Row 1: Always start with 3 square posts!
+    if (list.length >= 3) {
+      sections.push({ type: "row3", items: list.slice(0, 3) });
+      cursor = 3;
+    }
+
     while (cursor < list.length) {
       const remaining = list.length - cursor;
 
       if (remaining >= 5) {
-        if (patternToggle % 2 === 0) {
-          // Pattern A: 4 squares on left (2x2), 1 tall on right (takes 5 items)
-          const squares = list.slice(cursor, cursor + 4);
-          const tall = list[cursor + 4];
-          sections.push({ type: "patternA", squares, tall });
-          cursor += 5;
+        const chunk = list.slice(cursor, cursor + 5);
+        // Prioritize placing actual reels into the tall slot
+        const reelIdx = chunk.findIndex((p) => p.type === "reel");
+        let tall: ExplorePost;
+        let squares: ExplorePost[];
+
+        if (reelIdx !== -1) {
+          tall = chunk[reelIdx];
+          squares = chunk.filter((_, idx) => idx !== reelIdx);
         } else {
-          // Pattern B: 1 tall on left, 4 squares on right (2x2) (takes 5 items)
-          const tall = list[cursor];
-          const squares = list.slice(cursor + 1, cursor + 5);
-          sections.push({ type: "patternB", tall, squares });
-          cursor += 5;
+          if (patternToggle % 2 === 0) {
+            squares = chunk.slice(0, 4);
+            tall = chunk[4];
+          } else {
+            tall = chunk[0];
+            squares = chunk.slice(1, 5);
+          }
         }
+
+        if (patternToggle % 2 === 0) {
+          sections.push({ type: "patternA", squares, tall });
+        } else {
+          sections.push({ type: "patternB", tall, squares });
+        }
+
+        cursor += 5;
         patternToggle++;
       } else {
-        // We have 1, 2, 3, or 4 items remaining.
-        // Group them into full 3-column rows. If the final row has 1 or 2 items, pad from start of list so there are ZERO gaps!
+        // Group remaining items into rows of 3 squares
         while (cursor < list.length) {
           const rowItems = list.slice(cursor, cursor + 3);
           let padIdx = 0;
@@ -647,76 +745,214 @@ export function ExploreScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* 4. Instagram Style Peek & Pop Quick Preview (Long Press Only) */}
+      {/* 4. Instagram Style Animated Peek & Pop Quick Preview (Long Press) */}
       {previewPost && (
-        <View style={styles.peekOverlay}>
+        <Animated.View
+          style={[
+            styles.peekOverlay,
+            {
+              opacity: backdropAnim,
+            },
+          ]}
+        >
+          {/* Backdrop Tap to Dismiss */}
           <TouchableOpacity
             style={styles.peekBackdrop}
             activeOpacity={1}
-            onPress={() => setPreviewPost(null)}
+            onPress={() => closePreview()}
           />
-          <View style={styles.peekCard}>
-            {/* Author */}
-            <TouchableOpacity
-              style={styles.peekHeader}
-              activeOpacity={0.8}
-              onPress={() => {
-                const p = previewPost;
-                setPreviewPost(null);
-                handleAuthorPress(p.author);
-              }}
-            >
-              <Image source={previewPost.author.avatar} style={styles.peekAvatar} />
-              <View>
-                <Text style={styles.peekUsername}>
-                  {previewPost.author.username} {previewPost.author.isMe && "• (You)"}
-                </Text>
-                <Text style={styles.peekFullName}>
-                  {previewPost.author.isMe ? "Tap to view Your Profile" : previewPost.author.fullName}
-                </Text>
+
+          <Animated.View
+            style={[
+              styles.peekCardContainer,
+              {
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            {/* Peek Main Card */}
+            <View style={styles.peekCard}>
+              {/* Author Header */}
+              <TouchableOpacity
+                style={styles.peekHeader}
+                activeOpacity={0.8}
+                onPress={() =>
+                  closePreview(() => handleAuthorPress(previewPost.author))
+                }
+              >
+                <Image
+                  source={previewPost.author.avatar}
+                  style={styles.peekAvatar}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.peekUsername} numberOfLines={1}>
+                    {previewPost.author.username}{" "}
+                    {previewPost.author.isMe && "• (You)"}
+                  </Text>
+                  <Text style={styles.peekFullName} numberOfLines={1}>
+                    {previewPost.author.isMe
+                      ? "View your profile"
+                      : previewPost.author.fullName}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => closePreview()}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.peekCloseBtn}
+                >
+                  <Ionicons name="close" size={18} color="#64748B" />
+                </TouchableOpacity>
+              </TouchableOpacity>
+
+              {/* Media Container (1:1 square preview matching grid image) */}
+              <TouchableOpacity
+                activeOpacity={0.96}
+                onPress={() =>
+                  closePreview(() => handlePostPress(previewPost))
+                }
+                style={styles.peekMediaWrapper}
+              >
+                <Image
+                  source={previewPost.image}
+                  style={styles.peekImage}
+                  resizeMode="cover"
+                />
+
+                {/* Scrim with likes and caption preview */}
+                <LinearGradient
+                  colors={["transparent", "rgba(0, 0, 0, 0.75)"]}
+                  style={styles.peekMediaGradient}
+                >
+                  <Text style={styles.peekLikesText}>
+                    ❤️ {previewPost.likes.toLocaleString()} likes
+                  </Text>
+                  <Text style={styles.peekCaptionSnippet} numberOfLines={2}>
+                    <Text style={{ fontFamily: FontFamily.bold }}>
+                      {previewPost.author.username}{" "}
+                    </Text>
+                    {previewPost.caption}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Instagram Quick Action Dock with Options */}
+              <View style={styles.instagramActionsDock}>
+                {/* 1. Like */}
+                <TouchableOpacity
+                  style={styles.instagramActionBtn}
+                  activeOpacity={0.7}
+                  onPress={() => toggleLike(previewPost.id)}
+                >
+                  <Ionicons
+                    name={
+                      likedPosts[previewPost.id] ? "heart" : "heart-outline"
+                    }
+                    size={22}
+                    color={
+                      likedPosts[previewPost.id] ? "#ED4956" : "#1E293B"
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.instagramActionLabel,
+                      likedPosts[previewPost.id] && {
+                        color: "#ED4956",
+                        fontFamily: FontFamily.bold,
+                      },
+                    ]}
+                  >
+                    {likedPosts[previewPost.id] ? "Liked" : "Like"}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* 2. View Profile */}
+                <TouchableOpacity
+                  style={styles.instagramActionBtn}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    closePreview(() => handleAuthorPress(previewPost.author))
+                  }
+                >
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={22}
+                    color="#1E293B"
+                  />
+                  <Text style={styles.instagramActionLabel}>Profile</Text>
+                </TouchableOpacity>
+
+                {/* 3. Send Message */}
+                <TouchableOpacity
+                  style={styles.instagramActionBtn}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const authorUser = previewPost.author.username;
+                    const chatId = USERNAME_TO_CHAT[authorUser] || "c1";
+                    closePreview(() =>
+                      router.push({
+                        pathname: "/chat/[id]",
+                        params: { id: chatId },
+                      })
+                    );
+                  }}
+                >
+                  <Ionicons
+                    name="paper-plane-outline"
+                    size={21}
+                    color="#1E293B"
+                  />
+                  <Text style={styles.instagramActionLabel}>Message</Text>
+                </TouchableOpacity>
+
+                {/* 4. Save */}
+                <TouchableOpacity
+                  style={styles.instagramActionBtn}
+                  activeOpacity={0.7}
+                  onPress={() => toggleSave(previewPost.id)}
+                >
+                  <Ionicons
+                    name={
+                      savedPosts[previewPost.id]
+                        ? "bookmark"
+                        : "bookmark-outline"
+                    }
+                    size={21}
+                    color={
+                      savedPosts[previewPost.id] ? Colors.primary : "#1E293B"
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.instagramActionLabel,
+                      savedPosts[previewPost.id] && {
+                        color: Colors.primary,
+                        fontFamily: FontFamily.bold,
+                      },
+                    ]}
+                  >
+                    {savedPosts[previewPost.id] ? "Saved" : "Save"}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* 5. View Full Post */}
+                <TouchableOpacity
+                  style={styles.instagramActionBtn}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    closePreview(() => handlePostPress(previewPost))
+                  }
+                >
+                  <Ionicons
+                    name="open-outline"
+                    size={21}
+                    color="#1E293B"
+                  />
+                  <Text style={styles.instagramActionLabel}>Open</Text>
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-
-            {/* Media */}
-            <Image source={previewPost.image} style={styles.peekImage} resizeMode="cover" />
-
-            {/* Actions */}
-            <View style={styles.peekActions}>
-              <TouchableOpacity
-                style={styles.peekActionBtn}
-                onPress={() => toggleLike(previewPost.id)}
-              >
-                <Ionicons
-                  name={likedPosts[previewPost.id] ? "heart" : "heart-outline"}
-                  size={24}
-                  color={likedPosts[previewPost.id] ? "#ED4956" : "#0F172A"}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.peekActionBtn}
-                onPress={() => {
-                  const p = previewPost;
-                  setPreviewPost(null);
-                  handlePostPress(p);
-                }}
-              >
-                <Ionicons name="chatbubble-outline" size={22} color="#0F172A" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.peekActionBtn}
-                onPress={() => toggleSave(previewPost.id)}
-              >
-                <Ionicons
-                  name={savedPosts[previewPost.id] ? "bookmark" : "bookmark-outline"}
-                  size={22}
-                  color="#0F172A"
-                />
-              </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       )}
     </SafeAreaView>
   );
@@ -742,7 +978,7 @@ function renderRichTile(
       activeOpacity={0.88}
       onPress={() => onPress(post)}
       onLongPress={() => onLongPress(post)}
-      delayLongPress={220}
+      delayLongPress={180}
       style={[styles.tile, { width, height }]}
     >
       <Image source={post.image} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -910,17 +1146,17 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     color: "#FFFFFF",
   },
-  // Peek & Pop Overlay
+  // Instagram Peek & Pop Overlay
   peekOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 999,
+    zIndex: 9999,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   peekBackdrop: {
     position: "absolute",
@@ -928,31 +1164,36 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.72)",
+    backgroundColor: "rgba(0, 0, 0, 0.76)",
+  },
+  peekCardContainer: {
+    width: "100%",
+    maxWidth: 390,
   },
   peekCard: {
     width: "100%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
     shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.38,
+    shadowRadius: 24,
+    elevation: 24,
   },
   peekHeader: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
     gap: 10,
     backgroundColor: "#FFFFFF",
   },
   peekAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E2E8F0",
   },
   peekUsername: {
     fontFamily: FontFamily.bold,
@@ -964,21 +1205,68 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: "#64748B",
   },
+  peekCloseBtn: {
+    padding: 6,
+    borderRadius: 14,
+    backgroundColor: "#F1F5F9",
+  },
+  peekMediaWrapper: {
+    width: "100%",
+    aspectRatio: 1, // exact 1:1 matching square grid tile
+    backgroundColor: "#000000",
+    position: "relative",
+  },
   peekImage: {
     width: "100%",
-    height: SCREEN_WIDTH - 48,
-    backgroundColor: "#000000",
+    height: "100%",
   },
-  peekActions: {
+  peekMediaGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    paddingTop: 36,
+  },
+  peekLikesText: {
+    fontFamily: FontFamily.bold,
+    fontSize: 13,
+    color: "#FFFFFF",
+    marginBottom: 3,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  peekCaptionSnippet: {
+    fontFamily: FontFamily.regular,
+    fontSize: 12,
+    color: "#F8FAFC",
+    lineHeight: 16,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  instagramActionsDock: {
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
     paddingVertical: 12,
+    paddingHorizontal: 6,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 0.5,
     borderTopColor: "#F1F5F9",
   },
-  peekActionBtn: {
-    padding: 8,
+  instagramActionBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 2,
+  },
+  instagramActionLabel: {
+    fontFamily: FontFamily.medium,
+    fontSize: 11,
+    color: "#475569",
   },
 });
