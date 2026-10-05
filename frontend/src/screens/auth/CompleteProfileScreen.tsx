@@ -59,7 +59,7 @@ export function CompleteProfileScreen({
     password.length >= 6;
 
   const handleUsernameChange = (raw: string) => {
-    const clean = raw.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase();
+    const clean = raw.replace(/[^a-zA-Z0-9._]/g, "").toLowerCase().slice(0, 16);
     setUsername(clean);
 
     if (checkTimeoutRef.current) {
@@ -83,7 +83,7 @@ export function CompleteProfileScreen({
       } catch {
         setUsernameCheck(null);
       }
-    }, 300);
+    }, 280);
   };
 
   const handleSubmit = async () => {
@@ -185,9 +185,16 @@ export function CompleteProfileScreen({
                 </TouchableOpacity>
               </View>
 
-              {/* Username */}
+              {/* Username (Instagram-style) */}
               <View style={styles.field}>
-                <Text style={styles.label}>Username</Text>
+                <View style={styles.labelRow}>
+                  <Text style={styles.label}>Username</Text>
+                  {username.length > 0 && (
+                    <Text style={[styles.charCounter, username.length >= 16 && styles.charCounterMax]}>
+                      {username.length}/16
+                    </Text>
+                  )}
+                </View>
                 <TouchableOpacity
                   activeOpacity={1}
                   onPress={() => usernameRef.current?.focus()}
@@ -202,10 +209,11 @@ export function CompleteProfileScreen({
                   <TextInput
                     ref={usernameRef}
                     style={[styles.input, { flex: 1 }]}
-                    placeholder="gokul_ssb"
+                    placeholder="username"
                     placeholderTextColor="#94A3B8"
                     value={username}
                     onChangeText={handleUsernameChange}
+                    maxLength={16}
                     autoCapitalize="none"
                     autoCorrect={false}
                     textContentType="username"
@@ -215,9 +223,26 @@ export function CompleteProfileScreen({
                     onSubmitEditing={() => passwordRef.current?.focus()}
                     selectionColor={Colors.primary}
                   />
+
+                  {/* Status Indicator Icon (Instagram style) */}
                   {usernameCheck?.loading ? (
-                    <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 6 }} />
+                    <ActivityIndicator size="small" color="#94A3B8" style={{ marginRight: 6 }} />
+                  ) : usernameCheck?.available ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color="#10B981"
+                      style={{ marginRight: 6 }}
+                    />
+                  ) : usernameCheck?.exists ? (
+                    <Ionicons
+                      name="close-circle"
+                      size={20}
+                      color="#EF4444"
+                      style={{ marginRight: 6 }}
+                    />
                   ) : null}
+
                   {username.length > 0 && !usernameCheck?.loading && (
                     <TouchableOpacity
                       onPress={() => {
@@ -226,41 +251,38 @@ export function CompleteProfileScreen({
                       }}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                      <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                      <Ionicons name="close-circle" size={18} color="#CBD5E1" />
                     </TouchableOpacity>
                   )}
                 </TouchableOpacity>
 
-                {/* Instant Username Availability & Taken Details */}
+                {/* Instagram-style Minimal Helper Message */}
                 {usernameCheck && !usernameCheck.loading ? (
-                  <View
-                    style={[
-                      styles.usernameStatusRow,
-                      usernameCheck.exists ? styles.statusRowTaken : styles.statusRowAvailable,
-                    ]}
-                  >
-                    <Ionicons
-                      name={usernameCheck.exists ? "alert-circle" : "checkmark-circle"}
-                      size={16}
-                      color={usernameCheck.exists ? "#EF4444" : "#10B981"}
-                    />
-                    <View style={{ marginLeft: 6, flex: 1 }}>
-                      <Text
-                        style={[
-                          styles.usernameStatusText,
-                          { color: usernameCheck.exists ? "#DC2626" : "#059669" },
-                        ]}
-                      >
-                        {usernameCheck.message}
-                      </Text>
-                      {usernameCheck.exists && usernameCheck.user?.full_name ? (
-                        <Text style={styles.usernameTakenDetail}>
-                          Already registered to: {usernameCheck.user.full_name}
+                  <View style={styles.instaMessageContainer}>
+                    {usernameCheck.exists ? (
+                      <View>
+                        <Text style={styles.instaErrorText}>
+                          The username <Text style={styles.boldHandle}>@{username}</Text> isn't available.
                         </Text>
-                      ) : null}
-                    </View>
+                        {usernameCheck.user?.full_name ? (
+                          <Text style={styles.instaRegisteredDetail}>
+                            Already registered to {usernameCheck.user.full_name}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <Text style={styles.instaSuccessText}>
+                        You'll be able to change this at any time in Settings.
+                      </Text>
+                    )}
                   </View>
-                ) : null}
+                ) : (
+                  <View style={styles.instaMessageContainer}>
+                    <Text style={styles.instaHintText}>
+                      Maximum 16 characters (letters, numbers, periods, and underscores).
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Password */}
@@ -407,39 +429,53 @@ const styles = StyleSheet.create({
   },
   inputCardError: {
     borderColor: "#EF4444",
-    backgroundColor: "#FEF2F2",
   },
   inputCardSuccess: {
     borderColor: "#10B981",
-    backgroundColor: "#F0FDF4",
   },
-  usernameStatusRow: {
+  labelRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginTop: 6,
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  statusRowTaken: {
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FECACA",
-  },
-  statusRowAvailable: {
-    backgroundColor: "#F0FDF4",
-    borderWidth: 1,
-    borderColor: "#BBF7D0",
-  },
-  usernameStatusText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  usernameTakenDetail: {
+  charCounter: {
     fontSize: 12,
-    color: "#64748B",
+    fontWeight: "600",
+    color: "#94A3B8",
+  },
+  charCounterMax: {
+    color: "#EF4444",
+  },
+  instaMessageContainer: {
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  instaErrorText: {
+    fontSize: 13,
+    color: "#EF4444",
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+  boldHandle: {
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+  instaRegisteredDetail: {
+    fontSize: 12,
+    color: "#94A3B8",
     marginTop: 2,
     fontWeight: "500",
+  },
+  instaSuccessText: {
+    fontSize: 13,
+    color: "#10B981",
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+  instaHintText: {
+    fontSize: 12.5,
+    color: "#94A3B8",
+    lineHeight: 17,
   },
   atPrefix: {
     fontSize: 16,
