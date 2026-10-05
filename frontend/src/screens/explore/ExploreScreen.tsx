@@ -403,7 +403,7 @@ export function ExploreScreen() {
   const handlePostLongPress = (post: ExplorePost) => {
     try {
       Vibration.vibrate(35);
-    } catch (_) {}
+    } catch (_) { }
 
     setPreviewPost(post);
     scaleAnim.setValue(0.85);
@@ -459,7 +459,7 @@ export function ExploreScreen() {
   const toggleLike = (postId: string) => {
     try {
       Vibration.vibrate(25);
-    } catch (_) {}
+    } catch (_) { }
     setLikedPosts((prev) => ({
       ...prev,
       [postId]: !prev[postId],
@@ -469,7 +469,7 @@ export function ExploreScreen() {
   const toggleSave = (postId: string) => {
     try {
       Vibration.vibrate(25);
-    } catch (_) {}
+    } catch (_) { }
     setSavedPosts((prev) => ({
       ...prev,
       [postId]: !prev[postId],
@@ -770,186 +770,139 @@ export function ExploreScreen() {
               },
             ]}
           >
-            {/* Peek Main Card */}
-            <View style={styles.peekCard}>
-              {/* Author Header */}
-              <TouchableOpacity
-                style={styles.peekHeader}
-                activeOpacity={0.8}
-                onPress={() =>
-                  closePreview(() => handleAuthorPress(previewPost.author))
-                }
-              >
+            {/* 1. Floating Post Card (Slim header + Pure media) */}
+            <TouchableOpacity
+              activeOpacity={0.96}
+              onPress={() =>
+                closePreview(() => handlePostPress(previewPost))
+              }
+              style={styles.peekCard}
+            >
+              {/* Slim Author Header */}
+              <View style={styles.peekHeader}>
                 <Image
                   source={previewPost.author.avatar}
                   style={styles.peekAvatar}
                 />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.peekUsername} numberOfLines={1}>
-                    {previewPost.author.username}{" "}
-                    {previewPost.author.isMe && "• (You)"}
-                  </Text>
-                  <Text style={styles.peekFullName} numberOfLines={1}>
-                    {previewPost.author.isMe
-                      ? "View your profile"
-                      : previewPost.author.fullName}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => closePreview()}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={styles.peekCloseBtn}
-                >
-                  <Ionicons name="close" size={18} color="#64748B" />
-                </TouchableOpacity>
-              </TouchableOpacity>
+                <Text style={styles.peekUsername} numberOfLines={1}>
+                  {previewPost.author.username}
+                </Text>
+              </View>
 
-              {/* Media Container (1:1 square preview matching grid image) */}
-              <TouchableOpacity
-                activeOpacity={0.96}
-                onPress={() =>
-                  closePreview(() => handlePostPress(previewPost))
-                }
-                style={styles.peekMediaWrapper}
-              >
+              {/* Clean Media (No overlays) */}
+              <View style={styles.peekMediaWrapper}>
                 <Image
                   source={previewPost.image}
                   style={styles.peekImage}
                   resizeMode="cover"
                 />
+              </View>
+            </TouchableOpacity>
 
-                {/* Scrim with likes and caption preview */}
-                <LinearGradient
-                  colors={["transparent", "rgba(0, 0, 0, 0.75)"]}
-                  style={styles.peekMediaGradient}
+            {/* 2. Floating Context Menu (Below Card on Left, matching exact Instagram layout) */}
+            <View style={styles.instagramContextMenu}>
+              {/* Like */}
+              <TouchableOpacity
+                style={styles.contextMenuItem}
+                activeOpacity={0.65}
+                onPress={() => toggleLike(previewPost.id)}
+              >
+                <Ionicons
+                  name={
+                    likedPosts[previewPost.id] ? "heart" : "heart-outline"
+                  }
+                  size={22}
+                  color={
+                    likedPosts[previewPost.id] ? "#ED4956" : "#0F172A"
+                  }
+                />
+                <Text
+                  style={[
+                    styles.contextMenuLabel,
+                    likedPosts[previewPost.id] && {
+                      color: "#ED4956",
+                      fontFamily: FontFamily.semiBold,
+                    },
+                  ]}
                 >
-                  <Text style={styles.peekLikesText}>
-                    ❤️ {previewPost.likes.toLocaleString()} likes
-                  </Text>
-                  <Text style={styles.peekCaptionSnippet} numberOfLines={2}>
-                    <Text style={{ fontFamily: FontFamily.bold }}>
-                      {previewPost.author.username}{" "}
-                    </Text>
-                    {previewPost.caption}
-                  </Text>
-                </LinearGradient>
+                  {likedPosts[previewPost.id] ? "Liked" : "Like"}
+                </Text>
               </TouchableOpacity>
 
-              {/* Instagram Quick Action Dock with Options */}
-              <View style={styles.instagramActionsDock}>
-                {/* 1. Like */}
-                <TouchableOpacity
-                  style={styles.instagramActionBtn}
-                  activeOpacity={0.7}
-                  onPress={() => toggleLike(previewPost.id)}
-                >
-                  <Ionicons
-                    name={
-                      likedPosts[previewPost.id] ? "heart" : "heart-outline"
-                    }
-                    size={22}
-                    color={
-                      likedPosts[previewPost.id] ? "#ED4956" : "#1E293B"
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.instagramActionLabel,
-                      likedPosts[previewPost.id] && {
-                        color: "#ED4956",
-                        fontFamily: FontFamily.bold,
-                      },
-                    ]}
-                  >
-                    {likedPosts[previewPost.id] ? "Liked" : "Like"}
-                  </Text>
-                </TouchableOpacity>
+              {/* Repost */}
+              <TouchableOpacity
+                style={styles.contextMenuItem}
+                activeOpacity={0.65}
+                onPress={() => closePreview()}
+              >
+                <Ionicons name="repeat-outline" size={22} color="#0F172A" />
+                <Text style={styles.contextMenuLabel}>Repost</Text>
+              </TouchableOpacity>
 
-                {/* 2. View Profile */}
-                <TouchableOpacity
-                  style={styles.instagramActionBtn}
-                  activeOpacity={0.7}
-                  onPress={() =>
-                    closePreview(() => handleAuthorPress(previewPost.author))
-                  }
-                >
-                  <Ionicons
-                    name="person-circle-outline"
-                    size={22}
-                    color="#1E293B"
-                  />
-                  <Text style={styles.instagramActionLabel}>Profile</Text>
-                </TouchableOpacity>
+              {/* Share */}
+              <TouchableOpacity
+                style={styles.contextMenuItem}
+                activeOpacity={0.65}
+                onPress={() => {
+                  const authorUser = previewPost.author.username;
+                  const chatId = USERNAME_TO_CHAT[authorUser] || "c1";
+                  closePreview(() =>
+                    router.push({
+                      pathname: "/chat/[id]",
+                      params: { id: chatId },
+                    })
+                  );
+                }}
+              >
+                <Ionicons
+                  name="paper-plane-outline"
+                  size={21}
+                  color="#0F172A"
+                />
+                <Text style={styles.contextMenuLabel}>Share</Text>
+              </TouchableOpacity>
 
-                {/* 3. Send Message */}
-                <TouchableOpacity
-                  style={styles.instagramActionBtn}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    const authorUser = previewPost.author.username;
-                    const chatId = USERNAME_TO_CHAT[authorUser] || "c1";
-                    closePreview(() =>
-                      router.push({
-                        pathname: "/chat/[id]",
-                        params: { id: chatId },
-                      })
-                    );
-                  }}
-                >
-                  <Ionicons
-                    name="paper-plane-outline"
-                    size={21}
-                    color="#1E293B"
-                  />
-                  <Text style={styles.instagramActionLabel}>Message</Text>
-                </TouchableOpacity>
+              {/* View Profile */}
+              <TouchableOpacity
+                style={styles.contextMenuItem}
+                activeOpacity={0.65}
+                onPress={() =>
+                  closePreview(() => handleAuthorPress(previewPost.author))
+                }
+              >
+                <Ionicons
+                  name="person-circle-outline"
+                  size={22}
+                  color="#0F172A"
+                />
+                <Text style={styles.contextMenuLabel}>View Profile</Text>
+              </TouchableOpacity>
 
-                {/* 4. Save */}
-                <TouchableOpacity
-                  style={styles.instagramActionBtn}
-                  activeOpacity={0.7}
-                  onPress={() => toggleSave(previewPost.id)}
-                >
-                  <Ionicons
-                    name={
-                      savedPosts[previewPost.id]
-                        ? "bookmark"
-                        : "bookmark-outline"
-                    }
-                    size={21}
-                    color={
-                      savedPosts[previewPost.id] ? Colors.primary : "#1E293B"
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.instagramActionLabel,
-                      savedPosts[previewPost.id] && {
-                        color: Colors.primary,
-                        fontFamily: FontFamily.bold,
-                      },
-                    ]}
-                  >
-                    {savedPosts[previewPost.id] ? "Saved" : "Save"}
-                  </Text>
-                </TouchableOpacity>
+              {/* Not interested */}
+              <TouchableOpacity
+                style={styles.contextMenuItem}
+                activeOpacity={0.65}
+                onPress={() => closePreview()}
+              >
+                <Ionicons name="eye-off-outline" size={21} color="#0F172A" />
+                <Text style={styles.contextMenuLabel}>Not interested</Text>
+              </TouchableOpacity>
 
-                {/* 5. View Full Post */}
-                <TouchableOpacity
-                  style={styles.instagramActionBtn}
-                  activeOpacity={0.7}
-                  onPress={() =>
-                    closePreview(() => handlePostPress(previewPost))
-                  }
-                >
-                  <Ionicons
-                    name="open-outline"
-                    size={21}
-                    color="#1E293B"
-                  />
-                  <Text style={styles.instagramActionLabel}>Open</Text>
-                </TouchableOpacity>
-              </View>
+              {/* Report */}
+              <TouchableOpacity
+                style={styles.contextMenuItem}
+                activeOpacity={0.65}
+                onPress={() => closePreview()}
+              >
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={22}
+                  color="#ED4956"
+                />
+                <Text style={[styles.contextMenuLabel, { color: "#ED4956" }]}>
+                  Report
+                </Text>
+              </TouchableOpacity>
             </View>
           </Animated.View>
         </Animated.View>
@@ -1156,7 +1109,7 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   peekBackdrop: {
     position: "absolute",
@@ -1164,109 +1117,75 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.76)",
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
   },
   peekCardContainer: {
     width: "100%",
-    maxWidth: 390,
+    maxWidth: 340,
+    alignItems: "flex-start",
   },
   peekCard: {
     width: "100%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: "hidden",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.38,
+    shadowOpacity: 0.32,
     shadowRadius: 24,
-    elevation: 24,
+    elevation: 22,
   },
   peekHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 8,
     backgroundColor: "#FFFFFF",
   },
   peekAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: "#E2E8F0",
   },
   peekUsername: {
     fontFamily: FontFamily.bold,
-    fontSize: 13.5,
+    fontSize: 13,
     color: "#0F172A",
-  },
-  peekFullName: {
-    fontFamily: FontFamily.regular,
-    fontSize: 11.5,
-    color: "#64748B",
-  },
-  peekCloseBtn: {
-    padding: 6,
-    borderRadius: 14,
-    backgroundColor: "#F1F5F9",
   },
   peekMediaWrapper: {
     width: "100%",
-    aspectRatio: 1, // exact 1:1 matching square grid tile
+    aspectRatio: 1,
     backgroundColor: "#000000",
-    position: "relative",
   },
   peekImage: {
     width: "100%",
     height: "100%",
   },
-  peekMediaGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 14,
-    paddingBottom: 12,
-    paddingTop: 36,
+  // Instagram Floating Vertical Context Menu (below card, left aligned)
+  instagramContextMenu: {
+    marginTop: 12,
+    width: 235,
+    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    borderRadius: 22,
+    paddingVertical: 6,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 16,
   },
-  peekLikesText: {
-    fontFamily: FontFamily.bold,
-    fontSize: 13,
-    color: "#FFFFFF",
-    marginBottom: 3,
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  peekCaptionSnippet: {
-    fontFamily: FontFamily.regular,
-    fontSize: 12,
-    color: "#F8FAFC",
-    lineHeight: 16,
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  instagramActionsDock: {
+  contextMenuItem: {
     flexDirection: "row",
-    justifyContent: "space-around",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 0.5,
-    borderTopColor: "#F1F5F9",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 13,
   },
-  instagramActionBtn: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    paddingVertical: 2,
-  },
-  instagramActionLabel: {
+  contextMenuLabel: {
     fontFamily: FontFamily.medium,
-    fontSize: 11,
-    color: "#475569",
+    fontSize: 15,
+    color: "#0F172A",
   },
 });

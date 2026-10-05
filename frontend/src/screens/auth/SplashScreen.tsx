@@ -46,11 +46,11 @@ export function SplashScreen({ onNext }: SplashScreenProps) {
     ]).start();
 
     // Auto-advance after 3.2 seconds if not tapped
-    const timer = setTimeout(() => {
-      onNext?.();
-    }, 3200);
+    // const timer = setTimeout(() => {
+    //   onNext?.();
+    // }, 3200);
 
-    return () => clearTimeout(timer);
+    // return () => clearTimeout(timer);
   }, [onNext]);
 
   return (
