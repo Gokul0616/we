@@ -168,12 +168,23 @@ async def register(user_in: UserRegister):
 
 @app.post("/login")
 async def login(credentials: UserLogin):
+    identifier = (credentials.login or credentials.email or credentials.username or "").strip().lower().lstrip("@")
+    if not identifier:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username or email is required"
+        )
     db = get_database()
-    user = await db.users.find_one({"email": credentials.email.lower()})
+    user = await db.users.find_one({
+        "$or": [
+            {"email": identifier},
+            {"username": identifier}
+        ]
+    })
     if not user or not verify_password(credentials.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            detail="Invalid username/email or password"
         )
 
     user_id = str(user["_id"])

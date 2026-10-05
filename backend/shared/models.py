@@ -15,7 +15,9 @@ class UserRegister(BaseModel):
     full_name: Optional[str] = None
 
 class UserLogin(BaseModel):
-    email: str
+    email: Optional[str] = None
+    username: Optional[str] = None
+    login: Optional[str] = None
     password: str
 
 class UserProfile(BaseModel):

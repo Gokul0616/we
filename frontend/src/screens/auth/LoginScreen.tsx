@@ -27,16 +27,16 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProps) {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [focusedField, setFocusedField] = useState<"email" | "password" | null>(null);
+  const [focusedField, setFocusedField] = useState<"identifier" | "password" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const emailRef = useRef<TextInput>(null);
+  const identifierRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
-  const isValid = email.includes("@") && password.length >= 6;
+  const isValid = identifier.trim().length >= 3 && password.length >= 6;
 
   const handleLogin = async () => {
     if (!isValid || isLoading) return;
@@ -44,8 +44,11 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
     setIsLoading(true);
 
     try {
+      const cleanIdentifier = identifier.trim().toLowerCase().replace(/^@/, "");
       const data = await apiClient.post(ENDPOINTS.auth.login, {
-        email: email.trim().toLowerCase(),
+        email: cleanIdentifier,
+        username: cleanIdentifier,
+        login: cleanIdentifier,
         password,
       });
 
@@ -98,38 +101,35 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
             </View>
 
             <View style={styles.form}>
-              {/* Email Field with Container Click-to-Focus */}
+              {/* Email or Username Field with Container Click-to-Focus */}
               <View style={styles.field}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>Email or Username</Text>
                 <TouchableOpacity
                   activeOpacity={1}
-                  onPress={() => emailRef.current?.focus()}
+                  onPress={() => identifierRef.current?.focus()}
                   style={[
                     styles.inputCard,
-                    focusedField === "email" && styles.inputCardFocused,
+                    focusedField === "identifier" && styles.inputCardFocused,
                   ]}
                 >
                   <TextInput
-                    ref={emailRef}
+                    ref={identifierRef}
                     style={styles.input}
-                    placeholder="name@example.com"
+                    placeholder="username or email"
                     placeholderTextColor="#94A3B8"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
+                    value={identifier}
+                    onChangeText={setIdentifier}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    textContentType="emailAddress"
-                    autoComplete="email"
                     returnKeyType="next"
-                    onFocus={() => setFocusedField("email")}
+                    onFocus={() => setFocusedField("identifier")}
                     onBlur={() => setFocusedField(null)}
                     onSubmitEditing={() => passwordRef.current?.focus()}
                     selectionColor={Colors.primary}
                   />
-                  {email.length > 0 && (
+                  {identifier.length > 0 && (
                     <TouchableOpacity
-                      onPress={() => setEmail("")}
+                      onPress={() => setIdentifier("")}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
                       <Ionicons name="close-circle" size={18} color="#94A3B8" />
