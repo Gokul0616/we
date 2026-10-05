@@ -9,17 +9,16 @@ import {
   Image,
   Dimensions,
   StatusBar,
-  Modal,
-  Platform,
   Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const TILE_GAP = 1.5;
+const TILE_GAP = 2;
 const SQUARE_SIZE = (SCREEN_WIDTH - TILE_GAP * 2) / 3;
 const TALL_HEIGHT = SQUARE_SIZE * 2 + TILE_GAP;
 
@@ -38,11 +37,13 @@ const IMG_SLIDE_4 = require("../../../assets/images/onboarding_slide_4.jpg");
 export interface ExplorePost {
   id: string;
   type: "photo" | "reel" | "carousel";
+  category: string;
   image: any;
   author: {
     username: string;
     fullName: string;
     avatar: any;
+    isMe?: boolean;
   };
   caption: string;
   likes: number;
@@ -50,16 +51,18 @@ export interface ExplorePost {
   timeAgo: string;
 }
 
-// 18 Rich Explore Posts
+// 18 Rich Explore Posts (with "You" and other creators)
 export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p1",
     type: "photo",
+    category: "Travel",
     image: IMG_CINQUE,
     author: {
       username: "elena_travels",
       fullName: "Elena Rossi",
       avatar: { uri: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&q=80" },
+      isMe: false,
     },
     caption: "Golden hour along the Italian Riviera 🇮🇹 Nothing beats the sunset over Cinque Terre.",
     likes: 12450,
@@ -69,11 +72,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p2",
     type: "photo",
+    category: "Food",
     image: IMG_FOOD,
     author: {
       username: "chef_marco",
       fullName: "Marco Bellini",
       avatar: { uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&q=80" },
+      isMe: false,
     },
     caption: "Fresh Mediterranean homemade orecchiette with basil and heirloom tomatoes 🍝✨",
     likes: 8920,
@@ -83,11 +88,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p3",
     type: "reel",
+    category: "Travel",
     image: IMG_SANTORINI,
     author: {
       username: "alex_wanderer",
       fullName: "Alex Rivera",
       avatar: { uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&q=80" },
+      isMe: false,
     },
     caption: "Living inside a postcard in Santorini. The Aegean blue hits different in October 🇬🇷💙",
     likes: 34100,
@@ -97,11 +104,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p4",
     type: "carousel",
+    category: "Travel",
     image: IMG_BALI,
     author: {
-      username: "bali_vibes",
-      fullName: "Wayan Surya",
-      avatar: { uri: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&q=80" },
+      username: "gokul_ssb",
+      fullName: "Gokul Ssb",
+      avatar: IMG_AVATAR,
+      isMe: true, // MY POST!
     },
     caption: "Quiet mornings in Ubud surrounded by ancient temple shrines and rainforest mist 🌿🙏",
     likes: 15300,
@@ -111,11 +120,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p5",
     type: "photo",
+    category: "Nature",
     image: IMG_MOUNTAIN,
     author: {
-      username: "peak_adventures",
-      fullName: "Lukas Meyer",
-      avatar: { uri: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=160&q=80" },
+      username: "gokul_ssb",
+      fullName: "Gokul Ssb",
+      avatar: IMG_AVATAR,
+      isMe: true, // MY POST!
     },
     caption: "Above the clouds at 3,000 meters. The silence up here is medicine for the soul 🏔️",
     likes: 21800,
@@ -125,11 +136,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p6",
     type: "photo",
+    category: "Photography",
     image: IMG_HERO,
     author: {
       username: "urban_frames",
       fullName: "Chloe Zhang",
       avatar: { uri: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=160&q=80" },
+      isMe: false,
     },
     caption: "Connecting with friends in the heart of the city. Good conversations make lifetime memories ☕🏙️",
     likes: 9640,
@@ -139,11 +152,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p7",
     type: "reel",
+    category: "Nature",
     image: IMG_SLIDE_2,
     author: {
-      username: "visual_storyteller",
+      username: "maya_lin",
       fullName: "Maya Lin",
       avatar: { uri: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&q=80" },
+      isMe: false,
     },
     caption: "Chasing the early dawn rays across the coastline. Keep creating what makes you feel alive ✨",
     likes: 28400,
@@ -153,11 +168,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p8",
     type: "photo",
+    category: "Architecture",
     image: IMG_SLIDE_3,
     author: {
       username: "design_daily",
       fullName: "David Sterling",
       avatar: { uri: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=160&q=80" },
+      isMe: false,
     },
     caption: "Minimalist interior architecture with natural cedar accents and afternoon sunlight 📐🏡",
     likes: 11200,
@@ -167,11 +184,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p9",
     type: "photo",
+    category: "Travel",
     image: IMG_SLIDE_4,
     author: {
       username: "wander_soul",
       fullName: "Sophie Dupont",
       avatar: { uri: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=160&q=80" },
+      isMe: false,
     },
     caption: "Finding calm moments between journeys. Where is your favorite place to recharge? 🗺️✨",
     likes: 13900,
@@ -181,11 +200,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p10",
     type: "photo",
+    category: "Food",
     image: IMG_FOOD,
     author: {
       username: "culinary_journal",
       fullName: "Gianna Moretti",
       avatar: { uri: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&q=80" },
+      isMe: false,
     },
     caption: "Wood-fired rustic sourdough with virgin olive oil and rosemary sea salt 🍞🫒",
     likes: 7850,
@@ -195,11 +216,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p11",
     type: "carousel",
+    category: "Travel",
     image: IMG_CINQUE,
     author: {
       username: "coastal_odyssey",
       fullName: "Matteo Bianchi",
       avatar: { uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&q=80" },
+      isMe: false,
     },
     caption: "Five villages, one unforgettable hike. Italy always knows how to take your breath away 🇮🇹🌊",
     likes: 19400,
@@ -209,11 +232,13 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p12",
     type: "photo",
+    category: "Architecture",
     image: IMG_SANTORINI,
     author: {
       username: "greece_explorer",
       fullName: "Niko Kasdaglis",
       avatar: { uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&q=80" },
+      isMe: false,
     },
     caption: "Whitewashed alleys, pink bougainvillea, and warm sea breezes in Oia 🌸🤍",
     likes: 26300,
@@ -222,21 +247,98 @@ export const EXPLORE_POSTS: ExplorePost[] = [
   },
 ];
 
+const CATEGORIES = [
+  { id: "all", label: "All", icon: "sparkles" },
+  { id: "Travel", label: "Travel", icon: "airplane" },
+  { id: "Food", label: "Food", icon: "restaurant" },
+  { id: "Nature", label: "Nature", icon: "leaf" },
+  { id: "Architecture", label: "Architecture", icon: "business" },
+  { id: "Photography", label: "Photography", icon: "camera" },
+  { id: "Style", label: "Style", icon: "shirt" },
+];
+
+const FEATURED_CREATORS = [
+  {
+    id: "fc_me",
+    username: "gokul_ssb",
+    fullName: "You",
+    avatar: IMG_AVATAR,
+    followers: "1.2K",
+    isMe: true,
+  },
+  {
+    id: "fc1",
+    username: "elena_travels",
+    fullName: "Elena Rossi",
+    avatar: { uri: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&q=80" },
+    followers: "42.8K",
+    isMe: false,
+  },
+  {
+    id: "fc2",
+    username: "chef_marco",
+    fullName: "Marco Bellini",
+    avatar: { uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&q=80" },
+    followers: "89.1K",
+    isMe: false,
+  },
+  {
+    id: "fc3",
+    username: "alex_wanderer",
+    fullName: "Alex Rivera",
+    avatar: { uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&q=80" },
+    followers: "128K",
+    isMe: false,
+  },
+  {
+    id: "fc4",
+    username: "maya_lin",
+    fullName: "Maya Lin",
+    avatar: { uri: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&q=80" },
+    followers: "65.3K",
+    isMe: false,
+  },
+  {
+    id: "fc5",
+    username: "design_daily",
+    fullName: "David Sterling",
+    avatar: { uri: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=160&q=80" },
+    followers: "31.4K",
+    isMe: false,
+  },
+];
+
 const RECENT_SEARCHES = [
-  { id: "s1", type: "account", title: "alex_wanderer", subtitle: "Alex Rivera", avatar: IMG_AVATAR },
+  { id: "s1", type: "account", title: "gokul_ssb", subtitle: "Gokul Ssb (You)", avatar: IMG_AVATAR, isMe: true },
   { id: "s2", type: "tag", title: "#cinqueterre", subtitle: "2.4M posts" },
   { id: "s3", type: "tag", title: "#santorini", subtitle: "5.1M posts" },
-  { id: "s4", type: "account", title: "elena_travels", subtitle: "Elena Rossi" },
+  { id: "s4", type: "account", title: "elena_travels", subtitle: "Elena Rossi", isMe: false },
   { id: "s5", type: "tag", title: "#photography", subtitle: "8.7M posts" },
 ];
 
 export function ExploreScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [previewPost, setPreviewPost] = useState<ExplorePost | null>(null);
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
   const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
+
+  // Route to My Profile or Others' Profile based on ownership
+  const handleAuthorPress = (author: { username: string; fullName: string; isMe?: boolean }) => {
+    if (author.isMe || author.username === "gokul_ssb" || author.username === "gokul7") {
+      router.push("/(tabs)/profile");
+    } else {
+      router.push({
+        pathname: "/user-profile",
+        params: {
+          username: author.username,
+          name: author.fullName,
+        },
+      });
+    }
+  };
 
   const handlePostPress = (post: ExplorePost) => {
     router.push({ pathname: "/post/[id]", params: { id: post.id } });
@@ -260,17 +362,23 @@ export function ExploreScreen() {
     }));
   };
 
-  // Filter posts if search query is active
+  // Filter posts based on category and search query
   const filteredPosts = useMemo(() => {
-    if (!searchQuery.trim()) return EXPLORE_POSTS;
-    const q = searchQuery.toLowerCase().trim();
-    return EXPLORE_POSTS.filter(
-      (p) =>
-        p.author.username.toLowerCase().includes(q) ||
-        p.author.fullName.toLowerCase().includes(q) ||
-        p.caption.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
+    let result = EXPLORE_POSTS;
+    if (selectedCategory !== "all") {
+      result = result.filter((p) => p.category === selectedCategory);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (p) =>
+          p.author.username.toLowerCase().includes(q) ||
+          p.author.fullName.toLowerCase().includes(q) ||
+          p.caption.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [searchQuery, selectedCategory]);
 
   // Group posts into 6-item staggered blocks (Pattern A: Tall Reel on Right, Pattern B: Tall Reel on Left)
   const postBlocks = useMemo(() => {
@@ -287,7 +395,7 @@ export function ExploreScreen() {
     <SafeAreaView edges={["top"]} style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* 1. Minimal Instagram Search Bar Header */}
+      {/* 1. Header: Search Bar */}
       <View style={styles.header}>
         {isSearchFocused && (
           <TouchableOpacity
@@ -307,7 +415,7 @@ export function ExploreScreen() {
           <Ionicons name="search" size={17} color="#8E8E93" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search"
+            placeholder="Search creators, places, reels"
             placeholderTextColor="#8E8E93"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -327,7 +435,40 @@ export function ExploreScreen() {
         </View>
       </View>
 
-      {/* 2. Search Overlay Mode */}
+      {/* 2. Interactive Horizontal Category Channel Pills */}
+      {!isSearchFocused && (
+        <View style={styles.categoriesSection}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContent}
+          >
+            {CATEGORIES.map((cat) => {
+              const isActive = selectedCategory === cat.id;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[styles.categoryPill, isActive && styles.categoryPillActive]}
+                  onPress={() => setSelectedCategory(cat.id)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={cat.icon as any}
+                    size={14}
+                    color={isActive ? "#FFFFFF" : "#64748B"}
+                    style={{ marginRight: 5 }}
+                  />
+                  <Text style={[styles.categoryPillText, isActive && styles.categoryPillTextActive]}>
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* 3. Search Mode Overlay */}
       {isSearchFocused ? (
         <ScrollView
           style={styles.searchOverlay}
@@ -356,9 +497,19 @@ export function ExploreScreen() {
                   handlePostPress(p);
                 }}
               >
-                <Image source={p.author.avatar} style={styles.searchResultAvatar} />
+                <TouchableOpacity
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setIsSearchFocused(false);
+                    handleAuthorPress(p.author);
+                  }}
+                >
+                  <Image source={p.author.avatar} style={styles.searchResultAvatar} />
+                </TouchableOpacity>
                 <View style={styles.searchResultInfo}>
-                  <Text style={styles.searchResultUsername}>{p.author.username}</Text>
+                  <Text style={styles.searchResultUsername}>
+                    {p.author.username} {p.author.isMe && "• (You)"}
+                  </Text>
                   <Text style={styles.searchResultCaption} numberOfLines={1}>
                     {p.caption}
                   </Text>
@@ -372,7 +523,15 @@ export function ExploreScreen() {
                 key={item.id}
                 style={styles.recentRow}
                 onPress={() => {
-                  setSearchQuery(item.title.replace(/^#/, ""));
+                  if (item.type === "account") {
+                    handleAuthorPress({
+                      username: item.title,
+                      fullName: item.subtitle,
+                      isMe: item.isMe,
+                    });
+                  } else {
+                    setSearchQuery(item.title.replace(/^#/, ""));
+                  }
                 }}
               >
                 <View style={styles.recentIconCircle}>
@@ -394,11 +553,76 @@ export function ExploreScreen() {
           )}
         </ScrollView>
       ) : (
-        /* 3. Classic Instagram Staggered Explore Grid */
+        /* 4. Rich Instagram Staggered Media Grid & Creator Spotlight */
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.gridScrollContent}
         >
+          {/* Creator Spotlight Carousel (Shown on 'All' or First Page) */}
+          {selectedCategory === "all" && (
+            <View style={styles.creatorsSection}>
+              <View style={styles.creatorsHeader}>
+                <View style={styles.creatorsHeaderLeft}>
+                  <Ionicons name="flash" size={16} color="#F59E0B" />
+                  <Text style={styles.creatorsTitle}>Trending Creators</Text>
+                </View>
+                <TouchableOpacity onPress={() => router.push("/(tabs)/profile")}>
+                  <Text style={styles.creatorsMore}>My Profile</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.creatorsTray}
+              >
+                {FEATURED_CREATORS.map((creator) => (
+                  <TouchableOpacity
+                    key={creator.id}
+                    style={styles.creatorCard}
+                    activeOpacity={0.8}
+                    onPress={() => handleAuthorPress(creator)}
+                  >
+                    <LinearGradient
+                      colors={
+                        creator.isMe
+                          ? [Colors.primary, "#8B5CF6"]
+                          : ["#F58529", "#DD2A7B", "#8134AF"]
+                      }
+                      style={styles.creatorGradientRing}
+                    >
+                      <View style={styles.creatorAvatarWrap}>
+                        <Image source={creator.avatar} style={styles.creatorAvatar} />
+                      </View>
+                    </LinearGradient>
+                    <Text style={styles.creatorName} numberOfLines={1}>
+                      {creator.isMe ? "Your Profile" : creator.fullName}
+                    </Text>
+                    <Text style={styles.creatorHandle} numberOfLines={1}>
+                      @{creator.username}
+                    </Text>
+                    <View
+                      style={[
+                        styles.creatorFollowBadge,
+                        creator.isMe && styles.creatorMeBadge,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.creatorFollowText,
+                          creator.isMe && styles.creatorMeText,
+                        ]}
+                      >
+                        {creator.isMe ? "You" : "+ Follow"}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Staggered Grid Blocks */}
           {postBlocks.map((block, blockIndex) => {
             const items = block.items;
             const isTallOnRight = block.isTallOnRight;
@@ -415,24 +639,66 @@ export function ExploreScreen() {
                     {/* Left 2x2 Square Grid */}
                     <View style={styles.squares2x2Grid}>
                       <View style={styles.squaresRow}>
-                        {squares[0] && renderTile(squares[0], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
-                        {squares[1] && renderTile(squares[1], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
+                        {squares[0] &&
+                          renderRichTile(
+                            squares[0],
+                            SQUARE_SIZE,
+                            SQUARE_SIZE,
+                            handlePostPress,
+                            handlePostLongPress
+                          )}
+                        {squares[1] &&
+                          renderRichTile(
+                            squares[1],
+                            SQUARE_SIZE,
+                            SQUARE_SIZE,
+                            handlePostPress,
+                            handlePostLongPress
+                          )}
                       </View>
                       <View style={styles.squaresRow}>
-                        {squares[2] && renderTile(squares[2], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
-                        {squares[3] && renderTile(squares[3], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
+                        {squares[2] &&
+                          renderRichTile(
+                            squares[2],
+                            SQUARE_SIZE,
+                            SQUARE_SIZE,
+                            handlePostPress,
+                            handlePostLongPress
+                          )}
+                        {squares[3] &&
+                          renderRichTile(
+                            squares[3],
+                            SQUARE_SIZE,
+                            SQUARE_SIZE,
+                            handlePostPress,
+                            handlePostLongPress
+                          )}
                       </View>
                     </View>
 
                     {/* Right Tall Tile (Reel/Video) */}
-                    {tallItem && renderTile(tallItem, SQUARE_SIZE, TALL_HEIGHT, handlePostPress, handlePostLongPress, true)}
+                    {tallItem &&
+                      renderRichTile(
+                        tallItem,
+                        SQUARE_SIZE,
+                        TALL_HEIGHT,
+                        handlePostPress,
+                        handlePostLongPress,
+                        true
+                      )}
                   </View>
 
                   {/* Any remaining item in block */}
                   {remaining.length > 0 && (
                     <View style={styles.standardRow}>
                       {remaining.map((item) =>
-                        renderTile(item, SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)
+                        renderRichTile(
+                          item,
+                          SQUARE_SIZE,
+                          SQUARE_SIZE,
+                          handlePostPress,
+                          handlePostLongPress
+                        )
                       )}
                     </View>
                   )}
@@ -449,17 +715,53 @@ export function ExploreScreen() {
               <View key={`block-${blockIndex}`} style={styles.staggeredBlock}>
                 <View style={styles.staggeredRow}>
                   {/* Left Tall Tile (Reel/Video) */}
-                  {tallItem && renderTile(tallItem, SQUARE_SIZE, TALL_HEIGHT, handlePostPress, handlePostLongPress, true)}
+                  {tallItem &&
+                    renderRichTile(
+                      tallItem,
+                      SQUARE_SIZE,
+                      TALL_HEIGHT,
+                      handlePostPress,
+                      handlePostLongPress,
+                      true
+                    )}
 
                   {/* Right 2x2 Square Grid */}
                   <View style={styles.squares2x2Grid}>
                     <View style={styles.squaresRow}>
-                      {squares[0] && renderTile(squares[0], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
-                      {squares[1] && renderTile(squares[1], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
+                      {squares[0] &&
+                        renderRichTile(
+                          squares[0],
+                          SQUARE_SIZE,
+                          SQUARE_SIZE,
+                          handlePostPress,
+                          handlePostLongPress
+                        )}
+                      {squares[1] &&
+                        renderRichTile(
+                          squares[1],
+                          SQUARE_SIZE,
+                          SQUARE_SIZE,
+                          handlePostPress,
+                          handlePostLongPress
+                        )}
                     </View>
                     <View style={styles.squaresRow}>
-                      {squares[2] && renderTile(squares[2], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
-                      {squares[3] && renderTile(squares[3], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
+                      {squares[2] &&
+                        renderRichTile(
+                          squares[2],
+                          SQUARE_SIZE,
+                          SQUARE_SIZE,
+                          handlePostPress,
+                          handlePostLongPress
+                        )}
+                      {squares[3] &&
+                        renderRichTile(
+                          squares[3],
+                          SQUARE_SIZE,
+                          SQUARE_SIZE,
+                          handlePostPress,
+                          handlePostLongPress
+                        )}
                     </View>
                   </View>
                 </View>
@@ -468,7 +770,13 @@ export function ExploreScreen() {
                 {remaining.length > 0 && (
                   <View style={styles.standardRow}>
                     {remaining.map((item) =>
-                      renderTile(item, SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)
+                      renderRichTile(
+                        item,
+                        SQUARE_SIZE,
+                        SQUARE_SIZE,
+                        handlePostPress,
+                        handlePostLongPress
+                      )
                     )}
                   </View>
                 )}
@@ -480,7 +788,7 @@ export function ExploreScreen() {
         </ScrollView>
       )}
 
-      {/* 4. Instagram Style Peek & Pop Quick Preview (Long Press) */}
+      {/* 5. Instagram Style Peek & Pop Quick Preview (Long Press) */}
       {previewPost && (
         <View style={styles.peekOverlay}>
           <TouchableOpacity
@@ -490,13 +798,25 @@ export function ExploreScreen() {
           />
           <View style={styles.peekCard}>
             {/* Author */}
-            <View style={styles.peekHeader}>
+            <TouchableOpacity
+              style={styles.peekHeader}
+              activeOpacity={0.8}
+              onPress={() => {
+                const p = previewPost;
+                setPreviewPost(null);
+                handleAuthorPress(p.author);
+              }}
+            >
               <Image source={previewPost.author.avatar} style={styles.peekAvatar} />
               <View>
-                <Text style={styles.peekUsername}>{previewPost.author.username}</Text>
-                <Text style={styles.peekFullName}>{previewPost.author.fullName}</Text>
+                <Text style={styles.peekUsername}>
+                  {previewPost.author.username} {previewPost.author.isMe && "• (You)"}
+                </Text>
+                <Text style={styles.peekFullName}>
+                  {previewPost.author.isMe ? "Tap to view Your Profile" : previewPost.author.fullName}
+                </Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Media */}
             <Image source={previewPost.image} style={styles.peekImage} resizeMode="cover" />
@@ -543,8 +863,8 @@ export function ExploreScreen() {
   );
 }
 
-// Helper to render an individual Instagram grid tile
-function renderTile(
+// Helper to render an individual rich Instagram grid tile with dynamic scrim & badges
+function renderRichTile(
   post: ExplorePost,
   width: number,
   height: number,
@@ -552,6 +872,11 @@ function renderTile(
   onLongPress: (post: ExplorePost) => void,
   isTall: boolean = false
 ) {
+  const isVideo = isTall || post.type === "reel";
+  const viewsOrLikes = isVideo
+    ? `▶ ${(post.likes * 2.5).toLocaleString()}`
+    : `❤️ ${post.likes >= 1000 ? (post.likes / 1000).toFixed(1) + "k" : post.likes}`;
+
   return (
     <TouchableOpacity
       key={post.id}
@@ -563,16 +888,31 @@ function renderTile(
     >
       <Image source={post.image} style={StyleSheet.absoluteFill} resizeMode="cover" />
 
-      {/* Instagram Indicator Badge (Reel / Carousel) */}
-      {isTall || post.type === "reel" ? (
+      {/* Modern Frosted Scrim with Metrics at bottom */}
+      <LinearGradient
+        colors={["transparent", "rgba(0, 0, 0, 0.65)"]}
+        style={styles.tileBottomScrim}
+      >
+        <Text style={styles.tileMetricText}>{viewsOrLikes}</Text>
+      </LinearGradient>
+
+      {/* Instagram Indicator Badge (Reel / Carousel) in top-right */}
+      {isVideo ? (
         <View style={styles.tileBadge}>
-          <Ionicons name="play" size={13} color="#FFFFFF" />
+          <Ionicons name="play" size={12} color="#FFFFFF" />
         </View>
       ) : post.type === "carousel" ? (
         <View style={styles.tileBadge}>
-          <Ionicons name="copy-outline" size={13} color="#FFFFFF" />
+          <Ionicons name="copy-outline" size={12} color="#FFFFFF" />
         </View>
       ) : null}
+
+      {/* "You" Indicator Tag if this post is mine */}
+      {post.author.isMe && (
+        <View style={styles.tileMyPostTag}>
+          <Text style={styles.tileMyPostTagText}>You</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -587,7 +927,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     paddingTop: 4,
-    paddingBottom: 8,
+    paddingBottom: 6,
     backgroundColor: "#FFFFFF",
     gap: 8,
   },
@@ -598,24 +938,147 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#EFEFEF",
-    borderRadius: 10,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 12,
     height: 38,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
   },
   searchBarFocused: {
-    backgroundColor: "#EFEFEF",
+    backgroundColor: "#E2E8F0",
   },
   searchIcon: {
-    marginRight: 6,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontFamily: FontFamily.regular,
-    fontSize: 15,
+    fontSize: 14.5,
     color: "#0F172A",
     paddingVertical: 0,
   },
+  // Category Pills
+  categoriesSection: {
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 6,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F1F5F9",
+  },
+  categoriesContent: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  categoryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  categoryPillActive: {
+    backgroundColor: "#0F172A",
+    borderColor: "#0F172A",
+  },
+  categoryPillText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 12.5,
+    color: "#475569",
+  },
+  categoryPillTextActive: {
+    color: "#FFFFFF",
+    fontFamily: FontFamily.bold,
+  },
+  // Creators Spotlight Carousel
+  creatorsSection: {
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F1F5F9",
+    marginBottom: 4,
+  },
+  creatorsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  creatorsHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  creatorsTitle: {
+    fontFamily: FontFamily.bold,
+    fontSize: 14,
+    color: "#0F172A",
+  },
+  creatorsMore: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 12,
+    color: Colors.primary,
+  },
+  creatorsTray: {
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  creatorCard: {
+    alignItems: "center",
+    width: 78,
+  },
+  creatorGradientRing: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    padding: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  creatorAvatarWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+  },
+  creatorAvatar: {
+    width: "100%",
+    height: "100%",
+  },
+  creatorName: {
+    fontFamily: FontFamily.bold,
+    fontSize: 11.5,
+    color: "#0F172A",
+    textAlign: "center",
+  },
+  creatorHandle: {
+    fontFamily: FontFamily.regular,
+    fontSize: 10,
+    color: "#94A3B8",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  creatorFollowBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  creatorMeBadge: {
+    backgroundColor: "#E2E8F0",
+  },
+  creatorFollowText: {
+    fontFamily: FontFamily.bold,
+    fontSize: 9.5,
+    color: "#FFFFFF",
+  },
+  creatorMeText: {
+    color: "#475569",
+  },
+  // Grid
   gridScrollContent: {
     backgroundColor: "#FFFFFF",
   },
@@ -646,13 +1109,46 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
   },
+  tileBottomScrim: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 38,
+    justifyContent: "flex-end",
+    paddingHorizontal: 7,
+    paddingBottom: 6,
+  },
+  tileMetricText: {
+    fontFamily: FontFamily.bold,
+    fontSize: 11,
+    color: "#FFFFFF",
+    textShadowColor: "rgba(0, 0, 0, 0.4)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
   tileBadge: {
     position: "absolute",
     top: 7,
     right: 7,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    padding: 3,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    paddingHorizontal: 5,
+    paddingVertical: 3,
     borderRadius: 4,
+  },
+  tileMyPostTag: {
+    position: "absolute",
+    top: 7,
+    left: 7,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  tileMyPostTagText: {
+    fontFamily: FontFamily.bold,
+    fontSize: 9.5,
+    color: "#FFFFFF",
   },
   // Search Overlay
   searchOverlay: {

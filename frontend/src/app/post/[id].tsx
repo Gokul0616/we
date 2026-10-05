@@ -87,6 +87,26 @@ export default function PostDetailScreen() {
 
   const likesDisplay = (post.likes + (isLiked ? 1 : 0)).toLocaleString();
 
+  const isMyPost = Boolean(
+    post.author.isMe ||
+    post.author.username === "gokul_ssb" ||
+    post.author.username === "gokul7"
+  );
+
+  const handleAuthorPress = () => {
+    if (isMyPost) {
+      router.push("/(tabs)/profile");
+    } else {
+      router.push({
+        pathname: "/user-profile",
+        params: {
+          username: post.author.username,
+          name: post.author.fullName,
+        },
+      });
+    }
+  };
+
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -121,7 +141,7 @@ export default function PostDetailScreen() {
           <TouchableOpacity
             style={styles.authorLeft}
             activeOpacity={0.8}
-            onPress={() => router.push("/(tabs)/profile")}
+            onPress={handleAuthorPress}
           >
             <Image source={post.author.avatar} style={styles.authorAvatar} />
             <View>
@@ -130,14 +150,23 @@ export default function PostDetailScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.followBtn, isFollowing && styles.followingBtn]}
-            onPress={() => setIsFollowing((prev) => !prev)}
-          >
-            <Text style={[styles.followBtnText, isFollowing && styles.followingBtnText]}>
-              {isFollowing ? "Following" : "Follow"}
-            </Text>
-          </TouchableOpacity>
+          {isMyPost ? (
+            <TouchableOpacity
+              style={styles.myPostBadge}
+              onPress={() => router.push("/(tabs)/profile")}
+            >
+              <Text style={styles.myPostBadgeText}>Your Post</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.followBtn, isFollowing && styles.followingBtn]}
+              onPress={() => setIsFollowing((prev) => !prev)}
+            >
+              <Text style={[styles.followBtnText, isFollowing && styles.followingBtnText]}>
+                {isFollowing ? "Following" : "Follow"}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* 3. Media Image (Edge-to-Edge) */}
@@ -197,7 +226,7 @@ export default function PostDetailScreen() {
           <Text style={styles.captionText}>
             <Text
               style={styles.captionAuthor}
-              onPress={() => router.push("/(tabs)/profile")}
+              onPress={handleAuthorPress}
             >
               {post.author.username}{" "}
             </Text>
@@ -344,6 +373,19 @@ const styles = StyleSheet.create({
   },
   followingBtnText: {
     color: "#0F172A",
+  },
+  myPostBadge: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  myPostBadgeText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 12,
+    color: "#64748B",
   },
   mediaContainer: {
     width: SCREEN_WIDTH,
