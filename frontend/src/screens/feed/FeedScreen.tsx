@@ -3,169 +3,327 @@ import {
   StyleSheet,
   Text,
   View,
-  TextInput,
   TouchableOpacity,
   FlatList,
   StatusBar,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  Image,
+  Dimensions,
+  RefreshControl,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useQuery, useMutation } from "../../hooks/useSync";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/theme";
+
+const { width } = Dimensions.get("window");
+
+interface Story {
+  id: string;
+  username: string;
+  avatar: any;
+  hasUnseenStory?: boolean;
+  isUser?: boolean;
+}
+
+interface PostItem {
+  id: string;
+  author: {
+    username: string;
+    avatar: any;
+    location?: string;
+  };
+  image: any;
+  likesCount: number;
+  commentsCount: number;
+  caption: string;
+  timeAgo: string;
+  isLiked?: boolean;
+  isSaved?: boolean;
+}
 
 interface FeedScreenProps {
   onSignOut?: () => void;
 }
 
-export function FeedScreen({ onSignOut }: FeedScreenProps) {
-  const [content, setContent] = useState("");
-  const [isPosting, setIsPosting] = useState(false);
+export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Reactive live subscription
-  const posts = useQuery<any[]>("posts:getFeed", { limit: 50 });
+  // Stories matching Screen 04
+  const stories: Story[] = [
+    {
+      id: "user",
+      username: "Your story",
+      avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
+      isUser: true,
+    },
+    {
+      id: "sarah",
+      username: "sarah_k",
+      avatar: require("../../../assets/images/onboarding_slide_3.jpg"),
+      hasUnseenStory: true,
+    },
+    {
+      id: "travel",
+      username: "travel.diary",
+      avatar: require("../../../assets/images/onboarding_slide_2.jpg"),
+      hasUnseenStory: true,
+    },
+    {
+      id: "fitness",
+      username: "fitnesslife",
+      avatar: require("../../../assets/images/onboarding_hero.jpg"),
+      hasUnseenStory: true,
+    },
+    {
+      id: "foodie",
+      username: "foodie_joy",
+      avatar: require("../../../assets/images/onboarding_slide_4.jpg"),
+      hasUnseenStory: true,
+    },
+    {
+      id: "alex",
+      username: "alex_wanderer",
+      avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
+      hasUnseenStory: true,
+    },
+  ];
 
-  // Mutations
-  const createPost = useMutation("posts:create");
-  const likePost = useMutation("posts:like");
+  // Feed posts replicating Screen 04
+  const [posts, setPosts] = useState<PostItem[]>([
+    {
+      id: "1",
+      author: {
+        username: "alex_wanderer",
+        avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
+        location: "Bali, Indonesia",
+      },
+      image: require("../../../assets/images/home_feed_bali_post.jpg"),
+      likesCount: 2400,
+      commentsCount: 189,
+      caption: "Grateful for moments like this 🌅\nLife is better outside.",
+      timeAgo: "2h",
+      isLiked: false,
+      isSaved: false,
+    },
+    {
+      id: "2",
+      author: {
+        username: "sarah_k",
+        avatar: require("../../../assets/images/onboarding_slide_3.jpg"),
+        location: "Cinque Terre, Italy",
+      },
+      image: require("../../../assets/images/cinque_terre_post.jpg"),
+      likesCount: 1820,
+      commentsCount: 87,
+      caption: "Some places just feel like home 💙",
+      timeAgo: "4h",
+      isLiked: true,
+      isSaved: false,
+    },
+    {
+      id: "3",
+      author: {
+        username: "travel.diary",
+        avatar: require("../../../assets/images/onboarding_slide_2.jpg"),
+        location: "Reykjavik, Iceland",
+      },
+      image: require("../../../assets/images/splash_mountain.jpg"),
+      likesCount: 3150,
+      commentsCount: 240,
+      caption: "Just returned from an amazing week in Iceland! The landscapes are unreal. 🇮🇸🏔️",
+      timeAgo: "6h",
+      isLiked: false,
+      isSaved: true,
+    },
+  ]);
 
-  const handlePost = async () => {
-    if (!content.trim() || isPosting) return;
-    try {
-      setIsPosting(true);
-      await createPost({ content: content.trim() });
-      setContent("");
-    } catch (err) {
-      console.error("Failed to create post:", err);
-    } finally {
-      setIsPosting(false);
-    }
+  const handleToggleLike = (postId: string) => {
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id === postId) {
+          const nextLiked = !post.isLiked;
+          return {
+            ...post,
+            isLiked: nextLiked,
+            likesCount: nextLiked ? post.likesCount + 1 : post.likesCount - 1,
+          };
+        }
+        return post;
+      })
+    );
   };
 
-  const handleLike = async (postId: string) => {
-    try {
-      await likePost({ postId });
-    } catch (err) {
-      console.error("Failed to like post:", err);
-    }
+  const handleToggleSave = (postId: string) => {
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id === postId) {
+          return { ...post, isSaved: !post.isSaved };
+        }
+        return post;
+      })
+    );
   };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 800);
+  };
+
+  const renderStoriesHeader = () => (
+    <View style={styles.storiesContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.storiesScrollContent}
+      >
+        {stories.map((story) => (
+          <TouchableOpacity
+            key={story.id}
+            style={styles.storyItem}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.storyRing,
+                story.hasUnseenStory && styles.storyRingActive,
+                story.isUser && styles.storyRingUser,
+              ]}
+            >
+              <Image source={story.avatar} style={styles.storyAvatar} />
+              {story.isUser && (
+                <View style={styles.storyAddBadge}>
+                  <Ionicons name="add" size={14} color="#FFFFFF" />
+                </View>
+              )}
+            </View>
+            <Text style={styles.storyUsername} numberOfLines={1}>
+              {story.username}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
+  const renderPost = ({ item }: { item: PostItem }) => (
+    <View style={styles.postCard}>
+      {/* Post Header */}
+      <View style={styles.postHeader}>
+        <View style={styles.authorRow}>
+          <Image source={item.author.avatar} style={styles.authorAvatar} />
+          <View style={styles.authorInfo}>
+            <View style={styles.nameTimeRow}>
+              <Text style={styles.authorUsername}>{item.author.username}</Text>
+              <Text style={styles.timeDot}>•</Text>
+              <Text style={styles.postTime}>{item.timeAgo}</Text>
+            </View>
+            {item.author.location ? (
+              <Text style={styles.locationText}>{item.author.location}</Text>
+            ) : null}
+          </View>
+        </View>
+
+        <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="ellipsis-horizontal" size={20} color="#64748B" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Post Image with Rounded Corners */}
+      <View style={styles.imageWrapper}>
+        <Image source={item.image} style={styles.postImage} resizeMode="cover" />
+      </View>
+
+      {/* Actions Row */}
+      <View style={styles.actionsBar}>
+        <View style={styles.leftActions}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleToggleLike(item.id)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={item.isLiked ? "heart" : "heart-outline"}
+              size={24}
+              color={item.isLiked ? "#EF4444" : "#0F172A"}
+            />
+            <Text style={[styles.actionCount, item.isLiked && styles.actionCountLiked]}>
+              {item.likesCount >= 1000
+                ? `${(item.likesCount / 1000).toFixed(1)}K`
+                : item.likesCount}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+            <Ionicons name="chatbubble-outline" size={22} color="#0F172A" />
+            <Text style={styles.actionCount}>{item.commentsCount}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+            <Ionicons name="paper-plane-outline" size={22} color="#0F172A" />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          onPress={() => handleToggleSave(item.id)}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={item.isSaved ? "bookmark" : "bookmark-outline"}
+            size={24}
+            color={item.isSaved ? Colors.primary : "#0F172A"}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Post Caption & Comments */}
+      <View style={styles.captionContainer}>
+        <Text style={styles.captionText}>{item.caption}</Text>
+        <TouchableOpacity style={styles.viewCommentsBtn} activeOpacity={0.7}>
+          <Text style={styles.viewCommentsText}>
+            View all {item.commentsCount} comments
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Social Feed</Text>
-            <View style={styles.liveBadge}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>Real-Time Sync Active</Text>
-            </View>
-          </View>
-          {onSignOut && (
-            <TouchableOpacity onPress={onSignOut} style={styles.signOutBtn}>
-              <Text style={styles.signOutText}>Switch Screen</Text>
-            </TouchableOpacity>
-          )}
+    <SafeAreaView edges={["top"]} style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Top App Header */}
+      <View style={styles.topBar}>
+        <Text style={styles.brandTitle}>WE</Text>
+        <View style={styles.topRightActions}>
+          <TouchableOpacity
+            style={styles.topIconBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+            <View style={styles.notifBadge} />
+          </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Composer */}
-        <View style={styles.composerCard}>
-          <TextInput
-            style={styles.input}
-            placeholder="What's happening?"
-            placeholderTextColor="#64748b"
-            value={content}
-            onChangeText={setContent}
-            multiline
-            maxLength={280}
+      {/* Feed List */}
+      <FlatList
+        data={posts}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={renderStoriesHeader}
+        renderItem={renderPost}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
           />
-          <View style={styles.composerFooter}>
-            <Text style={styles.charCount}>{280 - content.length}</Text>
-            <TouchableOpacity
-              style={[
-                styles.postButton,
-                (!content.trim() || isPosting) && styles.postButtonDisabled,
-              ]}
-              onPress={handlePost}
-              disabled={!content.trim() || isPosting}
-            >
-              {isPosting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.postButtonText}>Post</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Live Feed List */}
-        {posts === undefined ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#6366f1" />
-            <Text style={styles.loadingText}>Connecting to Real-Time Engine...</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={posts}
-            keyExtractor={(item) => item.id || String(Math.random())}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No posts yet.</Text>
-                <Text style={styles.emptySubText}>
-                  Write the first post above to see real-time sync in action!
-                </Text>
-              </View>
-            }
-            renderItem={({ item }) => (
-              <View style={styles.postCard}>
-                <View style={styles.postHeader}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {(item.author_username || "U")[0].toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={styles.authorMeta}>
-                    <Text style={styles.authorName}>
-                      @{item.author_username || "guest_user"}
-                    </Text>
-                    <Text style={styles.postTime}>
-                      {item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.postContent}>{item.content}</Text>
-
-                <View style={styles.actionsRow}>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, item.is_liked && styles.actionBtnActive]}
-                    onPress={() => handleLike(item.id)}
-                  >
-                    <Text style={[styles.actionIcon, item.is_liked && styles.actionIconActive]}>
-                      {item.is_liked ? "❤️" : "🤍"}
-                    </Text>
-                    <Text style={[styles.actionText, item.is_liked && styles.actionTextActive]}>
-                      {item.likes_count || 0}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.actionBtn}>
-                    <Text style={styles.actionIcon}>💬</Text>
-                    <Text style={styles.actionText}>{item.comments_count || 0}</Text>
-                  </View>
-                </View>
-              </View>
-            )}
-          />
-        )}
-      </KeyboardAvoidingView>
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -173,202 +331,212 @@ export function FeedScreen({ onSignOut }: FeedScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#090d16",
+    backgroundColor: "#FFFFFF",
   },
-  keyboardView: {
-    flex: 1,
-  },
-  header: {
+  topBar: {
+    height: 52,
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1e293b",
-    backgroundColor: "#0f172a",
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#f8fafc",
-    letterSpacing: -0.5,
+  brandTitle: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: -1,
   },
-  liveBadge: {
+  topRightActions: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
+    gap: 16,
   },
-  liveDot: {
+  topIconBtn: {
+    position: "relative",
+    padding: 4,
+  },
+  notifBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#10b981",
-    marginRight: 6,
+    backgroundColor: "#EF4444",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
   },
-  liveText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#10b981",
+  storiesContainer: {
+    paddingVertical: 14,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
-  signOutBtn: {
-    backgroundColor: "#1e293b",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  signOutText: {
-    color: "#94a3b8",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  composerCard: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: "#131c31",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#1e293b",
-  },
-  input: {
-    color: "#f8fafc",
-    fontSize: 16,
-    minHeight: 60,
-    textAlignVertical: "top",
-  },
-  composerFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-    paddingTop: 10,
-  },
-  charCount: {
-    color: "#64748b",
-    fontSize: 12,
-  },
-  postButton: {
-    backgroundColor: "#6366f1",
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  postButtonDisabled: {
-    opacity: 0.5,
-  },
-  postButtonText: {
-    color: "#ffffff",
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  listContent: {
+  storiesScrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    gap: 16,
   },
-  loadingContainer: {
-    flex: 1,
+  storyItem: {
+    alignItems: "center",
+    width: 68,
+  },
+  storyRing: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    padding: 2.5,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    position: "relative",
   },
-  loadingText: {
-    color: "#94a3b8",
-    fontSize: 14,
+  storyRingActive: {
+    borderColor: Colors.primary,
   },
-  emptyContainer: {
-    paddingVertical: 60,
+  storyRingUser: {
+    borderColor: "#E2E8F0",
+  },
+  storyAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  storyAddBadge: {
+    position: "absolute",
+    bottom: -1,
+    right: -1,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
     alignItems: "center",
+    justifyContent: "center",
   },
-  emptyText: {
-    color: "#cbd5e1",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  emptySubText: {
-    color: "#64748b",
-    fontSize: 13,
-    marginTop: 4,
+  storyUsername: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#334155",
     textAlign: "center",
-    maxWidth: 240,
+    width: "100%",
+  },
+  listContent: {
+    paddingBottom: 28,
   },
   postCard: {
-    backgroundColor: "#111827",
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#1f2937",
+    backgroundColor: "#FFFFFF",
+    paddingTop: 16,
+    paddingBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
   postHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#4f46e5",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  avatarText: {
-    color: "#ffffff",
-    fontWeight: "700",
-    fontSize: 15,
-  },
-  authorMeta: {
-    flex: 1,
-  },
-  authorName: {
-    color: "#f3f4f6",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  postTime: {
-    color: "#6b7280",
-    fontSize: 11,
-    marginTop: 2,
-  },
-  postContent: {
-    color: "#e5e7eb",
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 14,
-  },
-  actionsRow: {
+  authorRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#1f2937",
-    paddingTop: 10,
+  },
+  authorAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  authorInfo: {
+    justifyContent: "center",
+  },
+  nameTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  authorUsername: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: "#0F172A",
+    letterSpacing: -0.2,
+  },
+  timeDot: {
+    marginHorizontal: 5,
+    fontSize: 12,
+    color: "#94A3B8",
+  },
+  postTime: {
+    fontSize: 13,
+    color: "#94A3B8",
+  },
+  locationText: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 1,
+  },
+  imageWrapper: {
+    marginHorizontal: 16,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#F1F5F9",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  postImage: {
+    width: "100%",
+    height: width * 0.85,
+  },
+  actionsBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  leftActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
   },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
   },
-  actionBtnActive: {
-    opacity: 1,
+  actionCount: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: "#0F172A",
   },
-  actionIcon: {
-    fontSize: 14,
+  actionCountLiked: {
+    color: "#EF4444",
   },
-  actionIconActive: {
-    transform: [{ scale: 1.1 }],
+  captionContainer: {
+    paddingHorizontal: 16,
+    marginTop: 4,
   },
-  actionText: {
-    color: "#9ca3af",
+  captionText: {
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: "#1E293B",
+  },
+  viewCommentsBtn: {
+    marginTop: 6,
+  },
+  viewCommentsText: {
     fontSize: 13,
+    color: "#94A3B8",
     fontWeight: "500",
-  },
-  actionTextActive: {
-    color: "#ef4444",
-    fontWeight: "700",
   },
 });
