@@ -1,10 +1,39 @@
 import React from "react";
 import { Tabs } from "expo-router";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform } from "react-native";
 import { Colors } from "../../constants/theme";
 
 export default function TabLayout() {
+  // On iOS: Use true native UITabBar with SF Symbols
+  if (Platform.OS === "ios") {
+    return (
+      <NativeTabs>
+        <NativeTabs.Trigger name="index" disableTransparentOnScrollEdge>
+          <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="explore" disableTransparentOnScrollEdge>
+          <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon sf="safari.fill" md="explore" />
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="messages" disableTransparentOnScrollEdge>
+          <NativeTabs.Trigger.Label>Messages</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon sf="bubble.left.and.bubble.right.fill" md="chat" />
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="profile" disableTransparentOnScrollEdge>
+          <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon sf="person.crop.circle.fill" md="person" />
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
+
+  // On Android: Use sleek modern custom bottom tabs (no heavy Material 3 indicator pills)
   return (
     <Tabs
       screenOptions={{
@@ -15,8 +44,8 @@ export default function TabLayout() {
           backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
           borderTopColor: "#F1F5F9",
-          height: Platform.OS === "ios" ? 84 : 64,
-          paddingBottom: Platform.OS === "ios" ? 28 : 10,
+          height: 64,
+          paddingBottom: 10,
           paddingTop: 8,
           elevation: 0,
           shadowOpacity: 0,
@@ -74,4 +103,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-
