@@ -9,12 +9,11 @@ import {
   Image,
   Dimensions,
   StatusBar,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Colors } from "../../constants/theme";
+import { Colors, FontFamily } from "../../constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_GAP = 12;
@@ -192,7 +191,6 @@ export function ExploreScreen() {
       {/* 1. Header with WE Brand & Explore Title */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.weBrand}>WE</Text>
           <Text style={styles.screenTitle}>Explore</Text>
         </View>
         <View style={styles.headerRight}>
@@ -242,7 +240,7 @@ export function ExploreScreen() {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                onPress={() => {}}
+                onPress={() => { }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons name="options-outline" size={18} color="#64748B" />
@@ -308,7 +306,7 @@ export function ExploreScreen() {
           </View>
         ) : (
           <>
-            {/* 4. Featured Hero Banner Card (Screen 1 & Screen 7) */}
+            {/* 4. Featured Hero Banner Card (Flush Zero Gap) */}
             {selectedCategory === "For You" && (
               <View style={styles.heroBannerContainer}>
                 <TouchableOpacity
@@ -316,8 +314,14 @@ export function ExploreScreen() {
                   activeOpacity={0.92}
                   onPress={() => setSelectedCategory("Travel")}
                 >
-                  <Image source={IMG_SANTORINI} style={styles.heroBgImage} />
+                  <Image
+                    source={IMG_SANTORINI}
+                    style={styles.heroBgImage}
+                    resizeMode="cover"
+                  />
                   <View style={styles.heroGradientOverlay} />
+
+                  {/* Content Container with internal padding so image fills 100% */}
                   <View style={styles.heroContent}>
                     <View style={styles.heroPill}>
                       <Text style={styles.heroPillText}>EXPLORE</Text>
@@ -337,7 +341,7 @@ export function ExploreScreen() {
               </View>
             )}
 
-            {/* 5. Circular Category Icons Row (Screen 7 Inspiration) */}
+            {/* 5. Circular Category Icons Row */}
             <View style={styles.quickNavSection}>
               {QUICK_CATEGORIES.map((item) => {
                 const isSelected = selectedCategory.toLowerCase() === item.name.toLowerCase();
@@ -357,7 +361,12 @@ export function ExploreScreen() {
                     >
                       <Ionicons name={item.icon} size={22} color={item.color} />
                     </View>
-                    <Text style={[styles.quickNavText, isSelected && { color: item.color, fontWeight: "700" }]}>
+                    <Text
+                      style={[
+                        styles.quickNavText,
+                        isSelected && { color: item.color, fontFamily: FontFamily.bold },
+                      ]}
+                    >
                       {item.name}
                     </Text>
                   </TouchableOpacity>
@@ -365,10 +374,10 @@ export function ExploreScreen() {
               })}
             </View>
 
-            {/* 6. Popular People Horizontal Carousel (Screen 2 Inspiration) */}
+            {/* 6. Popular People Horizontal Carousel */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeaderTitle}>Popular People</Text>
-              <TouchableOpacity onPress={() => {}}>
+              <TouchableOpacity onPress={() => { }}>
                 <Text style={styles.seeAllText}>See all</Text>
               </TouchableOpacity>
             </View>
@@ -408,7 +417,7 @@ export function ExploreScreen() {
               })}
             </ScrollView>
 
-            {/* 7. Featured Collections Grid (Screen 1 & Screen 3) */}
+            {/* 7. Featured Collections Grid */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeaderTitle}>
                 {selectedCategory === "For You" ? "Trending Topics" : `${selectedCategory} Collections`}
@@ -422,39 +431,46 @@ export function ExploreScreen() {
           </>
         )}
 
-        {/* 8. 2-Column Visual Cards Grid */}
+        {/* 8. 2-Column Visual Cards Grid (Flush Zero Gap) */}
         <View style={styles.gridContainer}>
           {filteredCollections.map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.gridCard}
               activeOpacity={0.9}
-              onPress={() => {}}
+              onPress={() => { }}
             >
-              <Image source={item.image} style={styles.gridCardImage} />
+              <Image
+                source={item.image}
+                style={styles.gridCardImage}
+                resizeMode="cover"
+              />
               <View style={styles.gridCardGradient} />
-              
-              {/* Top Tag & Like count */}
-              <View style={styles.gridCardTopRow}>
-                <View style={styles.gridCategoryBadge}>
-                  <Text style={styles.gridCategoryBadgeText}>{item.category}</Text>
-                </View>
-                {item.likes && (
-                  <View style={styles.gridLikesBadge}>
-                    <Ionicons name="heart" size={12} color="#FFFFFF" style={{ marginRight: 3 }} />
-                    <Text style={styles.gridLikesText}>{item.likes}</Text>
-                  </View>
-                )}
-              </View>
 
-              {/* Bottom Content Info */}
-              <View style={styles.gridCardBottom}>
-                <Text style={styles.gridCardTitle} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <Text style={styles.gridCardPostsCount}>
-                  {item.postsCount}
-                </Text>
+              {/* Overlay Content with internal padding so image fills 100% of card */}
+              <View style={styles.gridCardContent}>
+                {/* Top Tag & Like count */}
+                <View style={styles.gridCardTopRow}>
+                  <View style={styles.gridCategoryBadge}>
+                    <Text style={styles.gridCategoryBadgeText}>{item.category}</Text>
+                  </View>
+                  {item.likes && (
+                    <View style={styles.gridLikesBadge}>
+                      <Ionicons name="heart" size={12} color="#FFFFFF" style={{ marginRight: 3 }} />
+                      <Text style={styles.gridLikesText}>{item.likes}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Bottom Content Info */}
+                <View style={styles.gridCardBottom}>
+                  <Text style={styles.gridCardTitle} numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.gridCardPostsCount}>
+                    {item.postsCount}
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
           ))}
@@ -485,17 +501,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   weBrand: {
+    fontFamily: FontFamily.extraBold,
     fontSize: 15,
-    fontWeight: "900",
+    fontWeight: "800",
     color: "#0F172A",
     letterSpacing: 0.5,
   },
   screenTitle: {
-    fontSize: 26,
-    fontWeight: "800",
+    fontFamily: FontFamily.bold,
+    fontSize: 27,
+    fontWeight: "700",
     color: "#0F172A",
     letterSpacing: -0.6,
-    marginTop: 1,
   },
   headerRight: {
     flexDirection: "row",
@@ -536,6 +553,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
+    fontFamily: FontFamily.regular,
     fontSize: 14,
     color: "#0F172A",
     paddingVertical: 0,
@@ -555,6 +573,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   categoryPillText: {
+    fontFamily: FontFamily.semiBold,
     fontSize: 13,
     fontWeight: "600",
     color: "#64748B",
@@ -571,8 +590,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: "hidden",
     position: "relative",
-    justifyContent: "flex-end",
-    padding: 18,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.14,
@@ -589,7 +606,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15, 23, 42, 0.48)",
   },
   heroContent: {
-    zIndex: 1,
+    ...StyleSheet.absoluteFill,
+    padding: 18,
+    justifyContent: "flex-end",
+    zIndex: 2,
   },
   heroPill: {
     alignSelf: "flex-start",
@@ -602,19 +622,22 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.4)",
   },
   heroPillText: {
+    fontFamily: FontFamily.extraBold,
     fontSize: 10,
     fontWeight: "800",
     color: "#FFFFFF",
     letterSpacing: 0.8,
   },
   heroTitle: {
+    fontFamily: FontFamily.bold,
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#FFFFFF",
     lineHeight: 26,
     letterSpacing: -0.4,
   },
   heroSubtitle: {
+    fontFamily: FontFamily.regular,
     fontSize: 13,
     color: "rgba(255, 255, 255, 0.85)",
     marginTop: 4,
@@ -626,6 +649,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   heroStatsText: {
+    fontFamily: FontFamily.medium,
     fontSize: 12,
     color: "#FFFFFF",
     fontWeight: "500",
@@ -648,6 +672,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   quickNavText: {
+    fontFamily: FontFamily.semiBold,
     fontSize: 12,
     fontWeight: "600",
     color: "#475569",
@@ -660,12 +685,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionHeaderTitle: {
+    fontFamily: FontFamily.bold,
     fontSize: 18,
     fontWeight: "700",
     color: "#0F172A",
     letterSpacing: -0.3,
   },
   seeAllText: {
+    fontFamily: FontFamily.semiBold,
     fontSize: 13,
     fontWeight: "600",
     color: Colors.primary,
@@ -692,12 +719,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   creatorName: {
+    fontFamily: FontFamily.bold,
     fontSize: 13,
     fontWeight: "700",
     color: "#0F172A",
     textAlign: "center",
   },
   creatorFollowers: {
+    fontFamily: FontFamily.regular,
     fontSize: 11,
     color: "#64748B",
     marginTop: 2,
@@ -715,11 +744,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#E2E8F0",
   },
   creatorFollowBtnText: {
+    fontFamily: FontFamily.bold,
     fontSize: 11.5,
     fontWeight: "700",
     color: "#FFFFFF",
   },
   creatorFollowingBtnText: {
+    fontFamily: FontFamily.semiBold,
     color: "#334155",
   },
   gridContainer: {
@@ -734,8 +765,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: "hidden",
     position: "relative",
-    justifyContent: "space-between",
-    padding: 12,
     backgroundColor: "#1E293B",
   },
   gridCardImage: {
@@ -745,7 +774,13 @@ const styles = StyleSheet.create({
   },
   gridCardGradient: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(15, 23, 42, 0.4)",
+    backgroundColor: "rgba(15, 23, 42, 0.42)",
+  },
+  gridCardContent: {
+    ...StyleSheet.absoluteFill,
+    padding: 12,
+    justifyContent: "space-between",
+    zIndex: 2,
   },
   gridCardTopRow: {
     flexDirection: "row",
@@ -759,6 +794,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   gridCategoryBadgeText: {
+    fontFamily: FontFamily.bold,
     fontSize: 10,
     fontWeight: "700",
     color: "#FFFFFF",
@@ -772,6 +808,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   gridLikesText: {
+    fontFamily: FontFamily.semiBold,
     fontSize: 10,
     fontWeight: "600",
     color: "#FFFFFF",
@@ -780,6 +817,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   gridCardTitle: {
+    fontFamily: FontFamily.bold,
     fontSize: 14,
     fontWeight: "700",
     color: "#FFFFFF",
@@ -789,8 +827,9 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   gridCardPostsCount: {
+    fontFamily: FontFamily.medium,
     fontSize: 11.5,
-    color: "rgba(255, 255, 255, 0.82)",
+    color: "rgba(255, 255, 255, 0.85)",
     marginTop: 3,
     fontWeight: "500",
   },
@@ -799,6 +838,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   sectionHeader: {
+    fontFamily: FontFamily.bold,
     fontSize: 16,
     fontWeight: "700",
     color: "#0F172A",
@@ -821,16 +861,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   creatorListName: {
+    fontFamily: FontFamily.bold,
     fontSize: 14,
     fontWeight: "700",
     color: "#0F172A",
   },
   creatorListHandle: {
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     color: "#64748B",
     marginTop: 1,
   },
   creatorListMeta: {
+    fontFamily: FontFamily.regular,
     fontSize: 11,
     color: "#94A3B8",
     marginTop: 2,
@@ -845,11 +888,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#E2E8F0",
   },
   followBtnText: {
+    fontFamily: FontFamily.bold,
     fontSize: 12,
     fontWeight: "700",
     color: "#FFFFFF",
   },
   followingBtnText: {
+    fontFamily: FontFamily.semiBold,
     color: "#334155",
   },
 });

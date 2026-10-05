@@ -11,8 +11,8 @@ export const Colors = {
   card: "#FFFFFF",
   border: "#EAEAEA",
   borderLight: "#F1F5F9",
-  textPrimary: "#171717",
-  textSecondary: "#737373",
+  textPrimary: "#0F172A",
+  textSecondary: "#64748B",
   textMuted: "#94A3B8",
   white: "#FFFFFF",
   black: "#000000",
@@ -20,38 +20,59 @@ export const Colors = {
   overlayDark: "rgba(0, 0, 0, 0.75)",
 };
 
+export const FontFamily = {
+  regular: "PlusJakartaSans_400Regular",
+  medium: "PlusJakartaSans_500Medium",
+  semiBold: "PlusJakartaSans_600SemiBold",
+  bold: "PlusJakartaSans_700Bold",
+  extraBold: "PlusJakartaSans_800ExtraBold",
+};
+
 export const Typography = {
   largeTitle: {
-    fontSize: 36,
+    fontFamily: FontFamily.extraBold,
+    fontSize: 34,
     lineHeight: 40,
-    fontWeight: "700" as const,
+    fontWeight: "800" as const,
     color: Colors.textPrimary,
   },
   screenTitle: {
+    fontFamily: FontFamily.bold,
     fontSize: 28,
-    lineHeight: 32,
-    fontWeight: "600" as const,
+    lineHeight: 34,
+    fontWeight: "700" as const,
     color: Colors.textPrimary,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontFamily: FontFamily.semiBold,
+    fontSize: 18,
     lineHeight: 24,
     fontWeight: "600" as const,
     color: Colors.textPrimary,
   },
   body: {
-    fontSize: 16,
+    fontFamily: FontFamily.regular,
+    fontSize: 15,
     lineHeight: 22,
     fontWeight: "400" as const,
     color: Colors.textPrimary,
   },
+  bodyMedium: {
+    fontFamily: FontFamily.medium,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "500" as const,
+    color: Colors.textPrimary,
+  },
   metadata: {
-    fontSize: 14,
+    fontFamily: FontFamily.medium,
+    fontSize: 13,
     lineHeight: 18,
     fontWeight: "500" as const,
     color: Colors.textSecondary,
   },
   caption: {
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: "400" as const,
