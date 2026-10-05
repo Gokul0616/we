@@ -50,23 +50,31 @@ export function CompleteProfileScreen({
   const passwordRef = useRef<TextInput>(null);
   const checkTimeoutRef = useRef<any>(null);
 
+  const isTooShort = username.length > 0 && username.length < 5;
+  const isTooLong = username.length > 18;
   const isUsernameTaken = usernameCheck?.exists === true;
+  const isUsernameAvailable = usernameCheck?.available === true && !isTooShort && !isTooLong;
+
   const isValid =
     fullName.trim().length >= 2 &&
-    username.trim().length >= 3 &&
+    username.trim().length >= 5 &&
+    username.trim().length <= 18 &&
     !isUsernameTaken &&
+    !isTooShort &&
+    !isTooLong &&
     !usernameCheck?.loading &&
     password.length >= 6;
 
   const handleUsernameChange = (raw: string) => {
-    const clean = raw.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase();
+    // Allow typing slightly beyond 18 (up to 25) so user sees the "cannot exceed 18" message
+    const clean = raw.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase().slice(0, 25);
     setUsername(clean);
 
     if (checkTimeoutRef.current) {
       clearTimeout(checkTimeoutRef.current);
     }
 
-    if (clean.length < 3) {
+    if (clean.length < 5 || clean.length > 18) {
       setUsernameCheck(null);
       return;
     }
@@ -77,9 +85,6 @@ export function CompleteProfileScreen({
       try {
         const res = await apiClient.get(ENDPOINTS.auth.checkUsername(clean));
         setUsernameCheck(res);
-        if (res?.exists) {
-          toast.error(`@${clean} is already taken!`);
-        }
       } catch (err: any) {
         setUsernameCheck(null);
         if (err?.message) {
@@ -192,7 +197,14 @@ export function CompleteProfileScreen({
               <View style={styles.field}>
                 <View style={styles.labelRow}>
                   <Text style={styles.label}>Username</Text>
-                  <Text style={styles.charCounter}>{username.length}/16</Text>
+                  <Text
+                    style={[
+                      styles.charCounter,
+                      (isTooLong || (isTooShort && username.length > 0)) && styles.charCounterError,
+                    ]}
+                  >
+                    {username.length}/18
+                  </Text>
                 </View>
 
                 <TouchableOpacity
@@ -201,8 +213,8 @@ export function CompleteProfileScreen({
                   style={[
                     styles.inputCard,
                     focusedField === "username" && styles.inputCardFocused,
-                    usernameCheck?.exists && styles.inputCardError,
-                    usernameCheck?.available && styles.inputCardSuccess,
+                    (isUsernameTaken || isTooLong || isTooShort) && styles.inputCardError,
+                    isUsernameAvailable && styles.inputCardSuccess,
                   ]}
                 >
                   <Text style={styles.atPrefix}>@</Text>
@@ -212,7 +224,7 @@ export function CompleteProfileScreen({
                     placeholder="username"
                     placeholderTextColor="#94A3B8"
                     value={username}
-                    maxLength={16}
+                    maxLength={25}
                     onChangeText={handleUsernameChange}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -227,9 +239,9 @@ export function CompleteProfileScreen({
                   {/* Status Indicator Icon right inside input */}
                   {usernameCheck?.loading ? (
                     <ActivityIndicator size="small" color="#94A3B8" style={{ marginRight: 4 }} />
-                  ) : usernameCheck?.exists ? (
+                  ) : isUsernameTaken || isTooLong || isTooShort ? (
                     <Ionicons name="close-circle" size={20} color="#ED4956" />
-                  ) : usernameCheck?.available ? (
+                  ) : isUsernameAvailable ? (
                     <Ionicons name="checkmark-circle" size={20} color="#10B981" />
                   ) : username.length > 0 ? (
                     <TouchableOpacity
@@ -244,15 +256,26 @@ export function CompleteProfileScreen({
                   ) : null}
                 </TouchableOpacity>
 
-                {/* Instagram-style Clean Feedback Message */}
-                {usernameCheck?.exists ? (
+                {/* Instagram-style Dynamic Feedback Message */}
+                {isTooLong ? (
+                  <View style={styles.igFeedbackRow}>
+                    <Text style={styles.igTakenMessage}>
+                      Username cannot exceed 18 characters.
+                    </Text>
+                  </View>
+                ) : isTooShort ? (
+                  <View style={styles.igFeedbackRow}>
+                    <Text style={styles.igTakenMessage}>
+                      Username must be at least 5 characters.
+                    </Text>
+                  </View>
+                ) : usernameCheck?.exists ? (
                   <View style={styles.igFeedbackRow}>
                     <Text style={styles.igTakenMessage}>
                       A user with that username already exists.
-                      {usernameCheck.user?.full_name ? ` (${usernameCheck.user.full_name})` : ""}
                     </Text>
                   </View>
-                ) : usernameCheck?.available ? (
+                ) : isUsernameAvailable ? (
                   <View style={styles.igFeedbackRow}>
                     <Text style={styles.igAvailableMessage}>
                       @{username} is available.
@@ -261,7 +284,7 @@ export function CompleteProfileScreen({
                 ) : (
                   <View style={styles.igFeedbackRow}>
                     <Text style={styles.igHelperText}>
-                      Maximum 16 letters, numbers, and underscores.
+                      Username must be 5 to 18 letters, numbers, or underscores.
                     </Text>
                   </View>
                 )}
@@ -403,6 +426,10 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: "600",
     color: "#94A3B8",
+  },
+  charCounterError: {
+    color: "#ED4956",
+    fontWeight: "700",
   },
   inputCard: {
     height: 52,
