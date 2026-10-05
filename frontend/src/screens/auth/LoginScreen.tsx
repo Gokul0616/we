@@ -51,13 +51,11 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
 
       if (data?.access_token) {
         apiClient.setAuthToken(data.access_token);
+        onSuccess(data);
       }
-      onSuccess(data);
-    } catch {
-      onSuccess({
-        access_token: "mock_token",
-        user: { email, username: email.split("@")[0] },
-      });
+    } catch (err: any) {
+      // Toast notification is automatically shown by apiClient interceptor.
+      // Do not proceed next if an error occurs.
     } finally {
       setIsLoading(false);
     }

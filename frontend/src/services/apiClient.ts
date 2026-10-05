@@ -6,6 +6,8 @@
  * - Unified error handling & typed responses
  */
 
+import { toast } from "./toastService";
+
 export class ApiError extends Error {
   status: number;
   data: any;
@@ -21,6 +23,7 @@ export class ApiError extends Error {
 interface RequestOptions extends RequestInit {
   timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined>;
+  silent?: boolean;
 }
 
 export type RequestInterceptor = (config: RequestOptions & { url: string; headers: Record<string, string> }) => Promise<any> | any;
@@ -156,7 +159,11 @@ class ApiClient {
         const serverMessage =
           responseData?.detail ||
           responseData?.message ||
-          `Request failed with status ${response.status}`;
+          (typeof responseData === "string" ? responseData : `Request failed with status ${response.status}`);
+
+        if (!options.silent) {
+          toast.error(serverMessage);
+        }
 
         throw new ApiError(serverMessage, response.status, responseData);
       }
@@ -167,23 +174,28 @@ class ApiClient {
       const latency = Date.now() - startTime;
 
       if (err.name === "AbortError") {
-        console.error(`⏱️ [API TIMEOUT] ${method} ${url} timed out after ${timeoutMs}ms`);
-        throw new ApiError(`Request to ${url} timed out after ${timeoutMs / 1000}s. Please check your connection.`, 408);
+        const timeoutMsg = `Request to ${url} timed out after ${timeoutMs / 1000}s. Please check connection.`;
+        console.log(`⏱️ [API TIMEOUT] ${method} ${url} timed out after ${timeoutMs}ms`);
+        if (!options.silent) {
+          toast.error(timeoutMsg);
+        }
+        throw new ApiError(timeoutMsg, 408);
       }
 
       if (__DEV__) {
-        console.error(`❌ [API ERR] ${method} ${url} (${latency}ms):`, err?.message || err);
+        console.log(`❌ [API ERR] ${method} ${url} (${latency}ms):`, err?.message || err);
       }
 
       if (err instanceof ApiError) {
         throw err;
       }
 
-      throw new ApiError(
-        err?.message || "Network request failed. Ensure device and server are on the same network.",
-        0,
-        err
-      );
+      const netMsg = err?.message || "Network request failed. Ensure device and server are on the same network.";
+      if (!options.silent) {
+        toast.error(netMsg);
+      }
+
+      throw new ApiError(netMsg, 0, err);
     }
   }
 

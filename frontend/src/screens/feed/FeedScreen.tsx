@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Colors } from "../../constants/theme";
 
 const { width } = Dimensions.get("window");
@@ -46,6 +47,7 @@ interface FeedScreenProps {
 }
 
 export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
 
   // Stories matching Screen 04
@@ -183,6 +185,19 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
             key={story.id}
             style={styles.storyItem}
             activeOpacity={0.8}
+            onPress={() => {
+              if (story.isUser) {
+                router.push("/(tabs)/profile");
+              } else {
+                router.push({
+                  pathname: "/user-profile",
+                  params: {
+                    username: story.username,
+                    name: story.username.replace("_", " ").replace(".", " ").toUpperCase(),
+                  },
+                });
+              }
+            }}
           >
             <View
               style={[
@@ -211,7 +226,20 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
     <View style={styles.postCard}>
       {/* Post Header */}
       <View style={styles.postHeader}>
-        <View style={styles.authorRow}>
+        <TouchableOpacity
+          style={styles.authorRow}
+          activeOpacity={0.7}
+          onPress={() =>
+            router.push({
+              pathname: "/user-profile",
+              params: {
+                username: item.author.username,
+                name: item.author.username.replace("_", " ").replace(".", " ").toUpperCase(),
+                location: item.author.location || "",
+              },
+            })
+          }
+        >
           <Image source={item.author.avatar} style={styles.authorAvatar} />
           <View style={styles.authorInfo}>
             <View style={styles.nameTimeRow}>
@@ -223,7 +251,7 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
               <Text style={styles.locationText}>{item.author.location}</Text>
             ) : null}
           </View>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="ellipsis-horizontal" size={20} color="#64748B" />

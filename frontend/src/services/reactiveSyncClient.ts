@@ -71,11 +71,11 @@ export class ReactiveSyncClient {
             this.pendingCalls.get(callId)!.reject(new Error(message || "Mutation failed"));
             this.pendingCalls.delete(callId);
           } else {
-            console.error("SyncEngine error:", message);
+            console.log("SyncEngine error:", message);
           }
         }
       } catch (e) {
-        console.error("Failed to parse sync message:", e);
+        console.log("Failed to parse sync message:", e);
       }
     };
 
@@ -85,7 +85,7 @@ export class ReactiveSyncClient {
     };
 
     this.ws.onerror = (err) => {
-      console.error("SyncEngine WebSocket error:", err);
+      console.log("SyncEngine WebSocket error:", err);
     };
   }
 

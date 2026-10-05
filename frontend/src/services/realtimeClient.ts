@@ -36,7 +36,7 @@ class RealtimeClient {
           this.listeners.get(topic)!.forEach((handler) => handler(payload));
         }
       } catch (err) {
-        console.error("Failed to parse websocket message:", err);
+        console.log("Failed to parse websocket message:", err);
       }
     };
 
@@ -46,7 +46,7 @@ class RealtimeClient {
     };
 
     this.ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
+      console.log("WebSocket error:", err);
     };
   }
 

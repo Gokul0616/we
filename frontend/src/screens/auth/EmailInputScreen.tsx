@@ -40,11 +40,12 @@ export function EmailInputScreen({ onContinue, onBack }: EmailInputScreenProps) 
       await apiClient.post(ENDPOINTS.auth.sendOtp, {
         email: email.trim().toLowerCase(),
       });
+      onContinue(email.trim().toLowerCase());
     } catch (err: any) {
-      console.warn("[AUTH] Send OTP response note:", err?.message || err);
+      // Toast notification is shown automatically by apiClient interceptor.
+      // Do not proceed next if sending OTP fails.
     } finally {
       setIsLoading(false);
-      onContinue(email.trim().toLowerCase());
     }
   };
 

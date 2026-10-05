@@ -26,7 +26,7 @@ export function useRealtimeFeed(apiUrl: string = API_CONFIG.POSTS_URL) {
       const data = await apiClient.get(`${apiUrl}/posts`);
       setPosts(data?.posts || []);
     } catch (err) {
-      console.error("Failed to fetch initial feed:", err);
+      console.log("Failed to fetch initial feed:", err);
     } finally {
       setLoading(false);
     }

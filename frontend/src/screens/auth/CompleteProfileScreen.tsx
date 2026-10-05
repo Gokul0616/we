@@ -58,13 +58,11 @@ export function CompleteProfileScreen({
 
       if (data?.access_token) {
         apiClient.setAuthToken(data.access_token);
+        onCompleted(data);
       }
-      onCompleted(data);
-    } catch {
-      onCompleted({
-        access_token: "mock_token",
-        user: { email, username, full_name: fullName },
-      });
+    } catch (err: any) {
+      // Toast notification is automatically shown by apiClient interceptor.
+      // Do not proceed next if registration fails.
     } finally {
       setIsLoading(false);
     }
