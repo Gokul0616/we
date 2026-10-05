@@ -329,6 +329,7 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
             style={styles.topIconBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             activeOpacity={0.7}
+            onPress={() => router.push("/notifications")}
           >
             <Ionicons name="notifications-outline" size={24} color="#0F172A" />
             <View style={styles.notifBadge} />
