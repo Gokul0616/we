@@ -16,7 +16,7 @@ import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const TILE_GAP = 2;
+const TILE_GAP = 1.5;
 const SQUARE_SIZE = (SCREEN_WIDTH - TILE_GAP * 2) / 3;
 const TALL_HEIGHT = SQUARE_SIZE * 2 + TILE_GAP;
 
@@ -49,7 +49,7 @@ export interface ExplorePost {
   timeAgo: string;
 }
 
-// 18 Rich Explore Posts (with "You" and external creators)
+// 18 Rich Explore Posts
 export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p1",
@@ -243,6 +243,102 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     comments: 610,
     timeAgo: "1d ago",
   },
+  {
+    id: "p13",
+    type: "reel",
+    category: "Food",
+    image: IMG_FOOD,
+    author: {
+      username: "chef_marco",
+      fullName: "Marco Bellini",
+      avatar: { uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&q=80" },
+      isMe: false,
+    },
+    caption: "Tasting notes from Napoli: the crunch of sourdough crust meets aged buffalo mozzarella 🍕",
+    likes: 31200,
+    comments: 480,
+    timeAgo: "1d ago",
+  },
+  {
+    id: "p14",
+    type: "photo",
+    category: "Nature",
+    image: IMG_MOUNTAIN,
+    author: {
+      username: "peak_adventures",
+      fullName: "Lukas Meyer",
+      avatar: { uri: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=160&q=80" },
+      isMe: false,
+    },
+    caption: "Sunrise ridge lines in the Alps. The best views come after the hardest climbs ☀️🧗‍♂️",
+    likes: 17800,
+    comments: 290,
+    timeAgo: "2d ago",
+  },
+  {
+    id: "p15",
+    type: "photo",
+    category: "Photography",
+    image: IMG_HERO,
+    author: {
+      username: "urban_frames",
+      fullName: "Chloe Zhang",
+      avatar: { uri: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=160&q=80" },
+      isMe: false,
+    },
+    caption: "Street silhouettes under the evening marquee lights. Capturing raw urban pulse 🌆",
+    likes: 14200,
+    comments: 215,
+    timeAgo: "2d ago",
+  },
+  {
+    id: "p16",
+    type: "carousel",
+    category: "Style",
+    image: IMG_SLIDE_3,
+    author: {
+      username: "style_journal",
+      fullName: "Aria Thorne",
+      avatar: { uri: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=160&q=80" },
+      isMe: false,
+    },
+    caption: "Autumn palette in layers: oversized trench, structured wool, and muted tones 🍂🧥",
+    likes: 18900,
+    comments: 340,
+    timeAgo: "3d ago",
+  },
+  {
+    id: "p17",
+    type: "photo",
+    category: "Travel",
+    image: IMG_BALI,
+    author: {
+      username: "gokul_ssb",
+      fullName: "Gokul Ssb",
+      avatar: IMG_AVATAR,
+      isMe: true, // MY POST!
+    },
+    caption: "Green rice terrace cascades stretching into infinity under the tropical sunrise 🌾",
+    likes: 22400,
+    comments: 410,
+    timeAgo: "3d ago",
+  },
+  {
+    id: "p18",
+    type: "reel",
+    category: "Travel",
+    image: IMG_CINQUE,
+    author: {
+      username: "elena_travels",
+      fullName: "Elena Rossi",
+      avatar: { uri: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&q=80" },
+      isMe: false,
+    },
+    caption: "Sailing through the turquoise bays of Vernazza. Pure summer nostalgia ⛵🇮🇹",
+    likes: 42100,
+    comments: 920,
+    timeAgo: "4d ago",
+  },
 ];
 
 const CATEGORIES = [
@@ -255,6 +351,11 @@ const CATEGORIES = [
   { id: "Style", label: "Style", icon: "shirt" },
 ];
 
+type GridSection =
+  | { type: "patternA"; squares: ExplorePost[]; tall: ExplorePost } // 4 squares (left 2x2) + 1 tall (right) = 5 items
+  | { type: "patternB"; tall: ExplorePost; squares: ExplorePost[] } // 1 tall (left) + 4 squares (right 2x2) = 5 items
+  | { type: "row3"; items: ExplorePost[] }; // exactly 3 squares in a single row
+
 export function ExploreScreen() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -262,7 +363,7 @@ export function ExploreScreen() {
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
   const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
 
-  // Route to My Profile or Others' Profile based on post author ownership
+  // Route to My Profile or Others' Profile based on ownership
   const handleAuthorPress = (author: { username: string; fullName: string; isMe?: boolean }) => {
     if (author.isMe || author.username === "gokul_ssb" || author.username === "gokul7") {
       router.push("/(tabs)/profile");
@@ -302,18 +403,52 @@ export function ExploreScreen() {
   // Filter posts based on category
   const filteredPosts = useMemo(() => {
     if (selectedCategory === "all") return EXPLORE_POSTS;
-    return EXPLORE_POSTS.filter((p) => p.category === selectedCategory);
+    const filtered = EXPLORE_POSTS.filter((p) => p.category === selectedCategory);
+    return filtered.length > 0 ? filtered : EXPLORE_POSTS;
   }, [selectedCategory]);
 
-  // Group posts into 6-item staggered blocks (Pattern A: Tall Reel on Right, Pattern B: Tall Reel on Left)
-  const postBlocks = useMemo(() => {
-    const blocks: { isTallOnRight: boolean; items: ExplorePost[] }[] = [];
-    for (let i = 0; i < filteredPosts.length; i += 6) {
-      const slice = filteredPosts.slice(i, i + 6);
-      const isTallOnRight = (i / 6) % 2 === 0;
-      blocks.push({ isTallOnRight, items: slice });
+  // Perfectly balanced, seamless gapless grid sections (NEVER leaves any empty slots or holes)
+  const gridSections = useMemo<GridSection[]>(() => {
+    const list = [...filteredPosts];
+    const sections: GridSection[] = [];
+    let cursor = 0;
+    let patternToggle = 0;
+
+    while (cursor < list.length) {
+      const remaining = list.length - cursor;
+
+      if (remaining >= 5) {
+        if (patternToggle % 2 === 0) {
+          // Pattern A: 4 squares on left (2x2), 1 tall on right (takes 5 items)
+          const squares = list.slice(cursor, cursor + 4);
+          const tall = list[cursor + 4];
+          sections.push({ type: "patternA", squares, tall });
+          cursor += 5;
+        } else {
+          // Pattern B: 1 tall on left, 4 squares on right (2x2) (takes 5 items)
+          const tall = list[cursor];
+          const squares = list.slice(cursor + 1, cursor + 5);
+          sections.push({ type: "patternB", tall, squares });
+          cursor += 5;
+        }
+        patternToggle++;
+      } else {
+        // We have 1, 2, 3, or 4 items remaining.
+        // Group them into full 3-column rows. If the final row has 1 or 2 items, pad from start of list so there are ZERO gaps!
+        while (cursor < list.length) {
+          const rowItems = list.slice(cursor, cursor + 3);
+          let padIdx = 0;
+          while (rowItems.length < 3 && padIdx < list.length) {
+            rowItems.push(list[padIdx]);
+            padIdx++;
+          }
+          sections.push({ type: "row3", items: rowItems });
+          cursor += 3;
+        }
+      }
     }
-    return blocks;
+
+    return sections;
   }, [filteredPosts]);
 
   return (
@@ -363,168 +498,130 @@ export function ExploreScreen() {
         </ScrollView>
       </View>
 
-      {/* 3. Rich Instagram Staggered Media Grid */}
+      {/* 3. 100% Gapless Staggered Instagram Media Grid */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.gridScrollContent}
       >
-        {postBlocks.map((block, blockIndex) => {
-          const items = block.items;
-          const isTallOnRight = block.isTallOnRight;
-
-          // Pattern A: 4 square tiles on left (2x2), 1 tall tile on right (1x2)
-          if (isTallOnRight) {
-            const squares = items.slice(0, 4);
-            const tallItem = items[4] || items[0];
-            const remaining = items.slice(5);
-
+        {gridSections.map((section, secIndex) => {
+          if (section.type === "patternA") {
             return (
-              <View key={`block-${blockIndex}`} style={styles.staggeredBlock}>
-                <View style={styles.staggeredRow}>
-                  {/* Left 2x2 Square Grid */}
-                  <View style={styles.squares2x2Grid}>
-                    <View style={styles.squaresRow}>
-                      {squares[0] &&
-                        renderRichTile(
-                          squares[0],
-                          SQUARE_SIZE,
-                          SQUARE_SIZE,
-                          handlePostPress,
-                          handlePostLongPress
-                        )}
-                      {squares[1] &&
-                        renderRichTile(
-                          squares[1],
-                          SQUARE_SIZE,
-                          SQUARE_SIZE,
-                          handlePostPress,
-                          handlePostLongPress
-                        )}
-                    </View>
-                    <View style={styles.squaresRow}>
-                      {squares[2] &&
-                        renderRichTile(
-                          squares[2],
-                          SQUARE_SIZE,
-                          SQUARE_SIZE,
-                          handlePostPress,
-                          handlePostLongPress
-                        )}
-                      {squares[3] &&
-                        renderRichTile(
-                          squares[3],
-                          SQUARE_SIZE,
-                          SQUARE_SIZE,
-                          handlePostPress,
-                          handlePostLongPress
-                        )}
-                    </View>
-                  </View>
-
-                  {/* Right Tall Tile (Reel/Video) */}
-                  {tallItem &&
-                    renderRichTile(
-                      tallItem,
+              <View key={`sec-${secIndex}`} style={styles.staggeredRow}>
+                {/* Left 2x2 Squares */}
+                <View style={styles.squares2x2Grid}>
+                  <View style={styles.squaresRow}>
+                    {renderRichTile(
+                      section.squares[0],
                       SQUARE_SIZE,
-                      TALL_HEIGHT,
+                      SQUARE_SIZE,
                       handlePostPress,
-                      handlePostLongPress,
-                      true
+                      handlePostLongPress
                     )}
+                    {renderRichTile(
+                      section.squares[1],
+                      SQUARE_SIZE,
+                      SQUARE_SIZE,
+                      handlePostPress,
+                      handlePostLongPress
+                    )}
+                  </View>
+                  <View style={styles.squaresRow}>
+                    {renderRichTile(
+                      section.squares[2],
+                      SQUARE_SIZE,
+                      SQUARE_SIZE,
+                      handlePostPress,
+                      handlePostLongPress
+                    )}
+                    {renderRichTile(
+                      section.squares[3],
+                      SQUARE_SIZE,
+                      SQUARE_SIZE,
+                      handlePostPress,
+                      handlePostLongPress
+                    )}
+                  </View>
                 </View>
 
-                {/* Any remaining item in block */}
-                {remaining.length > 0 && (
-                  <View style={styles.standardRow}>
-                    {remaining.map((item) =>
-                      renderRichTile(
-                        item,
-                        SQUARE_SIZE,
-                        SQUARE_SIZE,
-                        handlePostPress,
-                        handlePostLongPress
-                      )
-                    )}
-                  </View>
+                {/* Right Tall Reel/Video */}
+                {renderRichTile(
+                  section.tall,
+                  SQUARE_SIZE,
+                  TALL_HEIGHT,
+                  handlePostPress,
+                  handlePostLongPress,
+                  true
                 )}
               </View>
             );
           }
 
-          // Pattern B: 1 tall tile on left (1x2), 4 square tiles on right (2x2)
-          const tallItem = items[0];
-          const squares = items.slice(1, 5);
-          const remaining = items.slice(5);
+          if (section.type === "patternB") {
+            return (
+              <View key={`sec-${secIndex}`} style={styles.staggeredRow}>
+                {/* Left Tall Reel/Video */}
+                {renderRichTile(
+                  section.tall,
+                  SQUARE_SIZE,
+                  TALL_HEIGHT,
+                  handlePostPress,
+                  handlePostLongPress,
+                  true
+                )}
 
-          return (
-            <View key={`block-${blockIndex}`} style={styles.staggeredBlock}>
-              <View style={styles.staggeredRow}>
-                {/* Left Tall Tile (Reel/Video) */}
-                {tallItem &&
-                  renderRichTile(
-                    tallItem,
-                    SQUARE_SIZE,
-                    TALL_HEIGHT,
-                    handlePostPress,
-                    handlePostLongPress,
-                    true
-                  )}
-
-                {/* Right 2x2 Square Grid */}
+                {/* Right 2x2 Squares */}
                 <View style={styles.squares2x2Grid}>
                   <View style={styles.squaresRow}>
-                    {squares[0] &&
-                      renderRichTile(
-                        squares[0],
-                        SQUARE_SIZE,
-                        SQUARE_SIZE,
-                        handlePostPress,
-                        handlePostLongPress
-                      )}
-                    {squares[1] &&
-                      renderRichTile(
-                        squares[1],
-                        SQUARE_SIZE,
-                        SQUARE_SIZE,
-                        handlePostPress,
-                        handlePostLongPress
-                      )}
-                  </View>
-                  <View style={styles.squaresRow}>
-                    {squares[2] &&
-                      renderRichTile(
-                        squares[2],
-                        SQUARE_SIZE,
-                        SQUARE_SIZE,
-                        handlePostPress,
-                        handlePostLongPress
-                      )}
-                    {squares[3] &&
-                      renderRichTile(
-                        squares[3],
-                        SQUARE_SIZE,
-                        SQUARE_SIZE,
-                        handlePostPress,
-                        handlePostLongPress
-                      )}
-                  </View>
-                </View>
-              </View>
-
-              {/* Any remaining item in block */}
-              {remaining.length > 0 && (
-                <View style={styles.standardRow}>
-                  {remaining.map((item) =>
-                    renderRichTile(
-                      item,
+                    {renderRichTile(
+                      section.squares[0],
                       SQUARE_SIZE,
                       SQUARE_SIZE,
                       handlePostPress,
                       handlePostLongPress
-                    )
-                  )}
+                    )}
+                    {renderRichTile(
+                      section.squares[1],
+                      SQUARE_SIZE,
+                      SQUARE_SIZE,
+                      handlePostPress,
+                      handlePostLongPress
+                    )}
+                  </View>
+                  <View style={styles.squaresRow}>
+                    {renderRichTile(
+                      section.squares[2],
+                      SQUARE_SIZE,
+                      SQUARE_SIZE,
+                      handlePostPress,
+                      handlePostLongPress
+                    )}
+                    {renderRichTile(
+                      section.squares[3],
+                      SQUARE_SIZE,
+                      SQUARE_SIZE,
+                      handlePostPress,
+                      handlePostLongPress
+                    )}
+                  </View>
                 </View>
-              )}
+              </View>
+            );
+          }
+
+          // Standard 3-Item Row
+          return (
+            <View key={`sec-${secIndex}`} style={styles.standardRow}>
+              {section.items.map((item, itemIdx) => (
+                <React.Fragment key={`${item.id}-${secIndex}-${itemIdx}`}>
+                  {renderRichTile(
+                    item,
+                    SQUARE_SIZE,
+                    SQUARE_SIZE,
+                    handlePostPress,
+                    handlePostLongPress
+                  )}
+                </React.Fragment>
+              ))}
             </View>
           );
         })}
@@ -728,10 +825,6 @@ const styles = StyleSheet.create({
   // Grid
   gridScrollContent: {
     backgroundColor: "#FFFFFF",
-    paddingTop: 2,
-  },
-  staggeredBlock: {
-    marginBottom: TILE_GAP,
   },
   staggeredRow: {
     flexDirection: "row",
@@ -746,6 +839,7 @@ const styles = StyleSheet.create({
   squaresRow: {
     flexDirection: "row",
     gap: TILE_GAP,
+    height: SQUARE_SIZE,
   },
   standardRow: {
     flexDirection: "row",
