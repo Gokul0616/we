@@ -9,15 +9,15 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#0F172A",
-        tabBarInactiveTintColor: "#94A3B8",
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: "#64748B",
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
           borderTopColor: "#F1F5F9",
-          height: Platform.OS === "ios" ? 86 : 62,
+          height: Platform.OS === "ios" ? 84 : 64,
+          paddingBottom: Platform.OS === "ios" ? 28 : 10,
           paddingTop: 8,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
           elevation: 0,
           shadowOpacity: 0,
         },
@@ -33,11 +33,7 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "home" : "home-outline"}
-              size={24}
-              color={color}
-            />
+            <Ionicons name={focused ? "home" : "home-outline"} size={23} color={color} />
           ),
         }}
       />
@@ -47,11 +43,7 @@ export default function TabLayout() {
         options={{
           title: "Explore",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "compass" : "compass-outline"}
-              size={24}
-              color={color}
-            />
+            <Ionicons name={focused ? "compass" : "compass-outline"} size={23} color={color} />
           ),
         }}
       />
@@ -63,7 +55,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "chatbubble-ellipses" : "chatbubble-ellipses-outline"}
-              size={24}
+              size={23}
               color={color}
             />
           ),
@@ -75,14 +67,11 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "person" : "person-outline"}
-              size={24}
-              color={color}
-            />
+            <Ionicons name={focused ? "person" : "person-outline"} size={23} color={color} />
           ),
         }}
       />
     </Tabs>
   );
 }
+

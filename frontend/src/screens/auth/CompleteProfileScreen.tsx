@@ -59,7 +59,7 @@ export function CompleteProfileScreen({
     password.length >= 6;
 
   const handleUsernameChange = (raw: string) => {
-    const clean = raw.replace(/[^a-zA-Z0-9._]/g, "").toLowerCase().slice(0, 16);
+    const clean = raw.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase();
     setUsername(clean);
 
     if (checkTimeoutRef.current) {
@@ -83,7 +83,7 @@ export function CompleteProfileScreen({
       } catch {
         setUsernameCheck(null);
       }
-    }, 280);
+    }, 300);
   };
 
   const handleSubmit = async () => {
@@ -185,16 +185,13 @@ export function CompleteProfileScreen({
                 </TouchableOpacity>
               </View>
 
-              {/* Username (Instagram-style) */}
+              {/* Username */}
               <View style={styles.field}>
                 <View style={styles.labelRow}>
                   <Text style={styles.label}>Username</Text>
-                  {username.length > 0 && (
-                    <Text style={[styles.charCounter, username.length >= 16 && styles.charCounterMax]}>
-                      {username.length}/16
-                    </Text>
-                  )}
+                  <Text style={styles.charCounter}>{username.length}/16</Text>
                 </View>
+
                 <TouchableOpacity
                   activeOpacity={1}
                   onPress={() => usernameRef.current?.focus()}
@@ -212,8 +209,8 @@ export function CompleteProfileScreen({
                     placeholder="username"
                     placeholderTextColor="#94A3B8"
                     value={username}
-                    onChangeText={handleUsernameChange}
                     maxLength={16}
+                    onChangeText={handleUsernameChange}
                     autoCapitalize="none"
                     autoCorrect={false}
                     textContentType="username"
@@ -224,26 +221,14 @@ export function CompleteProfileScreen({
                     selectionColor={Colors.primary}
                   />
 
-                  {/* Status Indicator Icon (Instagram style) */}
+                  {/* Status Indicator Icon right inside input */}
                   {usernameCheck?.loading ? (
-                    <ActivityIndicator size="small" color="#94A3B8" style={{ marginRight: 6 }} />
-                  ) : usernameCheck?.available ? (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color="#10B981"
-                      style={{ marginRight: 6 }}
-                    />
+                    <ActivityIndicator size="small" color="#94A3B8" style={{ marginRight: 4 }} />
                   ) : usernameCheck?.exists ? (
-                    <Ionicons
-                      name="close-circle"
-                      size={20}
-                      color="#EF4444"
-                      style={{ marginRight: 6 }}
-                    />
-                  ) : null}
-
-                  {username.length > 0 && !usernameCheck?.loading && (
+                    <Ionicons name="close-circle" size={20} color="#ED4956" />
+                  ) : usernameCheck?.available ? (
+                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                  ) : username.length > 0 ? (
                     <TouchableOpacity
                       onPress={() => {
                         setUsername("");
@@ -251,35 +236,29 @@ export function CompleteProfileScreen({
                       }}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                      <Ionicons name="close-circle" size={18} color="#CBD5E1" />
+                      <Ionicons name="close-circle" size={18} color="#94A3B8" />
                     </TouchableOpacity>
-                  )}
+                  ) : null}
                 </TouchableOpacity>
 
-                {/* Instagram-style Minimal Helper Message */}
-                {usernameCheck && !usernameCheck.loading ? (
-                  <View style={styles.instaMessageContainer}>
-                    {usernameCheck.exists ? (
-                      <View>
-                        <Text style={styles.instaErrorText}>
-                          The username <Text style={styles.boldHandle}>@{username}</Text> isn't available.
-                        </Text>
-                        {usernameCheck.user?.full_name ? (
-                          <Text style={styles.instaRegisteredDetail}>
-                            Already registered to {usernameCheck.user.full_name}
-                          </Text>
-                        ) : null}
-                      </View>
-                    ) : (
-                      <Text style={styles.instaSuccessText}>
-                        You'll be able to change this at any time in Settings.
-                      </Text>
-                    )}
+                {/* Instagram-style Clean Feedback Message */}
+                {usernameCheck?.exists ? (
+                  <View style={styles.igFeedbackRow}>
+                    <Text style={styles.igTakenMessage}>
+                      A user with that username already exists.
+                      {usernameCheck.user?.full_name ? ` (${usernameCheck.user.full_name})` : ""}
+                    </Text>
+                  </View>
+                ) : usernameCheck?.available ? (
+                  <View style={styles.igFeedbackRow}>
+                    <Text style={styles.igAvailableMessage}>
+                      @{username} is available.
+                    </Text>
                   </View>
                 ) : (
-                  <View style={styles.instaMessageContainer}>
-                    <Text style={styles.instaHintText}>
-                      Maximum 16 characters (letters, numbers, periods, and underscores).
+                  <View style={styles.igFeedbackRow}>
+                    <Text style={styles.igHelperText}>
+                      Maximum 16 letters, numbers, and underscores.
                     </Text>
                   </View>
                 )}
@@ -407,10 +386,20 @@ const styles = StyleSheet.create({
   field: {
     gap: 7,
   },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   label: {
     fontSize: 13.5,
     fontWeight: "600",
     color: "#334155",
+  },
+  charCounter: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#94A3B8",
   },
   inputCard: {
     height: 52,
@@ -428,54 +417,33 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   inputCardError: {
-    borderColor: "#EF4444",
+    borderColor: "#ED4956",
+    backgroundColor: "#FFF8F8",
   },
   inputCardSuccess: {
     borderColor: "#10B981",
+    backgroundColor: "#F6FDF9",
   },
-  labelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  charCounter: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#94A3B8",
-  },
-  charCounterMax: {
-    color: "#EF4444",
-  },
-  instaMessageContainer: {
-    marginTop: 6,
+  igFeedbackRow: {
+    marginTop: 5,
     paddingHorizontal: 4,
   },
-  instaErrorText: {
-    fontSize: 13,
-    color: "#EF4444",
-    lineHeight: 18,
+  igTakenMessage: {
+    fontSize: 12.5,
+    color: "#ED4956",
     fontWeight: "500",
+    lineHeight: 16,
   },
-  boldHandle: {
-    fontWeight: "700",
-    color: "#DC2626",
+  igAvailableMessage: {
+    fontSize: 12.5,
+    color: "#10B981",
+    fontWeight: "600",
+    lineHeight: 16,
   },
-  instaRegisteredDetail: {
+  igHelperText: {
     fontSize: 12,
     color: "#94A3B8",
-    marginTop: 2,
-    fontWeight: "500",
-  },
-  instaSuccessText: {
-    fontSize: 13,
-    color: "#10B981",
-    lineHeight: 18,
-    fontWeight: "500",
-  },
-  instaHintText: {
-    fontSize: 12.5,
-    color: "#94A3B8",
-    lineHeight: 17,
+    lineHeight: 16,
   },
   atPrefix: {
     fontSize: 16,
