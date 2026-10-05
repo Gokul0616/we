@@ -1,0 +1,215 @@
+/**
+ * Global HTTP Client & Interceptor for all frontend API calls.
+ * - Automatic headers & JWT bearer injection
+ * - Configurable request timeout
+ * - Request & response logging
+ * - Unified error handling & typed responses
+ */
+
+export class ApiError extends Error {
+  status: number;
+  data: any;
+
+  constructor(message: string, status: number, data?: any) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
+interface RequestOptions extends RequestInit {
+  timeoutMs?: number;
+  params?: Record<string, string | number | boolean | undefined>;
+}
+
+export type RequestInterceptor = (config: RequestOptions & { url: string; headers: Record<string, string> }) => Promise<any> | any;
+export type ResponseInterceptor = (data: any, response: Response) => Promise<any> | any;
+
+class ApiClient {
+  private authToken: string | null = null;
+  private defaultTimeoutMs = 12000;
+  private onUnauthorizedHandler?: () => void;
+  private requestInterceptors: RequestInterceptor[] = [];
+  private responseInterceptors: ResponseInterceptor[] = [];
+
+  public interceptors = {
+    request: {
+      use: (interceptor: RequestInterceptor) => {
+        this.requestInterceptors.push(interceptor);
+        return () => {
+          this.requestInterceptors = this.requestInterceptors.filter((i) => i !== interceptor);
+        };
+      },
+    },
+    response: {
+      use: (interceptor: ResponseInterceptor) => {
+        this.responseInterceptors.push(interceptor);
+        return () => {
+          this.responseInterceptors = this.responseInterceptors.filter((i) => i !== interceptor);
+        };
+      },
+    },
+  };
+
+  public setAuthToken(token: string | null) {
+    this.authToken = token;
+  }
+
+  public getAuthToken(): string | null {
+    return this.authToken;
+  }
+
+  public setOnUnauthorized(handler: () => void) {
+    this.onUnauthorizedHandler = handler;
+  }
+
+  /**
+   * Core request method that runs request and response interceptors.
+   */
+  public async request<T = any>(endpointUrl: string, options: RequestOptions = {}): Promise<T> {
+    const { timeoutMs = this.defaultTimeoutMs, params, headers: customHeaders, ...restOptions } = options;
+
+    // --- 1. REQUEST INTERCEPTOR ---
+    let url = endpointUrl;
+    if (params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined) searchParams.append(key, String(val));
+      });
+      const queryString = searchParams.toString();
+      if (queryString) {
+        url += (url.includes("?") ? "&" : "?") + queryString;
+      }
+    }
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(customHeaders as Record<string, string>),
+    };
+
+    if (this.authToken && !headers.Authorization) {
+      headers.Authorization = `Bearer ${this.authToken}`;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const method = (restOptions.method || "GET").toUpperCase();
+    const startTime = Date.now();
+
+    // Run registered custom request interceptors
+    for (const interceptor of this.requestInterceptors) {
+      try {
+        await interceptor({ ...options, url, headers });
+      } catch (err) {
+        console.warn("⚠️ [API REQ INTERCEPTOR ERR]", err);
+      }
+    }
+
+    if (__DEV__) {
+      console.log(`🌐 [API REQ] ${method} ${url}`, restOptions.body ? restOptions.body : "");
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...restOptions,
+        method,
+        headers,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+      const latency = Date.now() - startTime;
+
+      // --- 2. RESPONSE INTERCEPTOR ---
+      let responseData: any = null;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        responseData = await response.json().catch(() => null);
+      } else {
+        responseData = await response.text().catch(() => null);
+      }
+
+      // Run registered custom response interceptors
+      for (const interceptor of this.responseInterceptors) {
+        try {
+          const intercepted = await interceptor(responseData, response);
+          if (intercepted !== undefined) {
+            responseData = intercepted;
+          }
+        } catch (err) {
+          console.warn("⚠️ [API RES INTERCEPTOR ERR]", err);
+        }
+      }
+
+      if (__DEV__) {
+        console.log(`✅ [API RES ${response.status}] ${method} ${url} (${latency}ms)`, responseData);
+      }
+
+      if (!response.ok) {
+        if (response.status === 401 && this.onUnauthorizedHandler) {
+          this.onUnauthorizedHandler();
+        }
+
+        const serverMessage =
+          responseData?.detail ||
+          responseData?.message ||
+          `Request failed with status ${response.status}`;
+
+        throw new ApiError(serverMessage, response.status, responseData);
+      }
+
+      return responseData as T;
+    } catch (err: any) {
+      clearTimeout(timer);
+      const latency = Date.now() - startTime;
+
+      if (err.name === "AbortError") {
+        console.error(`⏱️ [API TIMEOUT] ${method} ${url} timed out after ${timeoutMs}ms`);
+        throw new ApiError(`Request to ${url} timed out after ${timeoutMs / 1000}s. Please check your connection.`, 408);
+      }
+
+      if (__DEV__) {
+        console.error(`❌ [API ERR] ${method} ${url} (${latency}ms):`, err?.message || err);
+      }
+
+      if (err instanceof ApiError) {
+        throw err;
+      }
+
+      throw new ApiError(
+        err?.message || "Network request failed. Ensure device and server are on the same network.",
+        0,
+        err
+      );
+    }
+  }
+
+  public get<T = any>(url: string, options?: RequestOptions): Promise<T> {
+    return this.request<T>(url, { ...options, method: "GET" });
+  }
+
+  public post<T = any>(url: string, body?: any, options?: RequestOptions): Promise<T> {
+    return this.request<T>(url, {
+      ...options,
+      method: "POST",
+      body: body !== undefined ? (typeof body === "string" ? body : JSON.stringify(body)) : undefined,
+    });
+  }
+
+  public put<T = any>(url: string, body?: any, options?: RequestOptions): Promise<T> {
+    return this.request<T>(url, {
+      ...options,
+      method: "PUT",
+      body: body !== undefined ? (typeof body === "string" ? body : JSON.stringify(body)) : undefined,
+    });
+  }
+
+  public delete<T = any>(url: string, options?: RequestOptions): Promise<T> {
+    return this.request<T>(url, { ...options, method: "DELETE" });
+  }
+}
+
+export const apiClient = new ApiClient();

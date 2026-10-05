@@ -76,8 +76,15 @@ async def verify_otp(payload: dict):
     email = payload.get("email", "").strip().lower()
     code = payload.get("code", "").strip()
     expected = DEV_OTP_STORE.get(email)
+
+    print("\n" + "🔥" * 25, flush=True)
+    print(f"🔑 [DEV VERIFY OTP] Email: '{email}', Code entered: '{code}', Expected: '{expected}'", flush=True)
     if code == expected or code == "123456":
+        print(f"✅ >>> OTP VERIFIED SUCCESSFULLY FOR {email} <<<", flush=True)
+        print("🔥" * 25 + "\n", flush=True)
         return {"status": "ok", "verified": True}
+    print(f"❌ >>> OTP VERIFICATION FAILED FOR {email} <<<", flush=True)
+    print("🔥" * 25 + "\n", flush=True)
     return {"status": "error", "verified": False, "message": "Invalid OTP code"}
 
 @app.post("/register")

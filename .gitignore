@@ -1,0 +1,56 @@
+# Root .gitignore for social monorepo (backend + frontend)
+
+# ================================
+# Python & Backend
+# ================================
+venv/
+.venv/
+backend/venv/
+backend/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.sqlite3
+
+# ================================
+# Node.js & React Native / Expo
+# ================================
+node_modules/
+frontend/node_modules/
+**/node_modules/
+.expo/
+frontend/.expo/
+**/dist/
+**/web-build/
+expo-env.d.ts
+*.tsbuildinfo
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# ================================
+# Certificates & Keystores
+# ================================
+*.pem
+*.key
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+
+# ================================
+# OS & IDE metadata
+# ================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*.log
+.agents/
