@@ -9,6 +9,7 @@ import {
   Dimensions,
   StatusBar,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,6 +27,14 @@ interface HighlightItem {
 export default function ProfileTab() {
   const [activeTab, setActiveTab] = useState<"Posts" | "Replies" | "Media" | "Likes">("Posts");
   const [selectedPhoto, setSelectedPhoto] = useState<any | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  }, []);
 
   const stats = [
     { label: "Posts", value: "248" },
@@ -100,7 +109,18 @@ export default function ProfileTab() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
+      >
         {/* Profile Header Row: Avatar on LEFT, Stats on RIGHT */}
         <View style={styles.profileHeaderRow}>
           <Image

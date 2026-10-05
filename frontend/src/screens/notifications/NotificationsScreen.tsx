@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -165,6 +166,14 @@ export function NotificationsScreen() {
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({
     n5: true,
   });
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  }, []);
 
   const toggleFollow = (id: string) => {
     setFollowingMap((prev) => ({
@@ -227,6 +236,14 @@ export function NotificationsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
       >
         {/* 3. Follow Requests Banner (Instagram Style) */}
         <TouchableOpacity style={styles.requestsBanner} activeOpacity={0.7}>
