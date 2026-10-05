@@ -9,9 +9,6 @@ import {
   Image,
   Dimensions,
   StatusBar,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,7 +20,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Local image references
 const IMG_AVATAR = require("../../../assets/images/profile_gokul_avatar.jpg");
 
-interface ChatThread {
+export interface ChatThread {
   id: string;
   user: {
     username: string;
@@ -36,7 +33,7 @@ interface ChatThread {
   unreadCount: number;
 }
 
-interface NoteItem {
+export interface NoteItem {
   id: string;
   user: {
     username: string;
@@ -47,14 +44,14 @@ interface NoteItem {
   isSelf?: boolean;
 }
 
-interface MessageBubble {
+export interface MessageBubble {
   id: string;
   sender: "me" | "them";
   text: string;
   time: string;
 }
 
-const NOTES_DATA: NoteItem[] = [
+export const NOTES_DATA: NoteItem[] = [
   {
     id: "self",
     user: {
@@ -103,7 +100,7 @@ const NOTES_DATA: NoteItem[] = [
   },
 ];
 
-const CHATS_DATA: ChatThread[] = [
+export const CHATS_DATA: ChatThread[] = [
   {
     id: "c1",
     user: {
@@ -182,19 +179,6 @@ export function MessagesScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"primary" | "general" | "requests">("primary");
-  const [activeChat, setActiveChat] = useState<ChatThread | null>(null);
-  const [chatMessages, setChatMessages] = useState<Record<string, MessageBubble[]>>({
-    c1: [
-      { id: "m1", sender: "them", text: "Hey! Did you check out the new travel photos?", time: "10:30 AM" },
-      { id: "m2", sender: "me", text: "Yes! The Cinque Terre coast looks breathtaking 😍", time: "10:32 AM" },
-      { id: "m3", sender: "them", text: "Haha that's amazing! See you tomorrow 🙌", time: "10:35 AM" },
-    ],
-    c2: [
-      { id: "m1", sender: "them", text: "Hey Gokul, here are the photos from yesterday.", time: "9:00 AM" },
-      { id: "m2", sender: "them", text: "Sent you the raw files from the mountain hike.", time: "9:05 AM" },
-    ],
-  });
-  const [inputMsg, setInputMsg] = useState("");
 
   const filteredChats = useMemo(() => {
     if (!searchQuery.trim()) return CHATS_DATA;
@@ -206,21 +190,6 @@ export function MessagesScreen() {
         c.lastMessage.toLowerCase().includes(q)
     );
   }, [searchQuery]);
-
-  const handleSendMessage = () => {
-    if (!inputMsg.trim() || !activeChat) return;
-    const newMsg: MessageBubble = {
-      id: `msg_${Date.now()}`,
-      sender: "me",
-      text: inputMsg.trim(),
-      time: "Just now",
-    };
-    setChatMessages((prev) => ({
-      ...prev,
-      [activeChat.id]: [...(prev[activeChat.id] || []), newMsg],
-    }));
-    setInputMsg("");
-  };
 
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
@@ -358,7 +327,12 @@ export function MessagesScreen() {
                 key={chat.id}
                 style={styles.chatRow}
                 activeOpacity={0.7}
-                onPress={() => setActiveChat(chat)}
+                onPress={() =>
+                  router.push({
+                    pathname: "/chat/[id]",
+                    params: { id: chat.id },
+                  })
+                }
               >
                 {/* Avatar with Online indicator */}
                 <View style={styles.chatAvatarContainer}>
@@ -394,126 +368,6 @@ export function MessagesScreen() {
           })}
         </View>
       </ScrollView>
-
-      {/* 6. Instagram Style Direct Chat Detail Modal */}
-      <Modal
-        visible={!!activeChat}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setActiveChat(null)}
-      >
-        {activeChat && (
-          <SafeAreaView edges={["top", "bottom"]} style={styles.chatModalContainer}>
-            {/* Chat Modal Header */}
-            <View style={styles.chatModalHeader}>
-              <TouchableOpacity
-                onPress={() => setActiveChat(null)}
-                style={{ padding: 4 }}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Ionicons name="arrow-back" size={24} color="#0F172A" />
-              </TouchableOpacity>
-
-              <View style={styles.chatModalUserHeader}>
-                <Image source={activeChat.user.avatar} style={styles.chatModalAvatar} />
-                <View>
-                  <Text style={styles.chatModalUsername}>{activeChat.user.fullName}</Text>
-                  <Text style={styles.chatModalStatus}>
-                    {activeChat.user.isOnline ? "Active now" : "Active recently"}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.chatModalHeaderRight}>
-                <TouchableOpacity style={{ padding: 4 }}>
-                  <Ionicons name="call-outline" size={22} color="#0F172A" />
-                </TouchableOpacity>
-                <TouchableOpacity style={{ padding: 4 }}>
-                  <Ionicons name="videocam-outline" size={24} color="#0F172A" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Messages Scroll View */}
-            <ScrollView
-              style={styles.chatMessagesArea}
-              contentContainerStyle={{ paddingVertical: 14, gap: 10 }}
-              showsVerticalScrollIndicator={false}
-            >
-              {(chatMessages[activeChat.id] || []).map((msg) => {
-                const isMe = msg.sender === "me";
-                return (
-                  <View
-                    key={msg.id}
-                    style={[
-                      styles.bubbleRow,
-                      isMe ? styles.bubbleRowMe : styles.bubbleRowThem,
-                    ]}
-                  >
-                    {!isMe && (
-                      <Image source={activeChat.user.avatar} style={styles.bubbleAvatar} />
-                    )}
-                    <View
-                      style={[
-                        styles.bubble,
-                        isMe ? styles.bubbleMe : styles.bubbleThem,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.bubbleText,
-                          isMe ? styles.bubbleTextMe : styles.bubbleTextThem,
-                        ]}
-                      >
-                        {msg.text}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
-
-            {/* Input Bar */}
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
-            >
-              <View style={styles.chatInputBar}>
-                <TouchableOpacity style={styles.inputCamBtn}>
-                  <Ionicons name="camera" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-
-                <TextInput
-                  style={styles.chatTextInput}
-                  placeholder="Message..."
-                  placeholderTextColor="#8E8E93"
-                  value={inputMsg}
-                  onChangeText={setInputMsg}
-                  multiline={false}
-                  onSubmitEditing={handleSendMessage}
-                />
-
-                {inputMsg.trim().length > 0 ? (
-                  <TouchableOpacity onPress={handleSendMessage} style={styles.sendBtn}>
-                    <Text style={styles.sendBtnText}>Send</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={styles.inputActionIcons}>
-                    <TouchableOpacity style={{ padding: 4 }}>
-                      <Ionicons name="mic-outline" size={22} color="#0F172A" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{ padding: 4 }}>
-                      <Ionicons name="image-outline" size={22} color="#0F172A" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{ padding: 4 }}>
-                      <Ionicons name="happy-outline" size={22} color="#0F172A" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            </KeyboardAvoidingView>
-          </SafeAreaView>
-        )}
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -740,134 +594,5 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: Colors.primary,
-  },
-  // Modal Chat View
-  chatModalContainer: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  chatModalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E2E8F0",
-  },
-  chatModalUserHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  chatModalAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  chatModalUsername: {
-    fontFamily: FontFamily.bold,
-    fontSize: 14,
-    color: "#0F172A",
-  },
-  chatModalStatus: {
-    fontFamily: FontFamily.regular,
-    fontSize: 11,
-    color: "#10B981",
-  },
-  chatModalHeaderRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  chatMessagesArea: {
-    flex: 1,
-    paddingHorizontal: 14,
-  },
-  bubbleRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    marginBottom: 4,
-  },
-  bubbleRowMe: {
-    justifyContent: "flex-end",
-  },
-  bubbleRowThem: {
-    justifyContent: "flex-start",
-  },
-  bubbleAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginRight: 8,
-    marginBottom: 2,
-  },
-  bubble: {
-    maxWidth: "76%",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-  },
-  bubbleMe: {
-    backgroundColor: Colors.primary,
-    borderBottomRightRadius: 4,
-  },
-  bubbleThem: {
-    backgroundColor: "#EFEFEF",
-    borderBottomLeftRadius: 4,
-  },
-  bubbleText: {
-    fontFamily: FontFamily.regular,
-    fontSize: 14.5,
-    lineHeight: 20,
-  },
-  bubbleTextMe: {
-    color: "#FFFFFF",
-  },
-  bubbleTextThem: {
-    color: "#0F172A",
-  },
-  chatInputBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: 0.5,
-    borderTopColor: "#E2E8F0",
-    backgroundColor: "#FFFFFF",
-  },
-  inputCamBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
-  chatTextInput: {
-    flex: 1,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    height: 40,
-    fontFamily: FontFamily.regular,
-    fontSize: 14,
-    color: "#0F172A",
-  },
-  sendBtn: {
-    marginLeft: 10,
-    paddingHorizontal: 6,
-  },
-  sendBtnText: {
-    fontFamily: FontFamily.bold,
-    fontSize: 14.5,
-    color: Colors.primary,
-  },
-  inputActionIcons: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginLeft: 8,
   },
 });

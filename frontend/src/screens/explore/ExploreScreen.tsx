@@ -51,7 +51,7 @@ export interface ExplorePost {
 }
 
 // 18 Rich Explore Posts
-const EXPLORE_POSTS: ExplorePost[] = [
+export const EXPLORE_POSTS: ExplorePost[] = [
   {
     id: "p1",
     type: "photo",
@@ -234,9 +234,17 @@ export function ExploreScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<ExplorePost | null>(null);
+  const [previewPost, setPreviewPost] = useState<ExplorePost | null>(null);
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
   const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
+
+  const handlePostPress = (post: ExplorePost) => {
+    router.push({ pathname: "/post/[id]", params: { id: post.id } });
+  };
+
+  const handlePostLongPress = (post: ExplorePost) => {
+    setPreviewPost(post);
+  };
 
   const toggleLike = (postId: string) => {
     setLikedPosts((prev) => ({
@@ -345,7 +353,7 @@ export function ExploreScreen() {
                 onPress={() => {
                   Keyboard.dismiss();
                   setIsSearchFocused(false);
-                  setSelectedPost(p);
+                  handlePostPress(p);
                 }}
               >
                 <Image source={p.author.avatar} style={styles.searchResultAvatar} />
@@ -407,24 +415,24 @@ export function ExploreScreen() {
                     {/* Left 2x2 Square Grid */}
                     <View style={styles.squares2x2Grid}>
                       <View style={styles.squaresRow}>
-                        {squares[0] && renderTile(squares[0], SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)}
-                        {squares[1] && renderTile(squares[1], SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)}
+                        {squares[0] && renderTile(squares[0], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
+                        {squares[1] && renderTile(squares[1], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
                       </View>
                       <View style={styles.squaresRow}>
-                        {squares[2] && renderTile(squares[2], SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)}
-                        {squares[3] && renderTile(squares[3], SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)}
+                        {squares[2] && renderTile(squares[2], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
+                        {squares[3] && renderTile(squares[3], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
                       </View>
                     </View>
 
                     {/* Right Tall Tile (Reel/Video) */}
-                    {tallItem && renderTile(tallItem, SQUARE_SIZE, TALL_HEIGHT, setSelectedPost, true)}
+                    {tallItem && renderTile(tallItem, SQUARE_SIZE, TALL_HEIGHT, handlePostPress, handlePostLongPress, true)}
                   </View>
 
                   {/* Any remaining item in block */}
                   {remaining.length > 0 && (
                     <View style={styles.standardRow}>
                       {remaining.map((item) =>
-                        renderTile(item, SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)
+                        renderTile(item, SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)
                       )}
                     </View>
                   )}
@@ -441,17 +449,17 @@ export function ExploreScreen() {
               <View key={`block-${blockIndex}`} style={styles.staggeredBlock}>
                 <View style={styles.staggeredRow}>
                   {/* Left Tall Tile (Reel/Video) */}
-                  {tallItem && renderTile(tallItem, SQUARE_SIZE, TALL_HEIGHT, setSelectedPost, true)}
+                  {tallItem && renderTile(tallItem, SQUARE_SIZE, TALL_HEIGHT, handlePostPress, handlePostLongPress, true)}
 
                   {/* Right 2x2 Square Grid */}
                   <View style={styles.squares2x2Grid}>
                     <View style={styles.squaresRow}>
-                      {squares[0] && renderTile(squares[0], SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)}
-                      {squares[1] && renderTile(squares[1], SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)}
+                      {squares[0] && renderTile(squares[0], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
+                      {squares[1] && renderTile(squares[1], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
                     </View>
                     <View style={styles.squaresRow}>
-                      {squares[2] && renderTile(squares[2], SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)}
-                      {squares[3] && renderTile(squares[3], SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)}
+                      {squares[2] && renderTile(squares[2], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
+                      {squares[3] && renderTile(squares[3], SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)}
                     </View>
                   </View>
                 </View>
@@ -460,7 +468,7 @@ export function ExploreScreen() {
                 {remaining.length > 0 && (
                   <View style={styles.standardRow}>
                     {remaining.map((item) =>
-                      renderTile(item, SQUARE_SIZE, SQUARE_SIZE, setSelectedPost)
+                      renderTile(item, SQUARE_SIZE, SQUARE_SIZE, handlePostPress, handlePostLongPress)
                     )}
                   </View>
                 )}
@@ -472,113 +480,65 @@ export function ExploreScreen() {
         </ScrollView>
       )}
 
-      {/* 4. Instagram Style Full Post Detail Modal */}
-      <Modal
-        visible={!!selectedPost}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setSelectedPost(null)}
-      >
-        {selectedPost && (
-          <SafeAreaView edges={["top", "bottom"]} style={styles.modalContainer}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <TouchableOpacity
-                onPress={() => setSelectedPost(null)}
-                style={styles.modalBackBtn}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Ionicons name="arrow-back" size={24} color="#0F172A" />
-              </TouchableOpacity>
-              <Text style={styles.modalHeaderTitle}>Explore</Text>
-              <View style={{ width: 32 }} />
+      {/* 4. Instagram Style Peek & Pop Quick Preview (Long Press) */}
+      {previewPost && (
+        <View style={styles.peekOverlay}>
+          <TouchableOpacity
+            style={styles.peekBackdrop}
+            activeOpacity={1}
+            onPress={() => setPreviewPost(null)}
+          />
+          <View style={styles.peekCard}>
+            {/* Author */}
+            <View style={styles.peekHeader}>
+              <Image source={previewPost.author.avatar} style={styles.peekAvatar} />
+              <View>
+                <Text style={styles.peekUsername}>{previewPost.author.username}</Text>
+                <Text style={styles.peekFullName}>{previewPost.author.fullName}</Text>
+              </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
-              {/* Author Row */}
-              <View style={styles.postAuthorRow}>
-                <TouchableOpacity
-                  style={styles.postAuthorLeft}
-                  onPress={() => {
-                    setSelectedPost(null);
-                    router.push("/(tabs)/profile");
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Image source={selectedPost.author.avatar} style={styles.postAuthorAvatar} />
-                  <View>
-                    <Text style={styles.postAuthorUsername}>{selectedPost.author.username}</Text>
-                    <Text style={styles.postAuthorFullName}>{selectedPost.author.fullName}</Text>
-                  </View>
-                </TouchableOpacity>
+            {/* Media */}
+            <Image source={previewPost.image} style={styles.peekImage} resizeMode="cover" />
 
-                <TouchableOpacity style={styles.postFollowBtn}>
-                  <Text style={styles.postFollowBtnText}>Follow</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Main Media Image */}
-              <View style={styles.postMediaWrapper}>
-                <Image
-                  source={selectedPost.image}
-                  style={styles.postMediaImage}
-                  resizeMode="cover"
+            {/* Actions */}
+            <View style={styles.peekActions}>
+              <TouchableOpacity
+                style={styles.peekActionBtn}
+                onPress={() => toggleLike(previewPost.id)}
+              >
+                <Ionicons
+                  name={likedPosts[previewPost.id] ? "heart" : "heart-outline"}
+                  size={24}
+                  color={likedPosts[previewPost.id] ? "#ED4956" : "#0F172A"}
                 />
-              </View>
+              </TouchableOpacity>
 
-              {/* Interactive Actions (Heart, Comment, Share, Bookmark) */}
-              <View style={styles.postActionsBar}>
-                <View style={styles.postActionsLeft}>
-                  <TouchableOpacity
-                    onPress={() => toggleLike(selectedPost.id)}
-                    style={styles.actionBtn}
-                  >
-                    <Ionicons
-                      name={likedPosts[selectedPost.id] ? "heart" : "heart-outline"}
-                      size={26}
-                      color={likedPosts[selectedPost.id] ? "#ED4956" : "#0F172A"}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn}>
-                    <Ionicons name="chatbubble-outline" size={24} color="#0F172A" />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn}>
-                    <Ionicons name="paper-plane-outline" size={24} color="#0F172A" />
-                  </TouchableOpacity>
-                </View>
+              <TouchableOpacity
+                style={styles.peekActionBtn}
+                onPress={() => {
+                  const p = previewPost;
+                  setPreviewPost(null);
+                  handlePostPress(p);
+                }}
+              >
+                <Ionicons name="chatbubble-outline" size={22} color="#0F172A" />
+              </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => toggleSave(selectedPost.id)}>
-                  <Ionicons
-                    name={savedPosts[selectedPost.id] ? "bookmark" : "bookmark-outline"}
-                    size={24}
-                    color="#0F172A"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Likes & Caption */}
-              <View style={styles.postDetailsSection}>
-                <Text style={styles.postLikesText}>
-                  {(selectedPost.likes + (likedPosts[selectedPost.id] ? 1 : 0)).toLocaleString()} likes
-                </Text>
-
-                <Text style={styles.postCaption}>
-                  <Text style={styles.postCaptionAuthor}>{selectedPost.author.username} </Text>
-                  {selectedPost.caption}
-                </Text>
-
-                <TouchableOpacity style={styles.viewCommentsBtn}>
-                  <Text style={styles.viewCommentsText}>
-                    View all {selectedPost.comments} comments
-                  </Text>
-                </TouchableOpacity>
-
-                <Text style={styles.postTimeAgo}>{selectedPost.timeAgo}</Text>
-              </View>
-            </ScrollView>
-          </SafeAreaView>
-        )}
-      </Modal>
+              <TouchableOpacity
+                style={styles.peekActionBtn}
+                onPress={() => toggleSave(previewPost.id)}
+              >
+                <Ionicons
+                  name={savedPosts[previewPost.id] ? "bookmark" : "bookmark-outline"}
+                  size={22}
+                  color="#0F172A"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -589,6 +549,7 @@ function renderTile(
   width: number,
   height: number,
   onPress: (post: ExplorePost) => void,
+  onLongPress: (post: ExplorePost) => void,
   isTall: boolean = false
 ) {
   return (
@@ -596,6 +557,8 @@ function renderTile(
       key={post.id}
       activeOpacity={0.88}
       onPress={() => onPress(post)}
+      onLongPress={() => onLongPress(post)}
+      delayLongPress={220}
       style={[styles.tile, { width, height }]}
     >
       <Image source={post.image} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -774,120 +737,75 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginLeft: 8,
   },
-  // Modal Post Detail
-  modalContainer: {
-    flex: 1,
+  // Peek & Pop Overlay
+  peekOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  peekBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.72)",
+  },
+  peekCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  peekHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
     backgroundColor: "#FFFFFF",
   },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#E2E8F0",
+  peekAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
-  modalBackBtn: {
-    padding: 4,
-  },
-  modalHeaderTitle: {
-    fontFamily: FontFamily.bold,
-    fontSize: 16,
-    color: "#0F172A",
-  },
-  postAuthorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  postAuthorLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  postAuthorAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-  },
-  postAuthorUsername: {
+  peekUsername: {
     fontFamily: FontFamily.bold,
     fontSize: 13.5,
     color: "#0F172A",
   },
-  postAuthorFullName: {
+  peekFullName: {
     fontFamily: FontFamily.regular,
     fontSize: 11.5,
     color: "#64748B",
   },
-  postFollowBtn: {
-    backgroundColor: "#EFEFEF",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  postFollowBtnText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 13,
-    color: "#0F172A",
-  },
-  postMediaWrapper: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 1.15,
+  peekImage: {
+    width: "100%",
+    height: SCREEN_WIDTH - 48,
     backgroundColor: "#000000",
   },
-  postMediaImage: {
-    width: "100%",
-    height: "100%",
-  },
-  postActionsBar: {
+  peekActions: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-around",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 0.5,
+    borderTopColor: "#F1F5F9",
   },
-  postActionsLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  actionBtn: {
-    padding: 2,
-  },
-  postDetailsSection: {
-    paddingHorizontal: 14,
-  },
-  postLikesText: {
-    fontFamily: FontFamily.bold,
-    fontSize: 13.5,
-    color: "#0F172A",
-    marginBottom: 6,
-  },
-  postCaption: {
-    fontFamily: FontFamily.regular,
-    fontSize: 13.5,
-    color: "#0F172A",
-    lineHeight: 19,
-  },
-  postCaptionAuthor: {
-    fontFamily: FontFamily.bold,
-  },
-  viewCommentsBtn: {
-    marginTop: 6,
-  },
-  viewCommentsText: {
-    fontFamily: FontFamily.regular,
-    fontSize: 13,
-    color: "#8E8E93",
-  },
-  postTimeAgo: {
-    fontFamily: FontFamily.regular,
-    fontSize: 11,
-    color: "#8E8E93",
-    marginTop: 6,
+  peekActionBtn: {
+    padding: 8,
   },
 });
