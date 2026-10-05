@@ -61,6 +61,32 @@ async def list_notifications(ctx: QueryContext, args: dict[str, Any]):
     user_id = ctx.auth_user["sub"]
     return await ctx.db.find("notifications", {"recipient_id": user_id}, sort_field="created_at", sort_order=-1, limit=30)
 
+@sync_engine.query("users:checkUsername")
+async def check_username_query(ctx: QueryContext, args: dict[str, Any]):
+    username = args.get("username", "").strip().lower()
+    if len(username) < 3:
+        return {"available": False, "exists": False, "message": "Username must be at least 3 characters"}
+    users = await ctx.db.find("users", {"username": username}, limit=1)
+    if users:
+        u = users[0]
+        return {
+            "available": False,
+            "exists": True,
+            "username": username,
+            "message": f"@{username} is already taken",
+            "user": {
+                "username": u.get("username"),
+                "full_name": u.get("full_name"),
+                "avatar_url": u.get("avatar_url"),
+            }
+        }
+    return {
+        "available": True,
+        "exists": False,
+        "username": username,
+        "message": f"@{username} is available"
+    }
+
 # ==========================================
 # MUTATIONS (Transactional, Modifies DB)
 # ==========================================

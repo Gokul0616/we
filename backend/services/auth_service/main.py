@@ -87,6 +87,32 @@ async def verify_otp(payload: dict):
     print("🔥" * 25 + "\n", flush=True)
     return {"status": "error", "verified": False, "message": "Invalid OTP code"}
 
+@app.get("/check-username")
+async def check_username(username: str):
+    clean_username = username.strip().lower()
+    if len(clean_username) < 3:
+        return {"available": False, "exists": False, "message": "Username must be at least 3 characters"}
+    db = get_database()
+    existing = await db.users.find_one({"username": clean_username})
+    if existing:
+        return {
+            "available": False,
+            "exists": True,
+            "username": clean_username,
+            "message": f"@{clean_username} is already taken",
+            "user": {
+                "username": existing.get("username"),
+                "full_name": existing.get("full_name"),
+                "avatar_url": existing.get("avatar_url"),
+            }
+        }
+    return {
+        "available": True,
+        "exists": False,
+        "username": clean_username,
+        "message": f"@{clean_username} is available"
+    }
+
 @app.post("/register")
 async def register(user_in: UserRegister):
     db = get_database()

@@ -101,24 +101,27 @@ export default function ProfileTab() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Profile Identity Block */}
-        <View style={styles.identitySection}>
+        {/* Profile Header Row: Avatar on LEFT, Stats on RIGHT */}
+        <View style={styles.profileHeaderRow}>
+          <Image
+            source={require("../../../assets/images/profile_gokul_avatar.jpg")}
+            style={styles.avatar}
+          />
+
+          <View style={styles.statsContainerRight}>
+            {stats.map((stat) => (
+              <View key={stat.label} style={styles.statColumn}>
+                <Text style={styles.statValue}>{stat.value}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Bio & Details Section Underneath */}
+        <View style={styles.bioSection}>
           <Text style={styles.displayName}>Gokul Ssb</Text>
           <Text style={styles.handle}>@gokul_ssb</Text>
-        </View>
-
-        {/* Stats Row: Posts | Followers | Following */}
-        <View style={styles.statsRow}>
-          {stats.map((stat) => (
-            <View key={stat.label} style={styles.statColumn}>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Bio Section */}
-        <View style={styles.bioSection}>
           <Text style={styles.bioLine}>Building cool things</Text>
           <Text style={styles.bioLine}>Developer | Traveler | Foodie</Text>
           <View style={styles.locationRow}>
@@ -258,30 +261,29 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 32,
   },
-  identitySection: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-  },
-  displayName: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: -0.4,
-  },
-  handle: {
-    fontSize: 14,
-    color: "#64748B",
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  statsRow: {
+  profileHeaderRow: {
     flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
-    marginTop: 18,
-    gap: 36,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  avatar: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 2,
+    borderColor: "#E2E8F0",
+  },
+  statsContainerRight: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    marginLeft: 18,
   },
   statColumn: {
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   statValue: {
     fontSize: 18,
@@ -289,15 +291,27 @@ const styles = StyleSheet.create({
     color: "#0F172A",
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: "#64748B",
     fontWeight: "500",
-    marginTop: 1,
+    marginTop: 2,
   },
   bioSection: {
     paddingHorizontal: 20,
-    marginTop: 16,
+    marginTop: 12,
     gap: 3,
+  },
+  displayName: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.2,
+  },
+  handle: {
+    fontSize: 13.5,
+    color: "#64748B",
+    fontWeight: "500",
+    marginBottom: 4,
   },
   bioLine: {
     fontSize: 14.5,

@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/theme";
 import { ENDPOINTS } from "../../constants/api";
 import { apiClient } from "../../services/apiClient";
+import { toast } from "../../services/toastService";
 
 interface CompleteProfileScreenProps {
   email: string;
@@ -36,12 +37,54 @@ export function CompleteProfileScreen({
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<"fullName" | "username" | "password" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [usernameCheck, setUsernameCheck] = useState<{
+    loading?: boolean;
+    available?: boolean;
+    exists?: boolean;
+    message?: string;
+    user?: { username: string; full_name?: string; avatar_url?: string };
+  } | null>(null);
 
   const fullNameRef = useRef<TextInput>(null);
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
+  const checkTimeoutRef = useRef<any>(null);
 
-  const isValid = fullName.trim().length >= 2 && username.trim().length >= 3 && password.length >= 6;
+  const isUsernameTaken = usernameCheck?.exists === true;
+  const isValid =
+    fullName.trim().length >= 2 &&
+    username.trim().length >= 3 &&
+    !isUsernameTaken &&
+    !usernameCheck?.loading &&
+    password.length >= 6;
+
+  const handleUsernameChange = (raw: string) => {
+    const clean = raw.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase();
+    setUsername(clean);
+
+    if (checkTimeoutRef.current) {
+      clearTimeout(checkTimeoutRef.current);
+    }
+
+    if (clean.length < 3) {
+      setUsernameCheck(null);
+      return;
+    }
+
+    setUsernameCheck({ loading: true });
+
+    checkTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await apiClient.get(ENDPOINTS.auth.checkUsername(clean), { silent: true });
+        setUsernameCheck(res);
+        if (res?.exists) {
+          toast.error(`@${clean} is already taken!`);
+        }
+      } catch {
+        setUsernameCheck(null);
+      }
+    }, 300);
+  };
 
   const handleSubmit = async () => {
     if (!isValid || isLoading) return;
@@ -151,6 +194,8 @@ export function CompleteProfileScreen({
                   style={[
                     styles.inputCard,
                     focusedField === "username" && styles.inputCardFocused,
+                    usernameCheck?.exists && styles.inputCardError,
+                    usernameCheck?.available && styles.inputCardSuccess,
                   ]}
                 >
                   <Text style={styles.atPrefix}>@</Text>
@@ -160,9 +205,7 @@ export function CompleteProfileScreen({
                     placeholder="gokul_ssb"
                     placeholderTextColor="#94A3B8"
                     value={username}
-                    onChangeText={(t) =>
-                      setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())
-                    }
+                    onChangeText={handleUsernameChange}
                     autoCapitalize="none"
                     autoCorrect={false}
                     textContentType="username"
@@ -172,15 +215,52 @@ export function CompleteProfileScreen({
                     onSubmitEditing={() => passwordRef.current?.focus()}
                     selectionColor={Colors.primary}
                   />
-                  {username.length > 0 && (
+                  {usernameCheck?.loading ? (
+                    <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 6 }} />
+                  ) : null}
+                  {username.length > 0 && !usernameCheck?.loading && (
                     <TouchableOpacity
-                      onPress={() => setUsername("")}
+                      onPress={() => {
+                        setUsername("");
+                        setUsernameCheck(null);
+                      }}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
                       <Ionicons name="close-circle" size={18} color="#94A3B8" />
                     </TouchableOpacity>
                   )}
                 </TouchableOpacity>
+
+                {/* Instant Username Availability & Taken Details */}
+                {usernameCheck && !usernameCheck.loading ? (
+                  <View
+                    style={[
+                      styles.usernameStatusRow,
+                      usernameCheck.exists ? styles.statusRowTaken : styles.statusRowAvailable,
+                    ]}
+                  >
+                    <Ionicons
+                      name={usernameCheck.exists ? "alert-circle" : "checkmark-circle"}
+                      size={16}
+                      color={usernameCheck.exists ? "#EF4444" : "#10B981"}
+                    />
+                    <View style={{ marginLeft: 6, flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.usernameStatusText,
+                          { color: usernameCheck.exists ? "#DC2626" : "#059669" },
+                        ]}
+                      >
+                        {usernameCheck.message}
+                      </Text>
+                      {usernameCheck.exists && usernameCheck.user?.full_name ? (
+                        <Text style={styles.usernameTakenDetail}>
+                          Already registered to: {usernameCheck.user.full_name}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : null}
               </View>
 
               {/* Password */}
@@ -324,6 +404,42 @@ const styles = StyleSheet.create({
   inputCardFocused: {
     borderColor: Colors.primary,
     backgroundColor: "#FFFFFF",
+  },
+  inputCardError: {
+    borderColor: "#EF4444",
+    backgroundColor: "#FEF2F2",
+  },
+  inputCardSuccess: {
+    borderColor: "#10B981",
+    backgroundColor: "#F0FDF4",
+  },
+  usernameStatusRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginTop: 6,
+  },
+  statusRowTaken: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  statusRowAvailable: {
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  usernameStatusText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  usernameTakenDetail: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+    fontWeight: "500",
   },
   atPrefix: {
     fontSize: 16,

@@ -23,6 +23,7 @@ export const ENDPOINTS = {
     register: `${API_CONFIG.AUTH_URL}/register`,
     sendOtp: `${API_CONFIG.AUTH_URL}/send-otp`,
     verifyOtp: `${API_CONFIG.AUTH_URL}/verify-otp`,
+    checkUsername: (username: string) => `${API_CONFIG.AUTH_URL}/check-username?username=${encodeURIComponent(username)}`,
     me: `${API_CONFIG.AUTH_URL}/me`,
     health: `${API_CONFIG.AUTH_URL}/health`,
   },
