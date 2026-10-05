@@ -159,9 +159,13 @@ class ApiClient {
         const serverMessage =
           responseData?.detail ||
           responseData?.message ||
-          (typeof responseData === "string" ? responseData : `Request failed with status ${response.status}`);
+          (typeof responseData === "string" && responseData.length > 0
+            ? responseData
+            : `Request failed with status ${response.status}`);
 
-        if (!options.silent) {
+        // Always show toast for server errors (>= 500) or when silent is not set
+        const isServerError = response.status >= 500;
+        if (!options.silent || isServerError) {
           toast.error(serverMessage);
         }
 
@@ -176,9 +180,7 @@ class ApiClient {
       if (err.name === "AbortError") {
         const timeoutMsg = `Request to ${url} timed out after ${timeoutMs / 1000}s. Please check connection.`;
         console.log(`⏱️ [API TIMEOUT] ${method} ${url} timed out after ${timeoutMs}ms`);
-        if (!options.silent) {
-          toast.error(timeoutMsg);
-        }
+        toast.error(timeoutMsg);
         throw new ApiError(timeoutMsg, 408);
       }
 
@@ -191,9 +193,7 @@ class ApiClient {
       }
 
       const netMsg = err?.message || "Network request failed. Ensure device and server are on the same network.";
-      if (!options.silent) {
-        toast.error(netMsg);
-      }
+      toast.error(netMsg);
 
       throw new ApiError(netMsg, 0, err);
     }

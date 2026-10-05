@@ -75,13 +75,16 @@ export function CompleteProfileScreen({
 
     checkTimeoutRef.current = setTimeout(async () => {
       try {
-        const res = await apiClient.get(ENDPOINTS.auth.checkUsername(clean), { silent: true });
+        const res = await apiClient.get(ENDPOINTS.auth.checkUsername(clean));
         setUsernameCheck(res);
         if (res?.exists) {
           toast.error(`@${clean} is already taken!`);
         }
-      } catch {
+      } catch (err: any) {
         setUsernameCheck(null);
+        if (err?.message) {
+          toast.error(err.message);
+        }
       }
     }, 300);
   };

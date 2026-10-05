@@ -21,6 +21,9 @@ class ToastService {
   }
 
   public show(message: string, type: ToastType = "error", duration: number = 3500) {
+    if (__DEV__) {
+      console.log(`🍞 [TOAST ${type.toUpperCase()}]`, message);
+    }
     if (this.currentTimeout) {
       clearTimeout(this.currentTimeout);
       this.currentTimeout = null;

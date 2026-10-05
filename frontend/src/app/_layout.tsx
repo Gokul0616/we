@@ -4,7 +4,7 @@ import { GlobalToast } from "../components/GlobalToast";
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={{ flex: 1 }}>
       <Stack
         screenOptions={{
           headerShown: false,
