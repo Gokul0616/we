@@ -16,6 +16,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors } from "../../constants/theme";
 
+import { ExplorePost } from "../explore/ExploreScreen";
+
 const { width } = Dimensions.get("window");
 
 interface Story {
@@ -42,6 +44,106 @@ interface PostItem {
   isSaved?: boolean;
 }
 
+// Export feed posts matching ExplorePost shape so post/[id] can display them seamlessly
+export const FEED_POSTS: ExplorePost[] = [
+  {
+    id: "f1",
+    type: "photo",
+    category: "Travel",
+    author: {
+      username: "alex_wanderer",
+      fullName: "Alex Rivera",
+      avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
+      isMe: false,
+    },
+    image: require("../../../assets/images/home_feed_bali_post.jpg"),
+    likes: 2400,
+    comments: 189,
+    caption: "Grateful for moments like this 🌅\nLife is better outside.",
+    timeAgo: "2h ago",
+  },
+  {
+    id: "f2",
+    type: "photo",
+    category: "Travel",
+    author: {
+      username: "sarah_k",
+      fullName: "Sarah Jenkins",
+      avatar: require("../../../assets/images/onboarding_slide_3.jpg"),
+      isMe: false,
+    },
+    image: require("../../../assets/images/cinque_terre_post.jpg"),
+    likes: 1820,
+    comments: 87,
+    caption: "Some places just feel like home 💙",
+    timeAgo: "4h ago",
+  },
+  {
+    id: "f3",
+    type: "photo",
+    category: "Nature",
+    author: {
+      username: "travel.diary",
+      fullName: "Sophie Dupont",
+      avatar: require("../../../assets/images/onboarding_slide_2.jpg"),
+      isMe: false,
+    },
+    image: require("../../../assets/images/splash_mountain.jpg"),
+    likes: 3150,
+    comments: 240,
+    caption: "Just returned from an amazing week in Iceland! The landscapes are unreal. 🇮🇸🏔️",
+    timeAgo: "6h ago",
+  },
+];
+
+const INITIAL_POST_ITEMS: PostItem[] = [
+  {
+    id: "f1",
+    author: {
+      username: "alex_wanderer",
+      avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
+      location: "Bali, Indonesia",
+    },
+    image: require("../../../assets/images/home_feed_bali_post.jpg"),
+    likesCount: 2400,
+    commentsCount: 189,
+    caption: "Grateful for moments like this 🌅\nLife is better outside.",
+    timeAgo: "2h",
+    isLiked: false,
+    isSaved: false,
+  },
+  {
+    id: "f2",
+    author: {
+      username: "sarah_k",
+      avatar: require("../../../assets/images/onboarding_slide_3.jpg"),
+      location: "Cinque Terre, Italy",
+    },
+    image: require("../../../assets/images/cinque_terre_post.jpg"),
+    likesCount: 1820,
+    commentsCount: 87,
+    caption: "Some places just feel like home 💙",
+    timeAgo: "4h",
+    isLiked: true,
+    isSaved: false,
+  },
+  {
+    id: "f3",
+    author: {
+      username: "travel.diary",
+      avatar: require("../../../assets/images/onboarding_slide_2.jpg"),
+      location: "Reykjavik, Iceland",
+    },
+    image: require("../../../assets/images/splash_mountain.jpg"),
+    likesCount: 3150,
+    commentsCount: 240,
+    caption: "Just returned from an amazing week in Iceland! The landscapes are unreal. 🇮🇸🏔️",
+    timeAgo: "6h",
+    isLiked: false,
+    isSaved: true,
+  },
+];
+
 interface FeedScreenProps {
   onSignOut?: () => void;
 }
@@ -49,6 +151,7 @@ interface FeedScreenProps {
 export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [posts, setPosts] = useState<PostItem[]>(INITIAL_POST_ITEMS);
 
   // Stories matching Screen 04
   const stories: Story[] = [
@@ -89,55 +192,6 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
       hasUnseenStory: true,
     },
   ];
-
-  // Feed posts replicating Screen 04
-  const [posts, setPosts] = useState<PostItem[]>([
-    {
-      id: "1",
-      author: {
-        username: "alex_wanderer",
-        avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
-        location: "Bali, Indonesia",
-      },
-      image: require("../../../assets/images/home_feed_bali_post.jpg"),
-      likesCount: 2400,
-      commentsCount: 189,
-      caption: "Grateful for moments like this 🌅\nLife is better outside.",
-      timeAgo: "2h",
-      isLiked: false,
-      isSaved: false,
-    },
-    {
-      id: "2",
-      author: {
-        username: "sarah_k",
-        avatar: require("../../../assets/images/onboarding_slide_3.jpg"),
-        location: "Cinque Terre, Italy",
-      },
-      image: require("../../../assets/images/cinque_terre_post.jpg"),
-      likesCount: 1820,
-      commentsCount: 87,
-      caption: "Some places just feel like home 💙",
-      timeAgo: "4h",
-      isLiked: true,
-      isSaved: false,
-    },
-    {
-      id: "3",
-      author: {
-        username: "travel.diary",
-        avatar: require("../../../assets/images/onboarding_slide_2.jpg"),
-        location: "Reykjavik, Iceland",
-      },
-      image: require("../../../assets/images/splash_mountain.jpg"),
-      likesCount: 3150,
-      commentsCount: 240,
-      caption: "Just returned from an amazing week in Iceland! The landscapes are unreal. 🇮🇸🏔️",
-      timeAgo: "6h",
-      isLiked: false,
-      isSaved: true,
-    },
-  ]);
 
   const handleToggleLike = (postId: string) => {
     setPosts((prev) =>
@@ -259,9 +313,18 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
       </View>
 
       {/* Post Image with Rounded Corners */}
-      <View style={styles.imageWrapper}>
+      <TouchableOpacity
+        style={styles.imageWrapper}
+        activeOpacity={0.94}
+        onPress={() =>
+          router.push({
+            pathname: "/post/[id]",
+            params: { id: item.id },
+          })
+        }
+      >
         <Image source={item.image} style={styles.postImage} resizeMode="cover" />
-      </View>
+      </TouchableOpacity>
 
       {/* Actions Row */}
       <View style={styles.actionsBar}>
@@ -283,7 +346,16 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            activeOpacity={0.7}
+            onPress={() =>
+              router.push({
+                pathname: "/post/[id]",
+                params: { id: item.id },
+              })
+            }
+          >
             <Ionicons name="chatbubble-outline" size={22} color="#0F172A" />
             <Text style={styles.actionCount}>{item.commentsCount}</Text>
           </TouchableOpacity>
@@ -308,7 +380,16 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
       {/* Post Caption & Comments */}
       <View style={styles.captionContainer}>
         <Text style={styles.captionText}>{item.caption}</Text>
-        <TouchableOpacity style={styles.viewCommentsBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.viewCommentsBtn}
+          activeOpacity={0.7}
+          onPress={() =>
+            router.push({
+              pathname: "/post/[id]",
+              params: { id: item.id },
+            })
+          }
+        >
           <Text style={styles.viewCommentsText}>
             View all {item.commentsCount} comments
           </Text>

@@ -754,8 +754,9 @@ export function ExploreScreen() {
               opacity: backdropAnim,
             },
           ]}
+          pointerEvents="box-none"
         >
-          {/* Backdrop Tap to Dismiss */}
+          {/* Dark Background Overlay with Tap to Dismiss anywhere on screen */}
           <TouchableOpacity
             style={styles.peekBackdrop}
             activeOpacity={1}
@@ -763,6 +764,7 @@ export function ExploreScreen() {
           />
 
           <Animated.View
+            pointerEvents="box-none"
             style={[
               styles.peekCardContainer,
               {
@@ -799,110 +801,119 @@ export function ExploreScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* 2. Floating Context Menu (Below Card on Left, matching exact Instagram layout) */}
-            <View style={styles.instagramContextMenu}>
-              {/* Like */}
-              <TouchableOpacity
-                style={styles.contextMenuItem}
-                activeOpacity={0.65}
-                onPress={() => toggleLike(previewPost.id)}
-              >
-                <Ionicons
-                  name={
-                    likedPosts[previewPost.id] ? "heart" : "heart-outline"
-                  }
-                  size={22}
-                  color={
-                    likedPosts[previewPost.id] ? "#ED4956" : "#0F172A"
-                  }
-                />
-                <Text
-                  style={[
-                    styles.contextMenuLabel,
-                    likedPosts[previewPost.id] && {
-                      color: "#ED4956",
-                      fontFamily: FontFamily.semiBold,
-                    },
-                  ]}
+            {/* 2. Floating Context Menu Row: Menu on Left + Dismissable empty space on Right */}
+            <View style={styles.menuRowContainer} pointerEvents="box-none">
+              <View style={styles.instagramContextMenu}>
+                {/* Like */}
+                <TouchableOpacity
+                  style={styles.contextMenuItem}
+                  activeOpacity={0.65}
+                  onPress={() => toggleLike(previewPost.id)}
                 >
-                  {likedPosts[previewPost.id] ? "Liked" : "Like"}
-                </Text>
-              </TouchableOpacity>
+                  <Ionicons
+                    name={
+                      likedPosts[previewPost.id] ? "heart" : "heart-outline"
+                    }
+                    size={22}
+                    color={
+                      likedPosts[previewPost.id] ? "#ED4956" : "#0F172A"
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.contextMenuLabel,
+                      likedPosts[previewPost.id] && {
+                        color: "#ED4956",
+                        fontFamily: FontFamily.semiBold,
+                      },
+                    ]}
+                  >
+                    {likedPosts[previewPost.id] ? "Liked" : "Like"}
+                  </Text>
+                </TouchableOpacity>
 
-              {/* Repost */}
+                {/* Repost */}
+                <TouchableOpacity
+                  style={styles.contextMenuItem}
+                  activeOpacity={0.65}
+                  onPress={() => closePreview()}
+                >
+                  <Ionicons name="repeat-outline" size={22} color="#0F172A" />
+                  <Text style={styles.contextMenuLabel}>Repost</Text>
+                </TouchableOpacity>
+
+                {/* Share */}
+                <TouchableOpacity
+                  style={styles.contextMenuItem}
+                  activeOpacity={0.65}
+                  onPress={() => {
+                    const authorUser = previewPost.author.username;
+                    const chatId = USERNAME_TO_CHAT[authorUser] || "c1";
+                    closePreview(() =>
+                      router.push({
+                        pathname: "/chat/[id]",
+                        params: { id: chatId },
+                      })
+                    );
+                  }}
+                >
+                  <Ionicons
+                    name="paper-plane-outline"
+                    size={21}
+                    color="#0F172A"
+                  />
+                  <Text style={styles.contextMenuLabel}>Share</Text>
+                </TouchableOpacity>
+
+                {/* View Profile */}
+                <TouchableOpacity
+                  style={styles.contextMenuItem}
+                  activeOpacity={0.65}
+                  onPress={() =>
+                    closePreview(() => handleAuthorPress(previewPost.author))
+                  }
+                >
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={22}
+                    color="#0F172A"
+                  />
+                  <Text style={styles.contextMenuLabel}>View Profile</Text>
+                </TouchableOpacity>
+
+                {/* Not interested */}
+                <TouchableOpacity
+                  style={styles.contextMenuItem}
+                  activeOpacity={0.65}
+                  onPress={() => closePreview()}
+                >
+                  <Ionicons name="eye-off-outline" size={21} color="#0F172A" />
+                  <Text style={styles.contextMenuLabel}>Not interested</Text>
+                </TouchableOpacity>
+
+                {/* Report */}
+                <TouchableOpacity
+                  style={styles.contextMenuItem}
+                  activeOpacity={0.65}
+                  onPress={() => closePreview()}
+                >
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={22}
+                    color="#ED4956"
+                  />
+                  <Text style={[styles.contextMenuLabel, { color: "#ED4956" }]}>
+                    Report
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Tapping to the side of the options closes the popup */}
               <TouchableOpacity
-                style={styles.contextMenuItem}
-                activeOpacity={0.65}
+                style={styles.menuSideDismiss}
+                activeOpacity={1}
                 onPress={() => closePreview()}
-              >
-                <Ionicons name="repeat-outline" size={22} color="#0F172A" />
-                <Text style={styles.contextMenuLabel}>Repost</Text>
-              </TouchableOpacity>
-
-              {/* Share */}
-              <TouchableOpacity
-                style={styles.contextMenuItem}
-                activeOpacity={0.65}
-                onPress={() => {
-                  const authorUser = previewPost.author.username;
-                  const chatId = USERNAME_TO_CHAT[authorUser] || "c1";
-                  closePreview(() =>
-                    router.push({
-                      pathname: "/chat/[id]",
-                      params: { id: chatId },
-                    })
-                  );
-                }}
-              >
-                <Ionicons
-                  name="paper-plane-outline"
-                  size={21}
-                  color="#0F172A"
-                />
-                <Text style={styles.contextMenuLabel}>Share</Text>
-              </TouchableOpacity>
-
-              {/* View Profile */}
-              <TouchableOpacity
-                style={styles.contextMenuItem}
-                activeOpacity={0.65}
-                onPress={() =>
-                  closePreview(() => handleAuthorPress(previewPost.author))
-                }
-              >
-                <Ionicons
-                  name="person-circle-outline"
-                  size={22}
-                  color="#0F172A"
-                />
-                <Text style={styles.contextMenuLabel}>View Profile</Text>
-              </TouchableOpacity>
-
-              {/* Not interested */}
-              <TouchableOpacity
-                style={styles.contextMenuItem}
-                activeOpacity={0.65}
-                onPress={() => closePreview()}
-              >
-                <Ionicons name="eye-off-outline" size={21} color="#0F172A" />
-                <Text style={styles.contextMenuLabel}>Not interested</Text>
-              </TouchableOpacity>
-
-              {/* Report */}
-              <TouchableOpacity
-                style={styles.contextMenuItem}
-                activeOpacity={0.65}
-                onPress={() => closePreview()}
-              >
-                <Ionicons
-                  name="alert-circle-outline"
-                  size={22}
-                  color="#ED4956"
-                />
-                <Text style={[styles.contextMenuLabel, { color: "#ED4956" }]}>
-                  Report
-                </Text>
-              </TouchableOpacity>
+              />
             </View>
           </Animated.View>
         </Animated.View>
@@ -934,7 +945,11 @@ function renderRichTile(
       delayLongPress={180}
       style={[styles.tile, { width, height }]}
     >
-      <Image source={post.image} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Image
+        source={post.image}
+        style={{ width, height }}
+        resizeMode="cover"
+      />
 
       {/* Modern Frosted Scrim with Metrics at bottom */}
       <LinearGradient
@@ -1117,7 +1132,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    backgroundColor: "rgba(0, 0, 0, 0.72)",
   },
   peekCardContainer: {
     width: "100%",
@@ -1164,8 +1179,12 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   // Instagram Floating Vertical Context Menu (below card, left aligned)
-  instagramContextMenu: {
+  menuRowContainer: {
+    flexDirection: "row",
+    width: "100%",
     marginTop: 12,
+  },
+  instagramContextMenu: {
     width: 235,
     backgroundColor: "rgba(255, 255, 255, 0.94)",
     borderRadius: 22,
@@ -1175,6 +1194,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 18,
     elevation: 16,
+  },
+  menuSideDismiss: {
+    flex: 1,
+    alignSelf: "stretch",
   },
   contextMenuItem: {
     flexDirection: "row",

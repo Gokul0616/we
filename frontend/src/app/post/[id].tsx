@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
 import { EXPLORE_POSTS, ExplorePost } from "../../screens/explore/ExploreScreen";
+import { FEED_POSTS } from "../../screens/feed/FeedScreen";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -24,9 +25,9 @@ export default function PostDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  // Find post from explore posts or fallback
+  // Find post from explore posts or feed posts or fallback
   const post = useMemo<ExplorePost>(() => {
-    const found = EXPLORE_POSTS.find((p) => p.id === id);
+    const found = EXPLORE_POSTS.find((p) => p.id === id) || FEED_POSTS.find((p) => p.id === id);
     if (found) return found;
     return (
       EXPLORE_POSTS[0] || {
