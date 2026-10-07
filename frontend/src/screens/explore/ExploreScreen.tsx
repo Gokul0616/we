@@ -11,12 +11,15 @@ import {
   RefreshControl,
   Animated,
   Vibration,
+  Platform,
 } from "react-native";
+import { MenuView } from "@expo/ui/community/menu";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TILE_GAP = 1.5;
@@ -29,7 +32,7 @@ const IMG_FOOD = require("../../../assets/images/explore_food.jpg");
 const IMG_CINQUE = require("../../../assets/images/cinque_terre_post.jpg");
 const IMG_BALI = require("../../../assets/images/home_feed_bali_post.jpg");
 const IMG_MOUNTAIN = require("../../../assets/images/splash_mountain.jpg");
-const IMG_AVATAR = require("../../../assets/images/profile_gokul_avatar.jpg");
+const IMG_AVATAR = require("../../../assets/images/onboarding_hero.jpg");
 const IMG_HERO = require("../../../assets/images/onboarding_hero.jpg");
 const IMG_SLIDE_2 = require("../../../assets/images/onboarding_slide_2.jpg");
 const IMG_SLIDE_3 = require("../../../assets/images/onboarding_slide_3.jpg");
@@ -92,8 +95,8 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     category: "Travel",
     image: IMG_BALI,
     author: {
-      username: "gokul_ssb",
-      fullName: "Gokul Ssb",
+      username: "me",
+      fullName: "You",
       avatar: IMG_AVATAR,
       isMe: true, // MY POST!
     },
@@ -124,8 +127,8 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     category: "Nature",
     image: IMG_MOUNTAIN,
     author: {
-      username: "gokul_ssb",
-      fullName: "Gokul Ssb",
+      username: "me",
+      fullName: "You",
       avatar: IMG_AVATAR,
       isMe: true, // MY POST!
     },
@@ -316,8 +319,8 @@ export const EXPLORE_POSTS: ExplorePost[] = [
     category: "Travel",
     image: IMG_BALI,
     author: {
-      username: "gokul_ssb",
-      fullName: "Gokul Ssb",
+      username: "me",
+      fullName: "You",
       avatar: IMG_AVATAR,
       isMe: true, // MY POST!
     },
@@ -370,6 +373,7 @@ type GridSection =
 
 export function ExploreScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [previewPost, setPreviewPost] = useState<ExplorePost | null>(null);
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
@@ -382,7 +386,7 @@ export function ExploreScreen() {
 
   // Route to My Profile or Others' Profile based on ownership
   const handleAuthorPress = (author: { username: string; fullName: string; isMe?: boolean }) => {
-    if (author.isMe || author.username === "gokul_ssb" || author.username === "gokul7") {
+    if (author.isMe) {
       router.push("/(tabs)/profile");
     } else {
       router.push({
@@ -396,7 +400,75 @@ export function ExploreScreen() {
   };
 
   const handlePostPress = (post: ExplorePost) => {
-    router.push({ pathname: "/post/[id]", params: { id: post.id } });
+    const mediaUri = typeof post.image === "object" && post.image?.uri ? post.image.uri : undefined;
+    const avatarUri = typeof post.author?.avatar === "object" && post.author?.avatar?.uri ? post.author.avatar.uri : undefined;
+    router.push({
+      pathname: "/post/[id]",
+      params: {
+        id: post.id,
+        media_url: mediaUri,
+        caption: post.caption,
+        author_username: post.author.username,
+        author_fullName: post.author.fullName,
+        author_avatar: avatarUri,
+        likes_count: String(post.likes || 0),
+        comments_count: String(post.comments || 0),
+      },
+    });
+  };
+
+  // iOS Native Context Menu Action Handler
+  const handleNativeAction = (actionId: string, post: ExplorePost) => {
+    switch (actionId) {
+      case "like":
+        toggleLike(post.id);
+        break;
+      case "repost":
+        try {
+          Vibration.vibrate(25);
+        } catch (_) {}
+        break;
+      case "share": {
+        const authorUser = post.author.username;
+        const chatId = USERNAME_TO_CHAT[authorUser] || "c1";
+        router.push({
+          pathname: "/chat/[id]",
+          params: { id: chatId },
+        });
+        break;
+      }
+      case "view_profile":
+        handleAuthorPress(post.author);
+        break;
+      case "not_interested":
+        try {
+          Vibration.vibrate(20);
+        } catch (_) {}
+        break;
+      case "report":
+        try {
+          Vibration.vibrate(40);
+        } catch (_) {}
+        break;
+    }
+  };
+
+  const renderTile = (
+    post: ExplorePost,
+    width: number,
+    height: number,
+    isTall: boolean = false
+  ) => {
+    return renderRichTile(
+      post,
+      width,
+      height,
+      handlePostPress,
+      handlePostLongPress,
+      isTall,
+      !!likedPosts[post.id],
+      handleNativeAction
+    );
   };
 
   // Instagram-style long-press Peek with spring physics animation & tactile feedback
@@ -560,23 +632,23 @@ export function ExploreScreen() {
   }, []);
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* 1. Dedicated Search Launcher (Navigates to /search route, NO in-page state display) */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
         <TouchableOpacity
-          style={styles.searchBarBtn}
+          style={[styles.searchBarBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
           activeOpacity={0.82}
           onPress={() => router.push("/search")}
         >
-          <Ionicons name="search" size={17} color="#8E8E93" style={styles.searchIcon} />
-          <Text style={styles.searchPlaceholder}>Search creators, places, tags...</Text>
+          <Ionicons name="search" size={17} color={colors.textSecondary} style={styles.searchIcon} />
+          <Text style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>Search creators, places, tags...</Text>
         </TouchableOpacity>
       </View>
 
       {/* 2. Interactive Horizontal Category Channel Pills */}
-      <View style={styles.categoriesSection}>
+      <View style={[styles.categoriesSection, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -587,17 +659,33 @@ export function ExploreScreen() {
             return (
               <TouchableOpacity
                 key={cat.id}
-                style={[styles.categoryPill, isActive && styles.categoryPillActive]}
+                style={[
+                  styles.categoryPill,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  isActive && {
+                    backgroundColor: isDark ? colors.surfaceHighlight : "#0F172A",
+                    borderColor: isDark ? colors.primary : "#0F172A",
+                  },
+                ]}
                 onPress={() => setSelectedCategory(cat.id)}
                 activeOpacity={0.8}
               >
                 <Ionicons
                   name={cat.icon as any}
                   size={14}
-                  color={isActive ? "#FFFFFF" : "#64748B"}
+                  color={isActive ? (isDark ? colors.primary : "#FFFFFF") : colors.textSecondary}
                   style={{ marginRight: 5 }}
                 />
-                <Text style={[styles.categoryPillText, isActive && styles.categoryPillTextActive]}>
+                <Text
+                  style={[
+                    styles.categoryPillText,
+                    { color: colors.textSecondary },
+                    isActive && {
+                      color: isDark ? colors.textPrimary : "#FFFFFF",
+                      fontFamily: FontFamily.bold,
+                    },
+                  ]}
+                >
                   {cat.label}
                 </Text>
               </TouchableOpacity>
@@ -609,13 +697,13 @@ export function ExploreScreen() {
       {/* 3. 100% Gapless Staggered Instagram Media Grid */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.gridScrollContent}
+        contentContainerStyle={[styles.gridScrollContent, { backgroundColor: colors.background }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.primary}
-            colors={[Colors.primary]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
@@ -626,48 +714,17 @@ export function ExploreScreen() {
                 {/* Left 2x2 Squares */}
                 <View style={styles.squares2x2Grid}>
                   <View style={styles.squaresRow}>
-                    {renderRichTile(
-                      section.squares[0],
-                      SQUARE_SIZE,
-                      SQUARE_SIZE,
-                      handlePostPress,
-                      handlePostLongPress
-                    )}
-                    {renderRichTile(
-                      section.squares[1],
-                      SQUARE_SIZE,
-                      SQUARE_SIZE,
-                      handlePostPress,
-                      handlePostLongPress
-                    )}
+                    {renderTile(section.squares[0], SQUARE_SIZE, SQUARE_SIZE)}
+                    {renderTile(section.squares[1], SQUARE_SIZE, SQUARE_SIZE)}
                   </View>
                   <View style={styles.squaresRow}>
-                    {renderRichTile(
-                      section.squares[2],
-                      SQUARE_SIZE,
-                      SQUARE_SIZE,
-                      handlePostPress,
-                      handlePostLongPress
-                    )}
-                    {renderRichTile(
-                      section.squares[3],
-                      SQUARE_SIZE,
-                      SQUARE_SIZE,
-                      handlePostPress,
-                      handlePostLongPress
-                    )}
+                    {renderTile(section.squares[2], SQUARE_SIZE, SQUARE_SIZE)}
+                    {renderTile(section.squares[3], SQUARE_SIZE, SQUARE_SIZE)}
                   </View>
                 </View>
 
                 {/* Right Tall Reel/Video */}
-                {renderRichTile(
-                  section.tall,
-                  SQUARE_SIZE,
-                  TALL_HEIGHT,
-                  handlePostPress,
-                  handlePostLongPress,
-                  true
-                )}
+                {renderTile(section.tall, SQUARE_SIZE, TALL_HEIGHT, true)}
               </View>
             );
           }
@@ -676,48 +733,17 @@ export function ExploreScreen() {
             return (
               <View key={`sec-${secIndex}`} style={styles.staggeredRow}>
                 {/* Left Tall Reel/Video */}
-                {renderRichTile(
-                  section.tall,
-                  SQUARE_SIZE,
-                  TALL_HEIGHT,
-                  handlePostPress,
-                  handlePostLongPress,
-                  true
-                )}
+                {renderTile(section.tall, SQUARE_SIZE, TALL_HEIGHT, true)}
 
                 {/* Right 2x2 Squares */}
                 <View style={styles.squares2x2Grid}>
                   <View style={styles.squaresRow}>
-                    {renderRichTile(
-                      section.squares[0],
-                      SQUARE_SIZE,
-                      SQUARE_SIZE,
-                      handlePostPress,
-                      handlePostLongPress
-                    )}
-                    {renderRichTile(
-                      section.squares[1],
-                      SQUARE_SIZE,
-                      SQUARE_SIZE,
-                      handlePostPress,
-                      handlePostLongPress
-                    )}
+                    {renderTile(section.squares[0], SQUARE_SIZE, SQUARE_SIZE)}
+                    {renderTile(section.squares[1], SQUARE_SIZE, SQUARE_SIZE)}
                   </View>
                   <View style={styles.squaresRow}>
-                    {renderRichTile(
-                      section.squares[2],
-                      SQUARE_SIZE,
-                      SQUARE_SIZE,
-                      handlePostPress,
-                      handlePostLongPress
-                    )}
-                    {renderRichTile(
-                      section.squares[3],
-                      SQUARE_SIZE,
-                      SQUARE_SIZE,
-                      handlePostPress,
-                      handlePostLongPress
-                    )}
+                    {renderTile(section.squares[2], SQUARE_SIZE, SQUARE_SIZE)}
+                    {renderTile(section.squares[3], SQUARE_SIZE, SQUARE_SIZE)}
                   </View>
                 </View>
               </View>
@@ -729,13 +755,7 @@ export function ExploreScreen() {
             <View key={`sec-${secIndex}`} style={styles.standardRow}>
               {section.items.map((item, itemIdx) => (
                 <React.Fragment key={`${item.id}-${secIndex}-${itemIdx}`}>
-                  {renderRichTile(
-                    item,
-                    SQUARE_SIZE,
-                    SQUARE_SIZE,
-                    handlePostPress,
-                    handlePostLongPress
-                  )}
+                  {renderTile(item, SQUARE_SIZE, SQUARE_SIZE)}
                 </React.Fragment>
               ))}
             </View>
@@ -745,8 +765,8 @@ export function ExploreScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* 4. Instagram Style Animated Peek & Pop Quick Preview (Long Press) */}
-      {previewPost && (
+      {/* 4. Android / Fallback: Instagram Style Animated Peek & Pop Quick Preview (Long Press) */}
+      {previewPost && Platform.OS !== "ios" && (
         <Animated.View
           style={[
             styles.peekOverlay,
@@ -778,15 +798,15 @@ export function ExploreScreen() {
               onPress={() =>
                 closePreview(() => handlePostPress(previewPost))
               }
-              style={styles.peekCard}
+              style={[styles.peekCard, { backgroundColor: colors.surface }]}
             >
               {/* Slim Author Header */}
-              <View style={styles.peekHeader}>
+              <View style={[styles.peekHeader, { backgroundColor: colors.surface }]}>
                 <Image
                   source={previewPost.author.avatar}
                   style={styles.peekAvatar}
                 />
-                <Text style={styles.peekUsername} numberOfLines={1}>
+                <Text style={[styles.peekUsername, { color: colors.textPrimary }]} numberOfLines={1}>
                   {previewPost.author.username}
                 </Text>
               </View>
@@ -803,7 +823,10 @@ export function ExploreScreen() {
 
             {/* 2. Floating Context Menu Row: Menu on Left + Dismissable empty space on Right */}
             <View style={styles.menuRowContainer} pointerEvents="box-none">
-              <View style={styles.instagramContextMenu}>
+              <View style={[
+                styles.instagramContextMenu,
+                { backgroundColor: isDark ? "rgba(30, 41, 59, 0.96)" : "rgba(255, 255, 255, 0.94)" }
+              ]}>
                 {/* Like */}
                 <TouchableOpacity
                   style={styles.contextMenuItem}
@@ -816,12 +839,13 @@ export function ExploreScreen() {
                     }
                     size={22}
                     color={
-                      likedPosts[previewPost.id] ? "#ED4956" : "#0F172A"
+                      likedPosts[previewPost.id] ? "#ED4956" : colors.textPrimary
                     }
                   />
                   <Text
                     style={[
                       styles.contextMenuLabel,
+                      { color: colors.textPrimary },
                       likedPosts[previewPost.id] && {
                         color: "#ED4956",
                         fontFamily: FontFamily.semiBold,
@@ -838,8 +862,8 @@ export function ExploreScreen() {
                   activeOpacity={0.65}
                   onPress={() => closePreview()}
                 >
-                  <Ionicons name="repeat-outline" size={22} color="#0F172A" />
-                  <Text style={styles.contextMenuLabel}>Repost</Text>
+                  <Ionicons name="repeat-outline" size={22} color={colors.textPrimary} />
+                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Repost</Text>
                 </TouchableOpacity>
 
                 {/* Share */}
@@ -860,9 +884,9 @@ export function ExploreScreen() {
                   <Ionicons
                     name="paper-plane-outline"
                     size={21}
-                    color="#0F172A"
+                    color={colors.textPrimary}
                   />
-                  <Text style={styles.contextMenuLabel}>Share</Text>
+                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Share</Text>
                 </TouchableOpacity>
 
                 {/* View Profile */}
@@ -876,9 +900,9 @@ export function ExploreScreen() {
                   <Ionicons
                     name="person-circle-outline"
                     size={22}
-                    color="#0F172A"
+                    color={colors.textPrimary}
                   />
-                  <Text style={styles.contextMenuLabel}>View Profile</Text>
+                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>View Profile</Text>
                 </TouchableOpacity>
 
                 {/* Not interested */}
@@ -887,8 +911,8 @@ export function ExploreScreen() {
                   activeOpacity={0.65}
                   onPress={() => closePreview()}
                 >
-                  <Ionicons name="eye-off-outline" size={21} color="#0F172A" />
-                  <Text style={styles.contextMenuLabel}>Not interested</Text>
+                  <Ionicons name="eye-off-outline" size={21} color={colors.textPrimary} />
+                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Not interested</Text>
                 </TouchableOpacity>
 
                 {/* Report */}
@@ -929,19 +953,20 @@ function renderRichTile(
   height: number,
   onPress: (post: ExplorePost) => void,
   onLongPress: (post: ExplorePost) => void,
-  isTall: boolean = false
+  isTall: boolean = false,
+  isLiked: boolean = false,
+  onNativeAction?: (actionId: string, post: ExplorePost) => void
 ) {
   const isVideo = isTall || post.type === "reel";
   const viewsOrLikes = isVideo
     ? `▶ ${(post.likes * 2.5).toLocaleString()}`
     : `❤️ ${post.likes >= 1000 ? (post.likes / 1000).toFixed(1) + "k" : post.likes}`;
 
-  return (
+  const tileContent = (
     <TouchableOpacity
-      key={post.id}
       activeOpacity={0.88}
       onPress={() => onPress(post)}
-      onLongPress={() => onLongPress(post)}
+      onLongPress={Platform.OS === "ios" ? undefined : () => onLongPress(post)}
       delayLongPress={180}
       style={[styles.tile, { width, height }]}
     >
@@ -977,6 +1002,64 @@ function renderRichTile(
         </View>
       )}
     </TouchableOpacity>
+  );
+
+  // Method 1 (iOS Native): Native UIContextMenu with system haptics, spring lift, and SF Symbols menu
+  if (Platform.OS === "ios" && onNativeAction) {
+    return (
+      <MenuView
+        key={post.id}
+        shouldOpenOnLongPress={true}
+        actions={[
+          {
+            id: "like",
+            title: isLiked ? "Unlike" : "Like",
+            image: isLiked ? "heart.fill" : "heart",
+          },
+          {
+            id: "repost",
+            title: "Repost",
+            image: "arrow.2.squarepath",
+          },
+          {
+            id: "share",
+            title: "Share",
+            image: "paperplane",
+          },
+          {
+            id: "view_profile",
+            title: "View Profile",
+            image: "person.crop.circle",
+          },
+          {
+            id: "not_interested",
+            title: "Not interested",
+            image: "eye.slash",
+          },
+          {
+            id: "report",
+            title: "Report",
+            image: "exclamationmark.bubble",
+            attributes: {
+              destructive: true,
+            },
+          },
+        ]}
+        onPressAction={({ nativeEvent }) => {
+          onNativeAction(nativeEvent.event, post);
+        }}
+        style={{ width, height }}
+      >
+        {tileContent}
+      </MenuView>
+    );
+  }
+
+  // Method 2 (Android / Fallback): Custom React Native touchable with custom peek overlay
+  return (
+    <React.Fragment key={post.id}>
+      {tileContent}
+    </React.Fragment>
   );
 }
 

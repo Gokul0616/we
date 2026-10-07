@@ -5,9 +5,16 @@ import { LoginScreen } from "../screens/auth/LoginScreen";
 export default function LoginRoute() {
   const router = useRouter();
 
+  const handleSuccess = () => {
+    if (router.canDismiss()) {
+      router.dismissAll();
+    }
+    router.replace("/(tabs)");
+  };
+
   return (
     <LoginScreen
-      onSuccess={() => router.replace("/(tabs)")}
+      onSuccess={handleSuccess}
       onGoToSignUp={() => router.push("/signup")}
       onBack={() => router.back()}
     />

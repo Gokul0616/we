@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 import {
   CHATS_DATA,
   ChatThread,
@@ -49,6 +50,7 @@ const INITIAL_MESSAGES: Record<string, MessageBubble[]> = {
 
 export default function ChatScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   // Find the active chat thread
@@ -99,17 +101,17 @@ export default function ChatScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SafeAreaView edges={["top", "bottom"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* Top Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -119,10 +121,12 @@ export default function ChatScreen() {
         >
           <View style={styles.avatarWrapper}>
             <Image source={chatThread.user.avatar} style={styles.headerAvatar} />
-            {chatThread.user.isOnline && <View style={styles.headerOnlineBadge} />}
+            {chatThread.user.isOnline && (
+              <View style={[styles.headerOnlineBadge, { borderColor: colors.background }]} />
+            )}
           </View>
           <View style={styles.headerUserInfo}>
-            <Text style={styles.headerUserName}>{chatThread.user.fullName}</Text>
+            <Text style={[styles.headerUserName, { color: colors.textPrimary }]}>{chatThread.user.fullName}</Text>
             <Text style={styles.headerUserStatus}>
               {chatThread.user.isOnline ? "Active now" : "Active recently"}
             </Text>
@@ -131,31 +135,31 @@ export default function ChatScreen() {
 
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.headerActionBtn}>
-            <Ionicons name="call-outline" size={22} color="#0F172A" />
+            <Ionicons name="call-outline" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerActionBtn}>
-            <Ionicons name="videocam-outline" size={24} color="#0F172A" />
+            <Ionicons name="videocam-outline" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Messages Scroll Area */}
       <ScrollView
-        style={styles.messagesContainer}
+        style={[styles.messagesContainer, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Instagram Profile Header in DM */}
-        <View style={styles.chatIntro}>
+        <View style={[styles.chatIntro, { borderBottomColor: colors.border }]}>
           <Image source={chatThread.user.avatar} style={styles.chatIntroAvatar} />
-          <Text style={styles.chatIntroName}>{chatThread.user.fullName}</Text>
-          <Text style={styles.chatIntroHandle}>@{chatThread.user.username}</Text>
-          <Text style={styles.chatIntroSub}>We · 2.4k followers · 18 posts</Text>
+          <Text style={[styles.chatIntroName, { color: colors.textPrimary }]}>{chatThread.user.fullName}</Text>
+          <Text style={[styles.chatIntroHandle, { color: colors.textSecondary }]}>@{chatThread.user.username}</Text>
+          <Text style={[styles.chatIntroSub, { color: colors.textMuted }]}>We · 2.4k followers · 18 posts</Text>
           <TouchableOpacity
-            style={styles.viewProfileBtn}
+            style={[styles.viewProfileBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
             onPress={() => router.push("/(tabs)/profile")}
           >
-            <Text style={styles.viewProfileBtnText}>View profile</Text>
+            <Text style={[styles.viewProfileBtnText, { color: colors.textPrimary }]}>View profile</Text>
           </TouchableOpacity>
         </View>
 
@@ -175,8 +179,20 @@ export default function ChatScreen() {
               {isHeart ? (
                 <Text style={styles.heartEmoji}>❤️</Text>
               ) : (
-                <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                  <Text style={[styles.bubbleText, isMe ? styles.bubbleTextMe : styles.bubbleTextThem]}>
+                <View
+                  style={[
+                    styles.bubble,
+                    isMe
+                      ? styles.bubbleMe
+                      : [styles.bubbleThem, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }],
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.bubbleText,
+                      isMe ? styles.bubbleTextMe : [styles.bubbleTextThem, { color: colors.textPrimary }],
+                    ]}
+                  >
                     {msg.text}
                   </Text>
                 </View>
@@ -190,16 +206,16 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={styles.composerContainer}>
+        <View style={[styles.composerContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
           <TouchableOpacity style={styles.camBtn} activeOpacity={0.8}>
             <Ionicons name="camera" size={20} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <View style={styles.inputWrapper}>
+          <View style={[styles.inputWrapper, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary }]}
               placeholder="Message..."
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={colors.textMuted}
               value={inputText}
               onChangeText={setInputText}
               multiline={false}
@@ -214,13 +230,13 @@ export default function ChatScreen() {
             ) : (
               <View style={styles.inputRightIcons}>
                 <TouchableOpacity style={styles.iconHit}>
-                  <Ionicons name="mic-outline" size={22} color="#0F172A" />
+                  <Ionicons name="mic-outline" size={22} color={colors.textPrimary} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconHit}>
-                  <Ionicons name="image-outline" size={22} color="#0F172A" />
+                  <Ionicons name="image-outline" size={22} color={colors.textPrimary} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconHit} onPress={handleSendHeart}>
-                  <Ionicons name="heart-outline" size={22} color="#0F172A" />
+                  <Ionicons name="heart-outline" size={22} color={colors.textPrimary} />
                 </TouchableOpacity>
               </View>
             )}

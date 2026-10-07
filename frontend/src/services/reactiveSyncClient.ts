@@ -96,6 +96,22 @@ export class ReactiveSyncClient {
   }
 
   /**
+   * Executes a one-shot query via Gateway HTTP API
+   */
+  public async query<T = any>(queryName: string, args: Record<string, any> = {}): Promise<T> {
+    const res = await fetch(API_CONFIG.GATEWAY_URL + "/api/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: queryName, args, token: this.token }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.detail || "Query failed");
+    }
+    return json.data as T;
+  }
+
+  /**
    * Subscribes to a reactive query. The callback receives data whenever the database changes.
    */
   public subscribe(query: string, args: Record<string, any>, callback: QueryCallback): () => void {

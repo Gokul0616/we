@@ -16,7 +16,7 @@ import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../constants/theme";
 import { EXPLORE_POSTS, ExplorePost } from "../screens/explore/ExploreScreen";
 
-const IMG_AVATAR = require("../../assets/images/profile_gokul_avatar.jpg");
+const IMG_AVATAR = require("../../assets/images/profile_avatar.jpg");
 
 interface RecentSearchItem {
   id: string;
@@ -28,7 +28,7 @@ interface RecentSearchItem {
 }
 
 const INITIAL_RECENT: RecentSearchItem[] = [
-  { id: "s1", type: "account", title: "gokul_ssb", subtitle: "Gokul Ssb (You)", avatar: IMG_AVATAR, isMe: true },
+  { id: "s1", type: "account", title: "my_profile", subtitle: "My Profile (You)", avatar: IMG_AVATAR, isMe: true },
   { id: "s2", type: "tag", title: "#cinqueterre", subtitle: "2.4M posts" },
   { id: "s3", type: "tag", title: "#santorini", subtitle: "5.1M posts" },
   { id: "s4", type: "account", title: "elena_travels", subtitle: "Elena Rossi", isMe: false },
@@ -42,7 +42,7 @@ export default function SearchScreen() {
   const [recentList, setRecentList] = useState<RecentSearchItem[]>(INITIAL_RECENT);
 
   const handleAuthorPress = (author: { username: string; fullName?: string; isMe?: boolean }) => {
-    if (author.isMe || author.username === "gokul_ssb" || author.username === "gokul7") {
+    if (author.isMe) {
       router.push("/(tabs)/profile");
     } else {
       router.push({

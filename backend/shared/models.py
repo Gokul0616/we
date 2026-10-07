@@ -26,12 +26,35 @@ class UserProfile(BaseModel):
     email: str
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    cover_url: Optional[str] = None
     bio: Optional[str] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+    social_links: Optional[dict[str, str]] = Field(default_factory=dict)
+    privacy_settings: Optional[dict[str, Any]] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    username: Optional[str] = None
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    cover_url: Optional[str] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+    social_links: Optional[dict[str, str]] = None
+    privacy_settings: Optional[dict[str, Any]] = None
 
 class PostCreate(BaseModel):
     content: str
     media_url: Optional[str] = None
+    media_urls: Optional[list[str]] = Field(default_factory=list)
+    media_type: Optional[str] = "photo"
+    location: Optional[str] = None
+    tags: Optional[list[str]] = Field(default_factory=list)
+    labels: Optional[list[str]] = Field(default_factory=list)
+    privacy: Optional[str] = "public"
+    add_to_story: Optional[bool] = False
 
 class PostResponse(BaseModel):
     id: str
@@ -40,6 +63,13 @@ class PostResponse(BaseModel):
     author_avatar: Optional[str] = None
     content: str
     media_url: Optional[str] = None
+    media_urls: Optional[list[str]] = Field(default_factory=list)
+    media_type: Optional[str] = "photo"
+    location: Optional[str] = None
+    tags: Optional[list[str]] = Field(default_factory=list)
+    labels: Optional[list[str]] = Field(default_factory=list)
+    privacy: Optional[str] = "public"
+    add_to_story: Optional[bool] = False
     likes_count: int = 0
     comments_count: int = 0
     is_liked: bool = False

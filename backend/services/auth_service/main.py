@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from shared.config import settings
 from shared.database import connect_to_mongo, close_mongo_connection, get_database
-from shared.models import UserRegister, UserLogin, UserProfile
+from shared.models import UserRegister, UserLogin, UserProfile, UserUpdate
 from .security import get_password_hash, verify_password, create_access_token, decode_token
 
 security = HTTPBearer()
@@ -210,7 +210,139 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "email": current_user["email"],
         "full_name": current_user.get("full_name"),
         "avatar_url": current_user.get("avatar_url"),
-        "bio": current_user.get("bio", "")
+        "cover_url": current_user.get("cover_url"),
+        "bio": current_user.get("bio", ""),
+        "location": current_user.get("location", ""),
+        "website": current_user.get("website", ""),
+        "social_links": current_user.get("social_links", {}),
+        "privacy_settings": current_user.get("privacy_settings", {
+            "visibility": "public",
+            "show_activity_status": True,
+            "allow_direct_messages": True,
+            "who_can_tag": "everyone"
+        })
+    }
+
+@app.put("/me")
+async def update_profile(
+    update_data: UserUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_database()
+    user_id = current_user["_id"]
+
+    updates = {}
+    if update_data.full_name is not None:
+        updates["full_name"] = update_data.full_name
+    if update_data.username is not None:
+        new_username = update_data.username.strip().lower()
+        if new_username != current_user["username"]:
+            # Check availability
+            existing = await db.users.find_one({"username": new_username})
+            if existing and str(existing["_id"]) != str(user_id):
+                raise HTTPException(status_code=400, detail="Username is already taken")
+            updates["username"] = new_username
+    if update_data.bio is not None:
+        updates["bio"] = update_data.bio
+    if update_data.avatar_url is not None:
+        updates["avatar_url"] = update_data.avatar_url
+    if update_data.cover_url is not None:
+        updates["cover_url"] = update_data.cover_url
+    if update_data.location is not None:
+        updates["location"] = update_data.location
+    if update_data.website is not None:
+        updates["website"] = update_data.website
+    if update_data.social_links is not None:
+        updates["social_links"] = update_data.social_links
+    if update_data.privacy_settings is not None:
+        updates["privacy_settings"] = update_data.privacy_settings
+
+    if updates:
+        updates["updated_at"] = datetime.now(timezone.utc)
+        await db.users.update_one({"_id": user_id}, {"$set": updates})
+
+    updated_user = await db.users.find_one({"_id": user_id})
+    user_doc = {
+        "id": str(updated_user["_id"]),
+        "username": updated_user["username"],
+        "email": updated_user["email"],
+        "full_name": updated_user.get("full_name"),
+        "avatar_url": updated_user.get("avatar_url"),
+        "cover_url": updated_user.get("cover_url"),
+        "bio": updated_user.get("bio", ""),
+        "location": updated_user.get("location", ""),
+        "website": updated_user.get("website", ""),
+        "social_links": updated_user.get("social_links", {}),
+        "privacy_settings": updated_user.get("privacy_settings", {}),
+    }
+
+    token = create_access_token({"sub": str(updated_user["_id"]), "username": updated_user["username"]})
+
+    return {
+        "status": "ok",
+        "user": user_doc,
+        "access_token": token
+    }
+
+@app.post("/users/{target_username}/toggle-follow")
+async def toggle_follow(
+    target_username: str,
+    current_user: dict = Depends(get_current_user)
+):
+    clean_target = target_username.strip().lower()
+    my_username = current_user.get("username", "").strip().lower()
+    my_id = str(current_user["id"])
+
+    if clean_target == my_username:
+        raise HTTPException(status_code=400, detail="Cannot follow yourself")
+
+    db = get_database()
+    existing = await db.follows.find_one({
+        "follower_id": my_id,
+        "target_username": clean_target
+    })
+
+    if existing:
+        await db.follows.delete_one({"_id": existing["_id"]})
+        is_following = False
+    else:
+        await db.follows.insert_one({
+            "follower_id": my_id,
+            "follower_username": my_username,
+            "target_username": clean_target,
+            "created_at": datetime.now(timezone.utc)
+        })
+        is_following = True
+
+    followers_count = await db.follows.count_documents({"target_username": clean_target})
+
+    return {
+        "status": "ok",
+        "target_username": clean_target,
+        "is_following": is_following,
+        "followers_count": followers_count
+    }
+
+@app.get("/users/{target_username}/follow-status")
+async def get_follow_status(
+    target_username: str,
+    current_user: dict = Depends(get_current_user)
+):
+    clean_target = target_username.strip().lower()
+    my_id = str(current_user["id"])
+
+    db = get_database()
+    existing = await db.follows.find_one({
+        "follower_id": my_id,
+        "target_username": clean_target
+    })
+    followers_count = await db.follows.count_documents({"target_username": clean_target})
+
+    return {
+        "status": "ok",
+        "target_username": clean_target,
+        "is_following": bool(existing),
+        "followers_count": followers_count
     }
 
 if __name__ == "__main__":

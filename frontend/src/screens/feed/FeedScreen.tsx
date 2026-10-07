@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -15,8 +15,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors } from "../../constants/theme";
+import { postService, PostItemData } from "../../services/postService";
+import { syncClient } from "../../services/reactiveSyncClient";
 
 import { ExplorePost } from "../explore/ExploreScreen";
+import { PostMedia } from "../../components/common/PostMedia";
+import { authStorage, StoredUser } from "../../services/authStorage";
+import { useTheme } from "../../context/ThemeContext";
 
 const { width } = Dimensions.get("window");
 
@@ -28,172 +33,147 @@ interface Story {
   isUser?: boolean;
 }
 
-interface PostItem {
+export interface PostItem {
   id: string;
   author: {
     username: string;
     avatar: any;
     location?: string;
+    fullName?: string;
   };
+  mediaType?: string;
   image: any;
   likesCount: number;
   commentsCount: number;
   caption: string;
   timeAgo: string;
+  location?: string;
   isLiked?: boolean;
   isSaved?: boolean;
 }
 
-// Export feed posts matching ExplorePost shape so post/[id] can display them seamlessly
-export const FEED_POSTS: ExplorePost[] = [
-  {
-    id: "f1",
-    type: "photo",
-    category: "Travel",
-    author: {
-      username: "alex_wanderer",
-      fullName: "Alex Rivera",
-      avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
-      isMe: false,
-    },
-    image: require("../../../assets/images/home_feed_bali_post.jpg"),
-    likes: 2400,
-    comments: 189,
-    caption: "Grateful for moments like this 🌅\nLife is better outside.",
-    timeAgo: "2h ago",
-  },
-  {
-    id: "f2",
-    type: "photo",
-    category: "Travel",
-    author: {
-      username: "sarah_k",
-      fullName: "Sarah Jenkins",
-      avatar: require("../../../assets/images/onboarding_slide_3.jpg"),
-      isMe: false,
-    },
-    image: require("../../../assets/images/cinque_terre_post.jpg"),
-    likes: 1820,
-    comments: 87,
-    caption: "Some places just feel like home 💙",
-    timeAgo: "4h ago",
-  },
-  {
-    id: "f3",
-    type: "photo",
-    category: "Nature",
-    author: {
-      username: "travel.diary",
-      fullName: "Sophie Dupont",
-      avatar: require("../../../assets/images/onboarding_slide_2.jpg"),
-      isMe: false,
-    },
-    image: require("../../../assets/images/splash_mountain.jpg"),
-    likes: 3150,
-    comments: 240,
-    caption: "Just returned from an amazing week in Iceland! The landscapes are unreal. 🇮🇸🏔️",
-    timeAgo: "6h ago",
-  },
-];
-
-const INITIAL_POST_ITEMS: PostItem[] = [
-  {
-    id: "f1",
-    author: {
-      username: "alex_wanderer",
-      avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
-      location: "Bali, Indonesia",
-    },
-    image: require("../../../assets/images/home_feed_bali_post.jpg"),
-    likesCount: 2400,
-    commentsCount: 189,
-    caption: "Grateful for moments like this 🌅\nLife is better outside.",
-    timeAgo: "2h",
-    isLiked: false,
-    isSaved: false,
-  },
-  {
-    id: "f2",
-    author: {
-      username: "sarah_k",
-      avatar: require("../../../assets/images/onboarding_slide_3.jpg"),
-      location: "Cinque Terre, Italy",
-    },
-    image: require("../../../assets/images/cinque_terre_post.jpg"),
-    likesCount: 1820,
-    commentsCount: 87,
-    caption: "Some places just feel like home 💙",
-    timeAgo: "4h",
-    isLiked: true,
-    isSaved: false,
-  },
-  {
-    id: "f3",
-    author: {
-      username: "travel.diary",
-      avatar: require("../../../assets/images/onboarding_slide_2.jpg"),
-      location: "Reykjavik, Iceland",
-    },
-    image: require("../../../assets/images/splash_mountain.jpg"),
-    likesCount: 3150,
-    commentsCount: 240,
-    caption: "Just returned from an amazing week in Iceland! The landscapes are unreal. 🇮🇸🏔️",
-    timeAgo: "6h",
-    isLiked: false,
-    isSaved: true,
-  },
-];
+export const FEED_POSTS: PostItem[] = [];
 
 interface FeedScreenProps {
   onSignOut?: () => void;
 }
 
+const mapBackendPost = (bp: any, currentUser?: StoredUser | null): PostItem => {
+  const isMine = currentUser && (currentUser.username === bp.author_username || currentUser.id === bp.author_id);
+  const avatarUrl = isMine && currentUser?.avatar_url
+    ? currentUser.avatar_url
+    : (bp.author_avatar && typeof bp.author_avatar === "string" ? bp.author_avatar : undefined);
+  const fullName = isMine && currentUser?.full_name
+    ? currentUser.full_name
+    : (bp.author_fullName || bp.author_username || "User");
+
+  return {
+    id: String(bp.id || bp._id),
+    author: {
+      username: bp.author_username || "user",
+      fullName: fullName,
+      avatar: avatarUrl
+        ? { uri: avatarUrl }
+        : (bp.author_avatar && typeof bp.author_avatar === "object"
+            ? bp.author_avatar
+            : require("../../../assets/images/onboarding_hero.jpg")),
+      location: bp.location,
+    },
+    location: bp.location,
+    mediaType: bp.media_type || (bp.media_url?.toLowerCase().endsWith(".mp4") || bp.media_url?.toLowerCase().endsWith(".mov") ? "video" : "photo"),
+    image: bp.media_url && typeof bp.media_url === "string"
+      ? { uri: bp.media_url }
+      : bp.media_urls?.[0] && typeof bp.media_urls[0] === "string"
+      ? { uri: bp.media_urls[0] }
+      : require("../../../assets/images/home_feed_bali_post.jpg"),
+    likesCount: bp.likes_count || 0,
+    commentsCount: bp.comments_count || 0,
+    caption: bp.content || "",
+    timeAgo: "2h",
+    isLiked: !!bp.is_liked,
+    isSaved: false,
+  };
+};
+
 export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [posts, setPosts] = useState<PostItem[]>(INITIAL_POST_ITEMS);
+  const [posts, setPosts] = useState<PostItem[]>([]);
 
-  // Stories matching Screen 04
+  useEffect(() => {
+    authStorage.getUser().then((u) => {
+      if (u) setCurrentUser(u);
+    });
+  }, []);
+
+  // Stories
   const stories: Story[] = [
     {
       id: "user",
       username: "Your story",
-      avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
+      avatar: require("../../../assets/images/onboarding_hero.jpg"),
       isUser: true,
     },
     {
       id: "sarah",
       username: "sarah_k",
-      avatar: require("../../../assets/images/onboarding_slide_3.jpg"),
+      avatar: { uri: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&q=80" },
       hasUnseenStory: true,
     },
     {
       id: "travel",
       username: "travel.diary",
-      avatar: require("../../../assets/images/onboarding_slide_2.jpg"),
-      hasUnseenStory: true,
-    },
-    {
-      id: "fitness",
-      username: "fitnesslife",
-      avatar: require("../../../assets/images/onboarding_hero.jpg"),
-      hasUnseenStory: true,
-    },
-    {
-      id: "foodie",
-      username: "foodie_joy",
-      avatar: require("../../../assets/images/onboarding_slide_4.jpg"),
+      avatar: { uri: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=160&q=80" },
       hasUnseenStory: true,
     },
     {
       id: "alex",
       username: "alex_wanderer",
-      avatar: require("../../../assets/images/profile_gokul_avatar.jpg"),
+      avatar: { uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&q=80" },
       hasUnseenStory: true,
     },
   ];
 
-  const handleToggleLike = (postId: string) => {
+  useEffect(() => {
+    // 1. Initial fetch from backend postService
+    postService.getFeedPosts().then((backendPosts) => {
+      if (backendPosts && backendPosts.length > 0) {
+        setPosts(backendPosts.map((p) => mapBackendPost(p, currentUser)));
+      }
+    });
+
+    // 2. Convex-style live reactive sync subscription:
+    const unsubscribeSync = syncClient.subscribe("posts:getFeed", {}, (livePosts: any[]) => {
+      if (Array.isArray(livePosts) && livePosts.length > 0) {
+        setPosts(livePosts.map((p) => mapBackendPost(p, currentUser)));
+      }
+    });
+
+    // 3. Local postService notifications
+    const unsubscribeLocal = postService.subscribe((newPost) => {
+      const formatted = mapBackendPost(newPost, currentUser);
+      setPosts((prev) => [formatted, ...prev.filter((p) => p.id !== formatted.id)]);
+    });
+
+    return () => {
+      unsubscribeSync();
+      unsubscribeLocal();
+    };
+  }, [currentUser]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    const fresh = await postService.getFeedPosts();
+    if (fresh && fresh.length > 0) {
+      setPosts(fresh.map((p) => mapBackendPost(p, currentUser)));
+    }
+    setRefreshing(false);
+  };
+
+  const handleToggleLike = async (postId: string) => {
+    // Optimistic local update
     setPosts((prev) =>
       prev.map((post) => {
         if (post.id === postId) {
@@ -201,12 +181,19 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
           return {
             ...post,
             isLiked: nextLiked,
-            likesCount: nextLiked ? post.likesCount + 1 : post.likesCount - 1,
+            likesCount: nextLiked ? post.likesCount + 1 : Math.max(0, post.likesCount - 1),
           };
         }
         return post;
       })
     );
+
+    // Convex-like mutation auto-synced across cluster
+    try {
+      await syncClient.mutation("posts:like", { postId });
+    } catch (e) {
+      console.warn("Like mutation failed:", e);
+    }
   };
 
   const handleToggleSave = (postId: string) => {
@@ -220,15 +207,8 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
     );
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 800);
-  };
-
   const renderStoriesHeader = () => (
-    <View style={styles.storiesContainer}>
+    <View style={[styles.storiesContainer, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -256,18 +236,19 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
             <View
               style={[
                 styles.storyRing,
+                { backgroundColor: colors.background, borderColor: colors.border },
                 story.hasUnseenStory && styles.storyRingActive,
-                story.isUser && styles.storyRingUser,
+                story.isUser && { borderColor: colors.border },
               ]}
             >
               <Image source={story.avatar} style={styles.storyAvatar} />
               {story.isUser && (
-                <View style={styles.storyAddBadge}>
+                <View style={[styles.storyAddBadge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
                   <Ionicons name="add" size={14} color="#FFFFFF" />
                 </View>
               )}
             </View>
-            <Text style={styles.storyUsername} numberOfLines={1}>
+            <Text style={[styles.storyUsername, { color: colors.textSecondary }]} numberOfLines={1}>
               {story.username}
             </Text>
           </TouchableOpacity>
@@ -277,7 +258,7 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
   );
 
   const renderPost = ({ item }: { item: PostItem }) => (
-    <View style={styles.postCard}>
+    <View style={[styles.postCard, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
       {/* Post Header */}
       <View style={styles.postHeader}>
         <TouchableOpacity
@@ -297,33 +278,47 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
           <Image source={item.author.avatar} style={styles.authorAvatar} />
           <View style={styles.authorInfo}>
             <View style={styles.nameTimeRow}>
-              <Text style={styles.authorUsername}>{item.author.username}</Text>
+              <Text style={[styles.authorUsername, { color: colors.textPrimary }]}>{item.author.username}</Text>
               <Text style={styles.timeDot}>•</Text>
-              <Text style={styles.postTime}>{item.timeAgo}</Text>
+              <Text style={[styles.postTime, { color: colors.textMuted }]}>{item.timeAgo}</Text>
             </View>
             {item.author.location ? (
-              <Text style={styles.locationText}>{item.author.location}</Text>
+              <Text style={[styles.locationText, { color: colors.textSecondary }]}>{item.author.location}</Text>
             ) : null}
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="ellipsis-horizontal" size={20} color="#64748B" />
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
       {/* Post Image with Rounded Corners */}
       <TouchableOpacity
-        style={styles.imageWrapper}
+        style={[styles.imageWrapper, { backgroundColor: colors.surface }]}
         activeOpacity={0.94}
-        onPress={() =>
+        onPress={() => {
+          const mediaUri = typeof item.image === "object" && item.image?.uri ? item.image.uri : undefined;
+          const avatarUri = typeof item.author?.avatar === "object" && item.author?.avatar?.uri ? item.author.avatar.uri : undefined;
           router.push({
             pathname: "/post/[id]",
-            params: { id: item.id },
-          })
-        }
+            params: {
+              id: item.id,
+              media_url: mediaUri,
+              caption: item.caption || "",
+              location: item.location || "",
+              author_username: item.author?.username || "",
+              author_fullName: item.author?.fullName || "",
+              author_avatar: avatarUri,
+              likes_count: String(item.likesCount || 0),
+              comments_count: String(item.commentsCount || 0),
+              is_liked: item.isLiked ? "1" : "0",
+              media_type: item.mediaType || "photo",
+            },
+          });
+        }}
       >
-        <Image source={item.image} style={styles.postImage} resizeMode="cover" />
+        <PostMedia source={item.image} mediaType={item.mediaType} style={styles.postImage} resizeMode="cover" />
       </TouchableOpacity>
 
       {/* Actions Row */}
@@ -337,9 +332,9 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
             <Ionicons
               name={item.isLiked ? "heart" : "heart-outline"}
               size={24}
-              color={item.isLiked ? "#EF4444" : "#0F172A"}
+              color={item.isLiked ? colors.danger : colors.textPrimary}
             />
-            <Text style={[styles.actionCount, item.isLiked && styles.actionCountLiked]}>
+            <Text style={[styles.actionCount, { color: colors.textPrimary }, item.isLiked && styles.actionCountLiked]}>
               {item.likesCount >= 1000
                 ? `${(item.likesCount / 1000).toFixed(1)}K`
                 : item.likesCount}
@@ -349,19 +344,32 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
           <TouchableOpacity
             style={styles.actionBtn}
             activeOpacity={0.7}
-            onPress={() =>
+            onPress={() => {
+              const mediaUri = typeof item.image === "object" && item.image?.uri ? item.image.uri : undefined;
+              const avatarUri = typeof item.author?.avatar === "object" && item.author?.avatar?.uri ? item.author.avatar.uri : undefined;
               router.push({
                 pathname: "/post/[id]",
-                params: { id: item.id },
-              })
-            }
+                params: {
+                  id: item.id,
+                  media_url: mediaUri,
+                  caption: item.caption || "",
+                  location: item.location || "",
+                  author_username: item.author?.username || "",
+                  author_fullName: item.author?.fullName || "",
+                  author_avatar: avatarUri,
+                  likes_count: String(item.likesCount || 0),
+                  comments_count: String(item.commentsCount || 0),
+                  is_liked: item.isLiked ? "1" : "0",
+                },
+              });
+            }}
           >
-            <Ionicons name="chatbubble-outline" size={22} color="#0F172A" />
-            <Text style={styles.actionCount}>{item.commentsCount}</Text>
+            <Ionicons name="chatbubble-outline" size={22} color={colors.textPrimary} />
+            <Text style={[styles.actionCount, { color: colors.textPrimary }]}>{item.commentsCount}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-            <Ionicons name="paper-plane-outline" size={22} color="#0F172A" />
+            <Ionicons name="paper-plane-outline" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -372,25 +380,38 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
           <Ionicons
             name={item.isSaved ? "bookmark" : "bookmark-outline"}
             size={24}
-            color={item.isSaved ? Colors.primary : "#0F172A"}
+            color={item.isSaved ? colors.primary : colors.textPrimary}
           />
         </TouchableOpacity>
       </View>
 
       {/* Post Caption & Comments */}
       <View style={styles.captionContainer}>
-        <Text style={styles.captionText}>{item.caption}</Text>
+        <Text style={[styles.captionText, { color: colors.textPrimary }]}>{item.caption}</Text>
         <TouchableOpacity
           style={styles.viewCommentsBtn}
           activeOpacity={0.7}
-          onPress={() =>
+          onPress={() => {
+            const mediaUri = typeof item.image === "object" && item.image?.uri ? item.image.uri : undefined;
+            const avatarUri = typeof item.author?.avatar === "object" && item.author?.avatar?.uri ? item.author.avatar.uri : undefined;
             router.push({
               pathname: "/post/[id]",
-              params: { id: item.id },
-            })
-          }
+              params: {
+                id: item.id,
+                media_url: mediaUri,
+                caption: item.caption || "",
+                location: item.location || "",
+                author_username: item.author?.username || "",
+                author_fullName: item.author?.fullName || "",
+                author_avatar: avatarUri,
+                likes_count: String(item.likesCount || 0),
+                comments_count: String(item.commentsCount || 0),
+                is_liked: item.isLiked ? "1" : "0",
+              },
+            });
+          }}
         >
-          <Text style={styles.viewCommentsText}>
+          <Text style={[styles.viewCommentsText, { color: colors.textMuted }]}>
             View all {item.commentsCount} comments
           </Text>
         </TouchableOpacity>
@@ -399,21 +420,29 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
   );
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* Top App Header */}
-      <View style={styles.topBar}>
-        <Text style={styles.brandTitle}>WE</Text>
+      <View style={[styles.topBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>WE</Text>
         <View style={styles.topRightActions}>
+          <TouchableOpacity
+            style={styles.topIconBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+            onPress={() => router.push("/create-post")}
+          >
+            <Ionicons name="add-circle-outline" size={26} color={colors.textPrimary} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.topIconBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             activeOpacity={0.7}
             onPress={() => router.push("/notifications")}
           >
-            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
-            <View style={styles.notifBadge} />
+            <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
+            <View style={[styles.notifBadge, { borderColor: colors.background }]} />
           </TouchableOpacity>
         </View>
       </View>
@@ -430,7 +459,8 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.primary}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       />

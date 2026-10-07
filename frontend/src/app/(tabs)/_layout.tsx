@@ -4,8 +4,11 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform } from "react-native";
 import { Colors } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 
 export default function TabLayout() {
+  const { colors } = useTheme();
+
   // On iOS: Use true native UITabBar with SF Symbols
   if (Platform.OS === "ios") {
     return (
@@ -33,17 +36,17 @@ export default function TabLayout() {
     );
   }
 
-  // On Android: Use sleek modern custom bottom tabs (no heavy Material 3 indicator pills)
+  // On Android/Web: Use sleek modern custom bottom tabs
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: "#64748B",
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: "#FFFFFF",
+          backgroundColor: colors.card,
           borderTopWidth: 1,
-          borderTopColor: "#F1F5F9",
+          borderTopColor: colors.border,
           height: 64,
           paddingBottom: 10,
           paddingTop: 8,

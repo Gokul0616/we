@@ -15,11 +15,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Local image references
-const IMG_AVATAR = require("../../../assets/images/profile_gokul_avatar.jpg");
+const IMG_AVATAR = require("../../../assets/images/onboarding_hero.jpg");
 
 export interface ChatThread {
   id: string;
@@ -178,6 +179,7 @@ export const CHATS_DATA: ChatThread[] = [
 
 export function MessagesScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"primary" | "general" | "requests">("primary");
   const [refreshing, setRefreshing] = useState(false);
@@ -201,22 +203,22 @@ export function MessagesScreen() {
   }, [searchQuery]);
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* 1. Instagram Direct Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerUsername}>we.messages</Text>
-          <Ionicons name="chevron-down" size={14} color="#0F172A" style={{ marginLeft: 4 }} />
+          <Text style={[styles.headerUsername, { color: colors.textPrimary }]}>we.messages</Text>
+          <Ionicons name="chevron-down" size={14} color={colors.textPrimary} style={{ marginLeft: 4 }} />
         </View>
 
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerIconBtn}>
-            <Ionicons name="videocam-outline" size={25} color="#0F172A" />
+            <Ionicons name="videocam-outline" size={25} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerIconBtn}>
-            <Ionicons name="create-outline" size={23} color="#0F172A" />
+            <Ionicons name="create-outline" size={23} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -229,19 +231,19 @@ export function MessagesScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.primary}
-            colors={[Colors.primary]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
         {/* 2. Search Bar */}
         <View style={styles.searchBarWrapper}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={16} color="#8E8E93" style={styles.searchIcon} />
+          <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
+            <Ionicons name="search" size={16} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.textPrimary }]}
               placeholder="Search"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoCapitalize="none"
@@ -249,7 +251,7 @@ export function MessagesScreen() {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery("")}>
-                <Ionicons name="close-circle" size={16} color="#8E8E93" />
+                <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -264,26 +266,37 @@ export function MessagesScreen() {
           {NOTES_DATA.map((note) => (
             <TouchableOpacity key={note.id} style={styles.noteItem} activeOpacity={0.8}>
               {/* Floating Note Thought Bubble */}
-              <View style={[styles.noteBubble, note.isSelf && styles.noteBubbleSelf]}>
-                <Text style={styles.noteBubbleText} numberOfLines={1}>
+              <View
+                style={[
+                  styles.noteBubble,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  note.isSelf && { backgroundColor: colors.surfaceHighlight },
+                ]}
+              >
+                <Text style={[styles.noteBubbleText, { color: colors.textPrimary }]} numberOfLines={1}>
                   {note.noteText}
                 </Text>
-                <View style={styles.noteBubbleTail} />
+                <View
+                  style={[
+                    styles.noteBubbleTail,
+                    { backgroundColor: note.isSelf ? colors.surfaceHighlight : colors.surface },
+                  ]}
+                />
               </View>
 
               {/* Avatar with Online Badge */}
               <View style={styles.noteAvatarWrapper}>
                 <Image source={note.user.avatar} style={styles.noteAvatar} />
                 {note.isSelf ? (
-                  <View style={styles.addNoteBadge}>
+                  <View style={[styles.addNoteBadge, { borderColor: colors.background }]}>
                     <Ionicons name="add" size={13} color="#FFFFFF" />
                   </View>
                 ) : note.user.isOnline ? (
-                  <View style={styles.onlineBadge} />
+                  <View style={[styles.onlineBadge, { borderColor: colors.background }]} />
                 ) : null}
               </View>
 
-              <Text style={styles.noteUsername} numberOfLines={1}>
+              <Text style={[styles.noteUsername, { color: colors.textSecondary }]} numberOfLines={1}>
                 {note.user.username}
               </Text>
             </TouchableOpacity>
@@ -291,15 +304,16 @@ export function MessagesScreen() {
         </ScrollView>
 
         {/* 4. Tab Selector (Primary / General / Requests) */}
-        <View style={styles.tabsRow}>
+        <View style={[styles.tabsRow, { borderBottomColor: colors.border }]}>
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === "primary" && styles.tabBtnActive]}
+            style={[styles.tabBtn, activeTab === "primary" && { borderBottomColor: colors.textPrimary }]}
             onPress={() => setActiveTab("primary")}
           >
             <Text
               style={[
                 styles.tabBtnText,
-                activeTab === "primary" && styles.tabBtnTextActive,
+                { color: colors.textMuted },
+                activeTab === "primary" && { color: colors.textPrimary, fontFamily: FontFamily.bold },
               ]}
             >
               Primary
@@ -307,13 +321,14 @@ export function MessagesScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === "general" && styles.tabBtnActive]}
+            style={[styles.tabBtn, activeTab === "general" && { borderBottomColor: colors.textPrimary }]}
             onPress={() => setActiveTab("general")}
           >
             <Text
               style={[
                 styles.tabBtnText,
-                activeTab === "general" && styles.tabBtnTextActive,
+                { color: colors.textMuted },
+                activeTab === "general" && { color: colors.textPrimary, fontFamily: FontFamily.bold },
               ]}
             >
               General
@@ -321,13 +336,14 @@ export function MessagesScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === "requests" && styles.tabBtnActive]}
+            style={[styles.tabBtn, activeTab === "requests" && { borderBottomColor: colors.textPrimary }]}
             onPress={() => setActiveTab("requests")}
           >
             <Text
               style={[
                 styles.tabBtnText,
-                activeTab === "requests" && styles.tabBtnTextActive,
+                { color: colors.textMuted },
+                activeTab === "requests" && { color: colors.textPrimary, fontFamily: FontFamily.bold },
               ]}
             >
               Requests (1)
@@ -354,16 +370,28 @@ export function MessagesScreen() {
                 {/* Avatar with Online indicator */}
                 <View style={styles.chatAvatarContainer}>
                   <Image source={chat.user.avatar} style={styles.chatAvatar} />
-                  {chat.user.isOnline && <View style={styles.chatOnlineBadge} />}
+                  {chat.user.isOnline && (
+                    <View style={[styles.chatOnlineBadge, { borderColor: colors.background }]} />
+                  )}
                 </View>
 
                 {/* Metadata */}
                 <View style={styles.chatMeta}>
-                  <Text style={[styles.chatName, hasUnread && styles.chatNameUnread]}>
+                  <Text
+                    style={[
+                      styles.chatName,
+                      { color: colors.textPrimary },
+                      hasUnread && styles.chatNameUnread,
+                    ]}
+                  >
                     {chat.user.fullName}
                   </Text>
                   <Text
-                    style={[styles.chatPreview, hasUnread && styles.chatPreviewUnread]}
+                    style={[
+                      styles.chatPreview,
+                      { color: colors.textSecondary },
+                      hasUnread && { color: colors.textPrimary, fontFamily: FontFamily.semiBold },
+                    ]}
                     numberOfLines={1}
                   >
                     {chat.lastMessage} · {chat.timeAgo}
@@ -376,7 +404,7 @@ export function MessagesScreen() {
                     <View style={styles.unreadDot} />
                   ) : (
                     <TouchableOpacity style={{ padding: 4 }}>
-                      <Ionicons name="camera-outline" size={22} color="#94A3B8" />
+                      <Ionicons name="camera-outline" size={22} color={colors.textSecondary} />
                     </TouchableOpacity>
                   )}
                 </View>

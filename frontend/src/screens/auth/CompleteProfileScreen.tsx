@@ -19,6 +19,7 @@ import { Colors } from "../../constants/theme";
 import { ENDPOINTS } from "../../constants/api";
 import { apiClient } from "../../services/apiClient";
 import { toast } from "../../services/toastService";
+import { authStorage } from "../../services/authStorage";
 
 interface CompleteProfileScreenProps {
   email: string;
@@ -108,6 +109,10 @@ export function CompleteProfileScreen({
       });
 
       if (data?.access_token) {
+        await authStorage.saveToken(data.access_token);
+        if (data.user) {
+          await authStorage.saveUser(data.user);
+        }
         apiClient.setAuthToken(data.access_token);
         onCompleted(data);
       }
@@ -169,7 +174,7 @@ export function CompleteProfileScreen({
                   <TextInput
                     ref={fullNameRef}
                     style={styles.input}
-                    placeholder="e.g. Gokul Ssb"
+                    placeholder="e.g. Alex Rivera"
                     placeholderTextColor="#94A3B8"
                     value={fullName}
                     onChangeText={setFullName}

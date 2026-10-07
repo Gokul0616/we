@@ -1,0 +1,327 @@
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { userService } from "../../services/userService";
+import { authStorage } from "../../services/authStorage";
+import { toast } from "../../services/toastService";
+import { useTheme } from "../../context/ThemeContext";
+
+type TaggingType = "everyone" | "friends" | "no_one";
+
+interface TaggingOption {
+  type: TaggingType;
+  title: string;
+  badge: string;
+  description: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  bgColor: string;
+}
+
+const TAGGING_OPTIONS: TaggingOption[] = [
+  {
+    type: "everyone",
+    title: "Everyone",
+    badge: "Default",
+    description:
+      "Anyone on WE can tag, mention, and credit your @handle in their posts, reels, stories, and comments.",
+    icon: "earth-outline",
+    color: "#2563EB",
+    bgColor: "#EFF6FF",
+  },
+  {
+    type: "friends",
+    title: "Friends Only",
+    badge: "Mutual Only",
+    description:
+      "Only accounts you follow who also follow you back are permitted to tag or mention you in posts and comments.",
+    icon: "people-outline",
+    color: "#16A34A",
+    bgColor: "#F0FDF4",
+  },
+  {
+    type: "no_one",
+    title: "No One",
+    badge: "Strict",
+    description:
+      "Nobody is permitted to tag or mention your handle anywhere on WE. Any tagging attempts will be automatically blocked.",
+    icon: "close-circle-outline",
+    color: "#DC2626",
+    bgColor: "#FEF2F2",
+  },
+];
+
+export default function WhoCanTagYouScreen() {
+  const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [selectedTagging, setSelectedTagging] = useState<TaggingType>("everyone");
+  const [fullPrivacy, setFullPrivacy] = useState<any>({});
+
+  useEffect(() => {
+    authStorage.getUser().then((u) => {
+      if (u?.privacy_settings) {
+        setFullPrivacy(u.privacy_settings);
+        if (u.privacy_settings.who_can_tag) {
+          setSelectedTagging(u.privacy_settings.who_can_tag);
+        }
+      }
+    });
+  }, []);
+
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const updatedPrivacy = {
+        ...fullPrivacy,
+        who_can_tag: selectedTagging,
+      };
+
+      await userService.updateProfile({
+        privacy_settings: updatedPrivacy,
+      });
+
+      setSaving(false);
+      toast.success("Tagging permissions updated successfully");
+      router.back();
+    } catch (e) {
+      setSaving(false);
+      console.log("Save tagging error:", e);
+      Alert.alert("Error", "Failed to update tagging preferences.");
+    }
+  };
+
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
+      {/* Header */}
+      <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Who Can Tag You</Text>
+        <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={saving}>
+          {saving ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+          Choose who has permission to tag your username in photos, videos, stories, and comments.
+        </Text>
+
+        {TAGGING_OPTIONS.map((opt) => {
+          const isSelected = selectedTagging === opt.type;
+          return (
+            <TouchableOpacity
+              key={opt.type}
+              style={[
+                styles.optionCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                isSelected && { borderColor: colors.primary },
+              ]}
+              activeOpacity={0.8}
+              onPress={() => setSelectedTagging(opt.type)}
+            >
+              <View style={styles.cardHeaderRow}>
+                <View
+                  style={[
+                    styles.iconBox,
+                    { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : opt.bgColor },
+                  ]}
+                >
+                  <Ionicons name={opt.icon} size={22} color={opt.color} />
+                </View>
+                <View style={styles.titleCol}>
+                  <View style={styles.titleBadgeRow}>
+                    <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>{opt.title}</Text>
+                    {opt.badge && (
+                      <View
+                        style={[
+                          styles.badgePill,
+                          { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : opt.bgColor },
+                        ]}
+                      >
+                        <Text style={[styles.badgeText, { color: opt.color }]}>{opt.badge}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.radioCircle,
+                    { borderColor: colors.border },
+                    isSelected && { borderColor: colors.primary },
+                  ]}
+                >
+                  {isSelected && <View style={[styles.radioInnerDot, { backgroundColor: colors.primary }]} />}
+                </View>
+              </View>
+
+              <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>{opt.description}</Text>
+            </TouchableOpacity>
+          );
+        })}
+
+        <View
+          style={[
+            styles.infoBanner,
+            {
+              backgroundColor: isDark ? colors.surface : "#EFF6FF",
+              borderColor: isDark ? colors.border : "#BFDBFE",
+            },
+          ]}
+        >
+          <Ionicons name="information-circle-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+          <Text style={[styles.infoBannerText, { color: colors.primary }]}>
+            When someone tries to tag you and doesn't have permission, they will be notified that tagging is restricted.
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  headerRow: {
+    height: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  headerIconButton: {
+    padding: 6,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  headerSaveButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  headerSaveText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#2563EB",
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#64748B",
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  optionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 2,
+    borderColor: "#E2E8F0",
+  },
+  optionCardActive: {
+    borderColor: "#2563EB",
+    backgroundColor: "#FFFFFF",
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  iconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  titleCol: {
+    flex: 1,
+  },
+  titleBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginRight: 8,
+  },
+  badgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  radioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioCircleActive: {
+    borderColor: "#2563EB",
+  },
+  radioInnerDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#2563EB",
+  },
+  optionDesc: {
+    fontSize: 13,
+    color: "#475569",
+    lineHeight: 19,
+  },
+  infoBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#1E40AF",
+    lineHeight: 18,
+  },
+});

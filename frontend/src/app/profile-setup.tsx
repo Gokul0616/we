@@ -6,10 +6,17 @@ export default function ProfileSetupRoute() {
   const router = useRouter();
   const params = useLocalSearchParams<{ email: string }>();
 
+  const handleCompleted = () => {
+    if (router.canDismiss()) {
+      router.dismissAll();
+    }
+    router.replace("/(tabs)");
+  };
+
   return (
     <CompleteProfileScreen
       email={params.email || ""}
-      onCompleted={() => router.replace("/(tabs)")}
+      onCompleted={handleCompleted}
       onBack={() => router.back()}
     />
   );

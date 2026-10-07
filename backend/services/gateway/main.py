@@ -1,9 +1,11 @@
+import os
 import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Query
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import jwt
 
@@ -12,6 +14,9 @@ from shared.database import connect_to_mongo, close_mongo_connection
 from shared.redis_bus import event_bus
 from sync_engine.engine import sync_engine
 from sync_engine import api_registry
+
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sync_gateway")
@@ -66,6 +71,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.get("/health")
 async def health_check():

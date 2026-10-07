@@ -13,6 +13,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
+import { useTheme } from "../../context/ThemeContext";
+import { userService } from "../../services/userService";
+import { toast } from "../../services/toastService";
 
 // Local image references
 const IMG_SANTORINI = require("../../../assets/images/explore_santorini.jpg");
@@ -114,7 +117,7 @@ const NOTIFICATIONS_SECTIONS: NotificationSection[] = [
           username: "bali_vibes",
           avatar: { uri: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&q=80" },
         },
-        text: 'mentioned you in a comment: "@gokul you have to visit this spot!"',
+        text: 'mentioned you in a comment: "you have to visit this spot!"',
         timeAgo: "2d",
         postImage: IMG_BALI,
       },
@@ -162,6 +165,7 @@ const NOTIFICATIONS_SECTIONS: NotificationSection[] = [
 
 export function NotificationsScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const [activeFilter, setActiveFilter] = useState<"All" | "Follows" | "Likes" | "Comments">("All");
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({
     n5: true,
@@ -175,11 +179,27 @@ export function NotificationsScreen() {
     }, 1000);
   }, []);
 
-  const toggleFollow = (id: string) => {
+  const toggleFollow = async (id: string, targetUsername: string) => {
+    const nextFollowing = !followingMap[id];
     setFollowingMap((prev) => ({
       ...prev,
-      [id]: !prev[id],
+      [id]: nextFollowing,
     }));
+    if (nextFollowing) {
+      toast.success(`Following @${targetUsername}`);
+    } else {
+      toast.info(`Unfollowed @${targetUsername}`);
+    }
+
+    try {
+      const res = await userService.toggleFollow(targetUsername);
+      setFollowingMap((prev) => ({
+        ...prev,
+        [id]: res.isFollowing,
+      }));
+    } catch (e) {
+      console.warn("Toggle follow error in notifications:", e);
+    }
   };
 
   const filteredSections = NOTIFICATIONS_SECTIONS.map((section) => {
@@ -194,35 +214,40 @@ export function NotificationsScreen() {
   }).filter((section) => section.items.length > 0);
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* 1. Header with Back Button */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
         <View style={{ width: 32 }} />
       </View>
 
       {/* 2. Filter Pills Row */}
-      <View style={styles.filterRow}>
+      <View style={[styles.filterRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         {(["All", "Follows", "Likes", "Comments"] as const).map((filter) => {
           const isActive = activeFilter === filter;
           return (
             <TouchableOpacity
               key={filter}
               onPress={() => setActiveFilter(filter)}
-              style={[styles.filterPill, isActive && styles.filterPillActive]}
+              style={[
+                styles.filterPill,
+                { backgroundColor: colors.surface },
+                isActive && { backgroundColor: colors.primary },
+              ]}
             >
               <Text
                 style={[
                   styles.filterPillText,
+                  { color: colors.textSecondary },
                   isActive && styles.filterPillTextActive,
                 ]}
               >
@@ -240,34 +265,34 @@ export function NotificationsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.primary}
-            colors={[Colors.primary]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
         {/* 3. Follow Requests Banner (Instagram Style) */}
-        <TouchableOpacity style={styles.requestsBanner} activeOpacity={0.7}>
+        <TouchableOpacity style={[styles.requestsBanner, { borderBottomColor: colors.border }]} activeOpacity={0.7}>
           <View style={styles.requestsLeft}>
-            <View style={styles.requestsBadgeCircle}>
-              <Ionicons name="person-add" size={18} color="#0F172A" />
+            <View style={[styles.requestsBadgeCircle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="person-add" size={18} color={colors.textPrimary} />
             </View>
             <View>
-              <Text style={styles.requestsTitle}>Follow requests</Text>
-              <Text style={styles.requestsSubtitle}>Approve or ignore requests</Text>
+              <Text style={[styles.requestsTitle, { color: colors.textPrimary }]}>Follow requests</Text>
+              <Text style={[styles.requestsSubtitle, { color: colors.textSecondary }]}>Approve or ignore requests</Text>
             </View>
           </View>
           <View style={styles.requestsRight}>
-            <View style={styles.requestsCountBadge}>
+            <View style={[styles.requestsCountBadge, { backgroundColor: colors.primary }]}>
               <Text style={styles.requestsCountText}>3</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </View>
         </TouchableOpacity>
 
         {/* 4. Time-Grouped Notification List */}
         {filteredSections.map((section) => (
           <View key={section.title} style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{section.title}</Text>
 
             {section.items.map((item) => {
               const isFollowing = !!followingMap[item.id];
@@ -275,7 +300,12 @@ export function NotificationsScreen() {
                 <View key={item.id} style={styles.notificationRow}>
                   {/* User Avatar */}
                   <TouchableOpacity
-                    onPress={() => router.push("/(tabs)/profile")}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/user-profile",
+                        params: { username: item.user.username },
+                      })
+                    }
                     activeOpacity={0.8}
                   >
                     <Image source={item.user.avatar} style={styles.userAvatar} />
@@ -283,29 +313,30 @@ export function NotificationsScreen() {
 
                   {/* Notification Description */}
                   <View style={styles.notificationContent}>
-                    <Text style={styles.notificationText}>
-                      <Text style={styles.notificationUsername}>
+                    <Text style={[styles.notificationText, { color: colors.textPrimary }]}>
+                      <Text style={[styles.notificationUsername, { color: colors.textPrimary }]}>
                         {item.user.username}{" "}
                       </Text>
                       {item.text}{" "}
-                      <Text style={styles.notificationTime}>{item.timeAgo}</Text>
+                      <Text style={[styles.notificationTime, { color: colors.textMuted }]}>{item.timeAgo}</Text>
                     </Text>
                   </View>
 
                   {/* Right Trailing Action: Follow/Following Button OR Post Thumbnail */}
                   {item.type === "follow" ? (
                     <TouchableOpacity
-                      onPress={() => toggleFollow(item.id)}
+                      onPress={() => toggleFollow(item.id, item.user.username)}
                       style={[
                         styles.followBtn,
-                        isFollowing && styles.followingBtn,
+                        { backgroundColor: colors.primary },
+                        isFollowing && { backgroundColor: colors.surface },
                       ]}
                       activeOpacity={0.8}
                     >
                       <Text
                         style={[
                           styles.followBtnText,
-                          isFollowing && styles.followingBtnText,
+                          isFollowing && { color: colors.textPrimary },
                         ]}
                       >
                         {isFollowing ? "Following" : "Follow Back"}

@@ -19,6 +19,7 @@ import { WeLogo } from "../../components/WeLogo";
 import { Colors } from "../../constants/theme";
 import { ENDPOINTS } from "../../constants/api";
 import { apiClient } from "../../services/apiClient";
+import { authStorage } from "../../services/authStorage";
 
 interface LoginScreenProps {
   onSuccess: (userData: any) => void;
@@ -53,6 +54,10 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
       });
 
       if (data?.access_token) {
+        await authStorage.saveToken(data.access_token);
+        if (data.user) {
+          await authStorage.saveUser(data.user);
+        }
         apiClient.setAuthToken(data.access_token);
         onSuccess(data);
       }

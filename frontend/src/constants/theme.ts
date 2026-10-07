@@ -1,4 +1,29 @@
-export const Colors = {
+export type ThemeMode = "light" | "dark" | "system";
+
+export interface ThemeColors {
+  primary: string;
+  primaryHover: string;
+  secondary: string;
+  success: string;
+  warning: string;
+  danger: string;
+  background: string;
+  secondaryBg: string;
+  surface: string;
+  surfaceHighlight: string;
+  card: string;
+  border: string;
+  borderLight: string;
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  white: string;
+  black: string;
+  overlay: string;
+  overlayDark: string;
+}
+
+export const LightColors: ThemeColors = {
   primary: "#2563EB",
   primaryHover: "#1D4ED8",
   secondary: "#8B5CF6",
@@ -8,6 +33,7 @@ export const Colors = {
   background: "#FFFFFF",
   secondaryBg: "#F7F7F5",
   surface: "#F8FAFC",
+  surfaceHighlight: "#F1F5F9",
   card: "#FFFFFF",
   border: "#EAEAEA",
   borderLight: "#F1F5F9",
@@ -19,6 +45,31 @@ export const Colors = {
   overlay: "rgba(0, 0, 0, 0.45)",
   overlayDark: "rgba(0, 0, 0, 0.75)",
 };
+
+export const DarkColors: ThemeColors = {
+  primary: "#3B82F6",
+  primaryHover: "#60A5FA",
+  secondary: "#A78BFA",
+  success: "#10B981",
+  warning: "#F59E0B",
+  danger: "#F87171",
+  background: "#090D16",
+  secondaryBg: "#0F172A",
+  surface: "#1E293B",
+  surfaceHighlight: "#334155",
+  card: "#131B2E",
+  border: "#1E293B",
+  borderLight: "#26334D",
+  textPrimary: "#F8FAFC",
+  textSecondary: "#94A3B8",
+  textMuted: "#64748B",
+  white: "#FFFFFF",
+  black: "#000000",
+  overlay: "rgba(0, 0, 0, 0.65)",
+  overlayDark: "rgba(0, 0, 0, 0.85)",
+};
+
+export const Colors = LightColors;
 
 export const FontFamily = {
   regular: "PlusJakartaSans_400Regular",
