@@ -26,6 +26,7 @@ import { postService } from "../../services/postService";
 import { useTheme } from "../../context/ThemeContext";
 import { PostMedia } from "../../components/common/PostMedia";
 import { resolveFullUrl, resolveAvatarSource } from "../../utils/mediaHelper";
+import { syncClient } from "../../services/reactiveSyncClient";
 
 const { width } = Dimensions.get("window");
 const TILE_SIZE = (width - 4) / 3;
@@ -90,10 +91,10 @@ export function OtherProfileScreen({
 
   const [postsCount, setPostsCount] = useState(0);
 
-  const displayAvatar = targetUser?.avatar_url 
-    ? resolveAvatarSource(targetUser.avatar_url) 
+  const displayAvatar = targetUser?.avatar_url
+    ? resolveAvatarSource(targetUser.avatar_url)
     : (avatar ? resolveAvatarSource(avatar) : require("../../../assets/images/home_feed_bali_post.jpg"));
-  
+
   const displayName = targetUser?.full_name || name;
   const displayBio = targetUser?.bio || bio;
   const displayLocation = targetUser?.location || location;
@@ -101,7 +102,7 @@ export function OtherProfileScreen({
   // Load real follow status and posts on mount & when active tab changes
   React.useEffect(() => {
     let isCancelled = false;
-    
+
     // Fetch profile data
     userService.getProfile(username).then((res) => {
       if (!isCancelled && res) {
@@ -120,7 +121,7 @@ export function OtherProfileScreen({
     });
 
     // Subscribe to reactive follow status updates
-    const unsubFollow = syncClient.subscribe("users:getFollowStatus", { targetUsername: username }, (res) => {
+    const unsubFollow = syncClient.subscribe("users:getFollowStatus", { targetUsername: username }, (res: any) => {
       if (!isCancelled && res) {
         if (typeof res.isFollowing === "boolean") setIsFollowing(res.isFollowing);
         if (typeof res.followersCount === "number") setFollowersCount(res.followersCount);
@@ -130,7 +131,7 @@ export function OtherProfileScreen({
     });
 
     // Subscribe to reactive posts updates
-    const unsubPosts = syncClient.subscribe("posts:getUserPosts", { username, tab: activeTab.toLowerCase(), limit: PAGE_SIZE, skip: 0 }, (livePosts) => {
+    const unsubPosts = syncClient.subscribe("posts:getUserPosts", { username, tab: activeTab.toLowerCase(), limit: PAGE_SIZE, skip: 0 }, (livePosts: any) => {
       if (!isCancelled && Array.isArray(livePosts) && livePosts.length > 0) {
         const mapped: OtherProfilePostItem[] = livePosts.map((p: any) => ({
           id: String(p.id || p._id),
@@ -151,7 +152,7 @@ export function OtherProfileScreen({
             isMe: false,
           },
         }));
-        
+
         setPosts((prev) => {
           if (prev.length <= PAGE_SIZE) return mapped;
           const liveIds = new Set(mapped.map((p) => p.id));
@@ -390,7 +391,7 @@ export function OtherProfileScreen({
   const handlePostLongPress = (post: OtherProfilePostItem) => {
     try {
       Vibration.vibrate(35);
-    } catch (_) {}
+    } catch (_) { }
 
     setPreviewPost(post);
     scaleAnim.setValue(0.85);
@@ -432,7 +433,7 @@ export function OtherProfileScreen({
   const toggleLike = (postId: string) => {
     try {
       Vibration.vibrate(25);
-    } catch (_) {}
+    } catch (_) { }
     setLikedPosts((prev) => ({
       ...prev,
       [postId]: !prev[postId],
@@ -447,7 +448,7 @@ export function OtherProfileScreen({
       case "repost":
         try {
           Vibration.vibrate(25);
-        } catch (_) {}
+        } catch (_) { }
         break;
       case "share":
         if (onMessage) onMessage();
@@ -459,12 +460,12 @@ export function OtherProfileScreen({
       case "not_interested":
         try {
           Vibration.vibrate(20);
-        } catch (_) {}
+        } catch (_) { }
         break;
       case "report":
         try {
           Vibration.vibrate(40);
-        } catch (_) {}
+        } catch (_) { }
         toast.info("Post reported");
         break;
     }
@@ -630,7 +631,7 @@ export function OtherProfileScreen({
             </View>
           ) : (
             posts.map((post) => {
-            const isLiked = !!likedPosts[post.id];
+              const isLiked = !!likedPosts[post.id];
 
               const tileContent = (
                 <TouchableOpacity
@@ -696,64 +697,64 @@ export function OtherProfileScreen({
                 </TouchableOpacity>
               );
 
-            // iOS Native: UIContextMenu via MenuView
-            if (Platform.OS === "ios") {
-              return (
-                <MenuView
-                  key={post.id}
-                  shouldOpenOnLongPress={true}
-                  actions={[
-                    {
-                      id: "like",
-                      title: isLiked ? "Unlike" : "Like",
-                      image: isLiked ? "heart.fill" : "heart",
-                    },
-                    {
-                      id: "repost",
-                      title: "Repost",
-                      image: "arrow.2.squarepath",
-                    },
-                    {
-                      id: "share",
-                      title: "Share",
-                      image: "paperplane",
-                    },
-                    {
-                      id: "view_post",
-                      title: "View Post",
-                      image: "eye",
-                    },
-                    {
-                      id: "not_interested",
-                      title: "Not interested",
-                      image: "eye.slash",
-                    },
-                    {
-                      id: "report",
-                      title: "Report",
-                      image: "exclamationmark.bubble",
-                      attributes: {
-                        destructive: true,
+              // iOS Native: UIContextMenu via MenuView
+              if (Platform.OS === "ios") {
+                return (
+                  <MenuView
+                    key={post.id}
+                    shouldOpenOnLongPress={true}
+                    actions={[
+                      {
+                        id: "like",
+                        title: isLiked ? "Unlike" : "Like",
+                        image: isLiked ? "heart.fill" : "heart",
                       },
-                    },
-                  ]}
-                  onPressAction={({ nativeEvent }) => {
-                    handleNativeAction(nativeEvent.event, post);
-                  }}
-                  style={{ width: TILE_SIZE, height: TILE_SIZE }}
-                >
-                  {tileContent}
-                </MenuView>
-              );
-            }
+                      {
+                        id: "repost",
+                        title: "Repost",
+                        image: "arrow.2.squarepath",
+                      },
+                      {
+                        id: "share",
+                        title: "Share",
+                        image: "paperplane",
+                      },
+                      {
+                        id: "view_post",
+                        title: "View Post",
+                        image: "eye",
+                      },
+                      {
+                        id: "not_interested",
+                        title: "Not interested",
+                        image: "eye.slash",
+                      },
+                      {
+                        id: "report",
+                        title: "Report",
+                        image: "exclamationmark.bubble",
+                        attributes: {
+                          destructive: true,
+                        },
+                      },
+                    ]}
+                    onPressAction={({ nativeEvent }) => {
+                      handleNativeAction(nativeEvent.event, post);
+                    }}
+                    style={{ width: TILE_SIZE, height: TILE_SIZE }}
+                  >
+                    {tileContent}
+                  </MenuView>
+                );
+              }
 
-            // Android: Custom touchable tile
-            return (
-              <React.Fragment key={post.id}>
-                {tileContent}
-              </React.Fragment>
-            );
-          }))}
+              // Android: Custom touchable tile
+              return (
+                <React.Fragment key={post.id}>
+                  {tileContent}
+                </React.Fragment>
+              );
+            }))}
         </View>
 
         {/* Loading more indicator at bottom of ScrollView */}

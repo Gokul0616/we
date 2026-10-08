@@ -51,9 +51,22 @@ class UserService {
   }
 
   /**
-   * Fetch current user profile from server or cache
+   * Fetch current user profile or target user profile from server or cache
    */
-  public async getProfile(): Promise<StoredUser | null> {
+  public async getProfile(targetUsername?: string): Promise<StoredUser | null> {
+    if (targetUsername) {
+      const clean = targetUsername.replace(/^@/, "").trim().toLowerCase();
+      try {
+        const syncUser = await syncClient.query<StoredUser>("users:getProfile", { username: clean });
+        if (syncUser && (syncUser.id || (syncUser as any)._id)) {
+          return syncUser;
+        }
+      } catch (e) {
+        console.warn("Sync engine getProfile by username fallback:", e);
+      }
+      return null;
+    }
+
     // 1. Try local cache
     const cached = await authStorage.getUser();
 

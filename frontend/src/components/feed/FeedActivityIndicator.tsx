@@ -25,7 +25,7 @@ export function FeedActivityIndicator({ postId, isGlobal, bellIconCenterX }: Fee
   const slideAnim = useRef(new Animated.Value(-30)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
-  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [bubbleWidth, setBubbleWidth] = useState(0);
 

@@ -4,7 +4,7 @@ import { authStorage } from "../services/authStorage";
 
 export interface NotificationItem {
   id: string;
-  type: "LIKE" | "COMMENT" | "FOLLOW" | "FOLLOW_REQUEST" | "FOLLOW_ACCEPTED" | "MENTION" | "REPOST" | "SYSTEM";
+  type: "LIKE" | "COMMENT" | "REPLY" | "FOLLOW" | "FOLLOW_REQUEST" | "FOLLOW_ACCEPTED" | "MENTION" | "REPOST" | "SYSTEM";
   recipient_id: string;
   actor_id: string;
   actor_username: string;
