@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../constants/theme";
 import { EXPLORE_POSTS, ExplorePost } from "../screens/explore/ExploreScreen";
+import { authStorage, StoredUser } from "../services/authStorage";
 
 const IMG_AVATAR = require("../../assets/images/profile_avatar.jpg");
 
@@ -40,9 +41,14 @@ export default function SearchScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [recentList, setRecentList] = useState<RecentSearchItem[]>(INITIAL_RECENT);
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
+
+  React.useEffect(() => {
+    authStorage.getUser().then(u => setCurrentUser(u));
+  }, []);
 
   const handleAuthorPress = (author: { username: string; fullName?: string; isMe?: boolean }) => {
-    if (author.isMe) {
+    if (author.isMe || (currentUser?.username && currentUser.username === author.username)) {
       router.push("/(tabs)/profile");
     } else {
       router.push({

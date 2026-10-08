@@ -32,10 +32,10 @@ class ReactiveDBReader:
             del doc["_id"]
         return doc
 
-    async def find(self, collection: str, filter_dict: Optional[dict] = None, sort_field: str = "created_at", sort_order: int = -1, limit: int = 50) -> list[dict]:
+    async def find(self, collection: str, filter_dict: Optional[dict] = None, sort_field: str = "created_at", sort_order: int = -1, limit: int = 50, skip: int = 0) -> list[dict]:
         self._track(collection)
         filter_dict = filter_dict or {}
-        cursor = self.raw_db[collection].find(filter_dict).sort(sort_field, sort_order).limit(limit)
+        cursor = self.raw_db[collection].find(filter_dict).sort(sort_field, sort_order).skip(skip).limit(limit)
         results = []
         async for doc in cursor:
             doc_id = str(doc["_id"])

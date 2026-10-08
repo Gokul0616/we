@@ -20,10 +20,11 @@ export class ApiError extends Error {
   }
 }
 
-interface RequestOptions extends RequestInit {
+export interface RequestOptions extends RequestInit {
   timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined>;
   silent?: boolean;
+  skipUnauthorizedHandler?: boolean;
 }
 
 export type RequestInterceptor = (config: RequestOptions & { url: string; headers: Record<string, string> }) => Promise<any> | any;
@@ -152,7 +153,12 @@ class ApiClient {
       }
 
       if (!response.ok) {
-        if (response.status === 401 && this.onUnauthorizedHandler) {
+        // Auth entrypoint endpoints where 401 represents invalid credentials/OTP, not session expiry
+        const isAuthEntrypoint =
+          options.skipUnauthorizedHandler ||
+          /\/login|\/register|\/verify-otp|\/send-otp|\/check-username/i.test(url);
+
+        if (response.status === 401 && this.onUnauthorizedHandler && !isAuthEntrypoint) {
           this.onUnauthorizedHandler();
         }
 

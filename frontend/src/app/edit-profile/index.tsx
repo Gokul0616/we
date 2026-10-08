@@ -199,7 +199,7 @@ export default function EditProfileMainScreen() {
             activeOpacity={0.7}
             onPress={() => router.push("/edit-profile/location" as any)}
           >
-            <View style={[styles.iconCircle, { backgroundColor: isDark ? "#1E293B" : "#EFF6FF" }]}>
+            <View style={[styles.iconCircle, { backgroundColor: isDark ? "#18181B" : "#EFF6FF" }]}>
               <Ionicons name="location-outline" size={18} color={colors.primary} />
             </View>
             <View style={styles.formRowTextCol}>
@@ -212,25 +212,6 @@ export default function EditProfileMainScreen() {
 
         {/* Extended Navigation Options Card */}
         <View style={[styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {/* Privacy Settings - Navigates to dedicated Privacy Screen */}
-          <TouchableOpacity
-            style={styles.formRowGroup}
-            activeOpacity={0.7}
-            onPress={() => router.push("/edit-profile/privacy" as any)}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: isDark ? "#1E293B" : "#EFF6FF" }]}>
-              <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
-            </View>
-            <View style={styles.formRowTextCol}>
-              <Text style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Privacy Settings</Text>
-              <Text style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>
-                Visibility: {visibility.charAt(0).toUpperCase() + visibility.slice(1)}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Profile Preview - Navigates to dedicated Preview Screen */}
           <TouchableOpacity

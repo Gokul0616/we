@@ -15,6 +15,14 @@ export interface StoredUser {
   bio?: string;
   location?: string;
   website?: string;
+  phone?: string;
+  gender?: string;
+  date_of_birth?: string;
+  posts_count?: number;
+  followers_count?: number;
+  following_count?: number;
+  followers?: number;
+  following?: number;
   social_links?: Record<string, string>;
   privacy_settings?: {
     visibility?: "public" | "friends" | "private";
@@ -22,6 +30,21 @@ export interface StoredUser {
     allow_direct_messages?: boolean;
     who_can_tag?: "everyone" | "friends" | "no_one";
   };
+  notification_settings?: Record<string, boolean>;
+  content_preferences?: {
+    show_sensitive?: boolean;
+    media_quality?: "high" | "saver";
+    language?: string;
+    interested_topics?: string[];
+    hidden_words?: string[];
+    ios_tab_style?: "native" | "custom";
+  };
+  two_factor?: {
+    enabled?: boolean;
+    auth_app?: boolean;
+    sms?: boolean;
+  };
+  blocked_users?: string[];
 }
 
 export const authStorage = {

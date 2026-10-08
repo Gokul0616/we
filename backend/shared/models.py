@@ -13,6 +13,7 @@ class UserRegister(BaseModel):
     email: str
     password: str
     full_name: Optional[str] = None
+    avatar_url: Optional[str] = "asset:default_avatar.png"
 
 class UserLogin(BaseModel):
     email: Optional[str] = None
@@ -30,13 +31,24 @@ class UserProfile(BaseModel):
     bio: Optional[str] = None
     location: Optional[str] = None
     website: Optional[str] = None
+    phone: Optional[str] = None
+    gender: Optional[str] = None
+    date_of_birth: Optional[str] = None
     social_links: Optional[dict[str, str]] = Field(default_factory=dict)
     privacy_settings: Optional[dict[str, Any]] = Field(default_factory=dict)
+    notification_settings: Optional[dict[str, Any]] = Field(default_factory=dict)
+    content_preferences: Optional[dict[str, Any]] = Field(default_factory=dict)
+    two_factor: Optional[dict[str, Any]] = Field(default_factory=dict)
+    blocked_users: Optional[list[str]] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     username: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    gender: Optional[str] = None
+    date_of_birth: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
     cover_url: Optional[str] = None
@@ -44,6 +56,15 @@ class UserUpdate(BaseModel):
     website: Optional[str] = None
     social_links: Optional[dict[str, str]] = None
     privacy_settings: Optional[dict[str, Any]] = None
+    notification_settings: Optional[dict[str, Any]] = None
+    content_preferences: Optional[dict[str, Any]] = None
+    two_factor: Optional[dict[str, Any]] = None
+    blocked_users: Optional[list[str]] = None
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 
 class PostCreate(BaseModel):
     content: str

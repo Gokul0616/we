@@ -11,6 +11,9 @@ import {
   Animated,
   Vibration,
   Platform,
+  ActivityIndicator,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,8 +22,10 @@ import { MenuView } from "@expo/ui/community/menu";
 import { Colors, FontFamily } from "../../constants/theme";
 import { toast } from "../../services/toastService";
 import { userService } from "../../services/userService";
+import { postService } from "../../services/postService";
 import { useTheme } from "../../context/ThemeContext";
 import { PostMedia } from "../../components/common/PostMedia";
+import { resolveFullUrl, resolveAvatarSource } from "../../utils/mediaHelper";
 
 const { width } = Dimensions.get("window");
 const TILE_SIZE = (width - 4) / 3;
@@ -41,6 +46,8 @@ export interface OtherProfilePostItem {
   likes: number;
   comments: number;
   type?: "photo" | "reel" | "carousel";
+  caption?: string;
+  created_at?: string;
   author: {
     username: string;
     fullName: string;
@@ -48,6 +55,8 @@ export interface OtherProfilePostItem {
     isMe?: boolean;
   };
 }
+
+
 
 export function OtherProfileScreen({
   username = "alex_wanderer",
@@ -61,18 +70,16 @@ export function OtherProfileScreen({
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const [isFollowing, setIsFollowing] = useState(false);
-  const [followersCount, setFollowersCount] = useState(18400);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [targetUser, setTargetUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"Posts" | "Replies" | "Media" | "Likes">("Posts");
-
-  // Load real follow status on mount
-  React.useEffect(() => {
-    userService.getFollowStatus(username).then((res) => {
-      setIsFollowing(res.isFollowing);
-      if (res.followersCount > 0) {
-        setFollowersCount(res.followersCount);
-      }
-    });
-  }, [username]);
+  const [posts, setPosts] = useState<OtherProfilePostItem[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const isLoadingRef = useRef(false);
+  const PAGE_SIZE = 12;
 
   // Peek & Pop Preview state for Android
   const [previewPost, setPreviewPost] = useState<OtherProfilePostItem | null>(null);
@@ -81,15 +88,174 @@ export function OtherProfileScreen({
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
-  const displayAvatar = avatar || require("../../../assets/images/home_feed_bali_post.jpg");
+  const [postsCount, setPostsCount] = useState(0);
+
+  const displayAvatar = targetUser?.avatar_url 
+    ? resolveAvatarSource(targetUser.avatar_url) 
+    : (avatar ? resolveAvatarSource(avatar) : require("../../../assets/images/home_feed_bali_post.jpg"));
+  
+  const displayName = targetUser?.full_name || name;
+  const displayBio = targetUser?.bio || bio;
+  const displayLocation = targetUser?.location || location;
+
+  // Load real follow status and posts on mount & when active tab changes
+  React.useEffect(() => {
+    let isCancelled = false;
+    
+    // Fetch profile data
+    userService.getProfile(username).then((res) => {
+      if (!isCancelled && res) {
+        setTargetUser(res);
+      }
+    });
+
+    // Initial fetch for follow status
+    userService.getFollowStatus(username).then((res) => {
+      if (!isCancelled) {
+        setIsFollowing(res.isFollowing);
+        setFollowersCount(res.followersCount);
+        setFollowingCount(res.followingCount);
+        setPostsCount(res.postsCount);
+      }
+    });
+
+    // Subscribe to reactive follow status updates
+    const unsubFollow = syncClient.subscribe("users:getFollowStatus", { targetUsername: username }, (res) => {
+      if (!isCancelled && res) {
+        if (typeof res.isFollowing === "boolean") setIsFollowing(res.isFollowing);
+        if (typeof res.followersCount === "number") setFollowersCount(res.followersCount);
+        if (typeof res.followingCount === "number") setFollowingCount(res.followingCount);
+        if (typeof res.postsCount === "number") setPostsCount(res.postsCount);
+      }
+    });
+
+    // Subscribe to reactive posts updates
+    const unsubPosts = syncClient.subscribe("posts:getUserPosts", { username, tab: activeTab.toLowerCase(), limit: PAGE_SIZE, skip: 0 }, (livePosts) => {
+      if (!isCancelled && Array.isArray(livePosts) && livePosts.length > 0) {
+        const mapped: OtherProfilePostItem[] = livePosts.map((p: any) => ({
+          id: String(p.id || p._id),
+          image: p.media_url && typeof p.media_url === "string"
+            ? { uri: resolveFullUrl(p.media_url) }
+            : p.media_urls?.[0] && typeof p.media_urls[0] === "string"
+              ? { uri: resolveFullUrl(p.media_urls[0]) }
+              : null,
+          likes: p.likes_count || 0,
+          comments: p.comments_count || 0,
+          type: p.media_type || "photo",
+          caption: p.content || p.caption || "",
+          created_at: p.created_at || (p as any).createdAt,
+          author: {
+            username: p.author_username || username,
+            fullName: p.author_fullName || displayName,
+            avatar: p.author_avatar ? resolveAvatarSource(p.author_avatar) : displayAvatar,
+            isMe: false,
+          },
+        }));
+        
+        setPosts((prev) => {
+          if (prev.length <= PAGE_SIZE) return mapped;
+          const liveIds = new Set(mapped.map((p) => p.id));
+          const tail = prev.filter((p) => !liveIds.has(p.id));
+          return [...mapped, ...tail];
+        });
+      }
+    });
+
+    setHasMore(true);
+    loadPosts(false);
+
+    return () => {
+      isCancelled = true;
+      unsubFollow();
+      unsubPosts();
+    };
+  }, [username, activeTab]);
+
+  const loadPosts = async (isLoadMore = false) => {
+    if (isLoadingRef.current) return;
+    if (isLoadMore && !hasMore) return;
+
+    isLoadingRef.current = true;
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoadingPosts(true);
+    }
+
+    try {
+      const skip = isLoadMore ? posts.length : 0;
+      const rawPosts = await postService.getUserPosts(username, activeTab.toLowerCase() as any, {
+        limit: PAGE_SIZE,
+        skip,
+      });
+
+      if (Array.isArray(rawPosts)) {
+        const mapped: OtherProfilePostItem[] = rawPosts.map((p: any) => ({
+          id: String(p.id || p._id),
+          image: p.media_url && typeof p.media_url === "string"
+            ? { uri: resolveFullUrl(p.media_url) }
+            : p.media_urls?.[0] && typeof p.media_urls[0] === "string"
+              ? { uri: resolveFullUrl(p.media_urls[0]) }
+              : null,
+          likes: p.likes_count || 0,
+          comments: p.comments_count || 0,
+          type: p.media_type || "photo",
+          caption: p.content || p.caption || "",
+          created_at: p.created_at || (p as any).createdAt,
+          author: {
+            username: p.author_username || username,
+            fullName: p.author_fullName || displayName,
+            avatar: p.author_avatar ? resolveAvatarSource(p.author_avatar) : displayAvatar,
+            isMe: false,
+          },
+        }));
+
+        if (isLoadMore) {
+          setPosts((prev) => {
+            const existingIds = new Set(prev.map((item) => item.id));
+            const newItems = mapped.filter((item) => !existingIds.has(item.id));
+            return [...prev, ...newItems];
+          });
+        } else {
+          if (mapped.length > 0) {
+            setPosts(mapped);
+          } else if (username === "alex_wanderer") {
+            setPosts(INITIAL_FALLBACK_POSTS);
+          } else {
+            setPosts([]);
+          }
+        }
+        setHasMore(rawPosts.length >= PAGE_SIZE);
+      } else if (!isLoadMore) {
+        if (username === "alex_wanderer") {
+          setPosts(INITIAL_FALLBACK_POSTS);
+        } else {
+          setPosts([]);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load user posts:", e);
+      if (!isLoadMore && username === "alex_wanderer") {
+        setPosts(INITIAL_FALLBACK_POSTS);
+      }
+    } finally {
+      isLoadingRef.current = false;
+      setLoadingPosts(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const formatStatNumber = (num: number) => {
+    if (!num) return "0";
+    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+    return String(num);
+  };
 
   const stats = [
-    { label: "Posts", value: "142" },
-    {
-      label: "Followers",
-      value: followersCount >= 1000 ? `${(followersCount / 1000).toFixed(1)}K` : String(followersCount),
-    },
-    { label: "Following", value: "412" },
+    { label: "Posts", value: formatStatNumber(postsCount) },
+    { label: "Followers", value: formatStatNumber(followersCount) },
+    { label: "Following", value: formatStatNumber(followingCount) },
   ];
 
   const highlights = [
@@ -99,7 +265,7 @@ export function OtherProfileScreen({
     { id: "4", title: "Moments", image: require("../../../assets/images/onboarding_hero.jpg") },
   ];
 
-  const userPosts: OtherProfilePostItem[] = [
+  const INITIAL_FALLBACK_POSTS: OtherProfilePostItem[] = [
     {
       id: "p1",
       image: require("../../../assets/images/home_feed_bali_post.jpg"),
@@ -187,8 +353,11 @@ export function OtherProfileScreen({
     try {
       const res = await userService.toggleFollow(username);
       setIsFollowing(res.isFollowing);
-      if (typeof res.followersCount === "number" && res.followersCount > 0) {
+      if (typeof res.followersCount === "number") {
         setFollowersCount(res.followersCount);
+      }
+      if (typeof res.followingCount === "number") {
+        setFollowingCount(res.followingCount);
       }
     } catch (e) {
       console.warn("Toggle follow error:", e);
@@ -196,7 +365,26 @@ export function OtherProfileScreen({
   };
 
   const handlePostPress = (post: OtherProfilePostItem) => {
-    router.push({ pathname: "/post/[id]", params: { id: post.id } });
+    const mediaUri = typeof post.image === "object" && post.image?.uri ? post.image.uri : undefined;
+    const avatarUri = typeof post.author?.avatar === "object" && post.author?.avatar?.uri
+      ? post.author.avatar.uri
+      : typeof post.author?.avatar === "string"
+        ? post.author.avatar
+        : undefined;
+    router.push({
+      pathname: "/post/[id]",
+      params: {
+        id: post.id,
+        media_url: mediaUri,
+        media_type: post.type || "photo",
+        caption: post.caption || "",
+        author_username: post.author.username,
+        author_fullName: post.author.fullName,
+        author_avatar: avatarUri,
+        likes_count: String(post.likes || 0),
+        comments_count: String(post.comments || 0),
+      },
+    });
   };
 
   const handlePostLongPress = (post: OtherProfilePostItem) => {
@@ -282,6 +470,16 @@ export function OtherProfileScreen({
     }
   };
 
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 140;
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+      if (!isLoadingRef.current && hasMore && !loadingPosts) {
+        loadPosts(true);
+      }
+    }
+  };
+
   return (
     <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
@@ -311,7 +509,13 @@ export function OtherProfileScreen({
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        stickyHeaderIndices={[4]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         {/* Profile Header Row: Avatar on LEFT, Stats on RIGHT */}
         <View style={styles.profileHeaderRow}>
           <View style={styles.avatarContainer}>
@@ -330,9 +534,9 @@ export function OtherProfileScreen({
 
         {/* Bio Section */}
         <View style={styles.bioContainer}>
-          <Text style={[styles.fullName, { color: colors.textPrimary }]}>{name}</Text>
-          <Text style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
-          <Text style={[styles.bioText, { color: colors.textPrimary }]}>{bio}</Text>
+          <Text style={[styles.fullName, { color: colors.textPrimary }]}>{displayName}</Text>
+          <Text style={[styles.location, { color: colors.textSecondary }]}>{displayLocation}</Text>
+          <Text style={[styles.bioText, { color: colors.textPrimary }]}>{displayBio}</Text>
         </View>
 
         {/* Action Buttons Row: Follow + Message */}
@@ -374,53 +578,123 @@ export function OtherProfileScreen({
           ))}
         </ScrollView>
 
-        {/* Sub Tabs: Posts | Replies | Media | Likes */}
-        <View style={[styles.subTabsContainer, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-          {(["Posts", "Replies", "Media", "Likes"] as const).map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.subTabItem, isActive && styles.subTabItemActive]}
-                onPress={() => setActiveTab(tab)}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.subTabText,
-                  { color: colors.textMuted },
-                  isActive && { color: colors.textPrimary, fontFamily: FontFamily.semiBold }
-                ]}>
-                  {tab}
-                </Text>
-                {isActive && <View style={[styles.activeTabIndicator, { backgroundColor: colors.textPrimary }]} />}
-              </TouchableOpacity>
-            );
-          })}
+        {/* Sub Tabs: Posts | Replies | Media | Likes (Sticky below header) */}
+        <View style={{ zIndex: 10, elevation: 4, backgroundColor: colors.background, width: "100%" }}>
+          <View
+            style={[
+              styles.subTabsContainer,
+              {
+                backgroundColor: colors.background,
+                borderBottomColor: colors.border,
+                flexDirection: "row",
+                width: "100%",
+              },
+            ]}
+          >
+            {(["Posts", "Replies", "Media", "Likes"] as const).map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  style={[styles.subTabItem, isActive && styles.subTabItemActive]}
+                  onPress={() => {
+                    if (activeTab !== tab) {
+                      setPosts([]);
+                      setHasMore(true);
+                      setActiveTab(tab);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.subTabText,
+                    { color: colors.textMuted },
+                    isActive && { color: colors.textPrimary, fontFamily: FontFamily.semiBold }
+                  ]}>
+                    {tab}
+                  </Text>
+                  {isActive && <View style={[styles.activeTabIndicator, { backgroundColor: colors.textPrimary }]} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* 3-Column Photo Grid with Native iOS Context Menu & Android Peek & Pop */}
         <View style={styles.photoGrid}>
-          {userPosts.map((post) => {
+          {posts.length === 0 && !loadingPosts ? (
+            <View style={styles.emptyStateContainer}>
+              <Ionicons name="images-outline" size={44} color={colors.textMuted} />
+              <Text style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>No {activeTab} yet</Text>
+              <Text style={[styles.emptyStateSub, { color: colors.textSecondary }]}>When @{username} shares {activeTab.toLowerCase()}, they'll appear here.</Text>
+            </View>
+          ) : (
+            posts.map((post) => {
             const isLiked = !!likedPosts[post.id];
 
-            const tileContent = (
-              <TouchableOpacity
-                activeOpacity={0.88}
-                onPress={() => handlePostPress(post)}
-                onLongPress={Platform.OS === "ios" ? undefined : () => handlePostLongPress(post)}
-                delayLongPress={180}
-                style={[styles.gridTile, { backgroundColor: colors.surface }]}
-              >
-                <PostMedia
-                  source={post.image}
-                  mediaType={post.type}
-                  style={styles.gridImage}
-                  resizeMode="cover"
-                  autoPlay={false}
-                  isGrid={true}
-                />
-              </TouchableOpacity>
-            );
+              const tileContent = (
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={() => handlePostPress(post)}
+                  onLongPress={Platform.OS === "ios" ? undefined : () => handlePostLongPress(post)}
+                  delayLongPress={180}
+                  style={[styles.gridTile, { backgroundColor: colors.surface }]}
+                >
+                  {post.image ? (
+                    <PostMedia
+                      source={post.image}
+                      mediaType={post.type}
+                      style={styles.gridImage}
+                      resizeMode="cover"
+                      autoPlay={false}
+                      isGrid={true}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.gridFallbackCard,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <View style={styles.gridFallbackTop}>
+                        <Ionicons
+                          name="chatbubble-ellipses-outline"
+                          size={15}
+                          color={colors.textSecondary}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.gridFallbackCaption,
+                          { color: colors.textPrimary },
+                        ]}
+                        numberOfLines={4}
+                      >
+                        {post.caption || "Text post"}
+                      </Text>
+                      <View
+                        style={[
+                          styles.gridFallbackFooter,
+                          { borderTopColor: colors.border },
+                        ]}
+                      >
+                        <Ionicons name="heart" size={11} color="#EF4444" />
+                        <Text
+                          style={[
+                            styles.gridFallbackLikes,
+                            { color: colors.textMuted },
+                          ]}
+                        >
+                          {post.likes || 0}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
 
             // iOS Native: UIContextMenu via MenuView
             if (Platform.OS === "ios") {
@@ -479,8 +753,15 @@ export function OtherProfileScreen({
                 {tileContent}
               </React.Fragment>
             );
-          })}
+          }))}
         </View>
+
+        {/* Loading more indicator at bottom of ScrollView */}
+        {loadingMore && (
+          <View style={styles.loadingMoreContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        )}
       </ScrollView>
 
       {/* Android: Instagram Style Animated Peek & Pop Quick Preview (Long Press) */}
@@ -841,16 +1122,26 @@ const styles = StyleSheet.create({
     color: "#334155",
     textAlign: "center",
   },
+  loadingMoreContainer: {
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   subTabsContainer: {
     flexDirection: "row",
+    width: "100%",
+    height: 48,
+    alignItems: "center",
+    justifyContent: "space-between",
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
     marginTop: 4,
   },
   subTabItem: {
     flex: 1,
-    paddingVertical: 12,
+    height: "100%",
     alignItems: "center",
+    justifyContent: "center",
     position: "relative",
   },
   subTabItemActive: {},
@@ -881,7 +1172,36 @@ const styles = StyleSheet.create({
   gridTile: {
     width: TILE_SIZE,
     height: TILE_SIZE,
-    backgroundColor: "#F1F5F9",
+  },
+  gridFallbackCard: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    padding: 8,
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  gridFallbackTop: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  gridFallbackCaption: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FontFamily.medium,
+    marginVertical: 4,
+  },
+  gridFallbackFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingTop: 4,
+    borderTopWidth: 0.5,
+  },
+  gridFallbackLikes: {
+    fontSize: 11,
+    fontFamily: FontFamily.medium,
   },
   gridImage: {
     width: "100%",
@@ -982,5 +1302,23 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
     fontSize: 15,
     color: "#0F172A",
+  },
+  emptyStateContainer: {
+    width: "100%",
+    paddingVertical: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyStateTitle: {
+    fontFamily: FontFamily.bold,
+    fontSize: 16,
+    marginTop: 12,
+  },
+  emptyStateSub: {
+    fontFamily: FontFamily.regular,
+    fontSize: 13,
+    marginTop: 4,
+    textAlign: "center",
+    paddingHorizontal: 32,
   },
 });

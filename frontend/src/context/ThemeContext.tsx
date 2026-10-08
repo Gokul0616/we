@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
-import { useColorScheme } from "react-native";
+import { useColorScheme, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LightColors, DarkColors, ThemeColors, ThemeMode } from "../constants/theme";
+import { authStorage } from "../services/authStorage";
+import { userService } from "../services/userService";
+
+export type IosTabStyle = "native" | "custom";
 
 interface ThemeContextType {
   theme: "light" | "dark";
@@ -10,9 +14,14 @@ interface ThemeContextType {
   colors: ThemeColors;
   setThemeMode: (mode: ThemeMode) => Promise<void>;
   toggleTheme: () => void;
+  iosTabStyle: IosTabStyle;
+  setIosTabStyle: (style: IosTabStyle) => Promise<void>;
 }
 
 const THEME_STORAGE_KEY = "@we_social_theme_mode";
+const IOS_TAB_STYLE_STORAGE_KEY = "@we_social_ios_tab_style";
+
+const defaultIosTabStyle: IosTabStyle = Platform.OS === "ios" ? "native" : "custom";
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: "light",
@@ -21,14 +30,18 @@ const ThemeContext = createContext<ThemeContextType>({
   colors: LightColors,
   setThemeMode: async () => {},
   toggleTheme: () => {},
+  iosTabStyle: defaultIosTabStyle,
+  setIosTabStyle: async () => {},
 });
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const systemColorScheme = useColorScheme(); // "light" | "dark" | null | undefined
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
+  const [iosTabStyle, setIosTabStyleState] = useState<IosTabStyle>(defaultIosTabStyle);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    // 1. Load theme preference
     AsyncStorage.getItem(THEME_STORAGE_KEY).then((saved) => {
       if (saved === "light" || saved === "dark" || saved === "system") {
         setThemeModeState(saved as ThemeMode);
@@ -37,6 +50,26 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     }).catch(() => {
       setIsLoaded(true);
     });
+
+    // 2. Load iOS tab style preference from local cache
+    AsyncStorage.getItem(IOS_TAB_STYLE_STORAGE_KEY).then((saved) => {
+      if (saved === "native" || saved === "custom") {
+        setIosTabStyleState(saved as IosTabStyle);
+      } else if (Platform.OS === "ios") {
+        setIosTabStyleState("native");
+      }
+    }).catch(() => {});
+
+    // 3. Sync iOS tab style preference from backend user profile
+    authStorage.getUser().then((user) => {
+      const backendStyle = user?.content_preferences?.ios_tab_style;
+      if (backendStyle === "native" || backendStyle === "custom") {
+        setIosTabStyleState(backendStyle);
+        AsyncStorage.setItem(IOS_TAB_STYLE_STORAGE_KEY, backendStyle).catch(() => {});
+      } else if (Platform.OS === "ios") {
+        setIosTabStyleState("native");
+      }
+    }).catch(() => {});
   }, []);
 
   const setThemeMode = async (mode: ThemeMode) => {
@@ -45,6 +78,17 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
     } catch (e) {
       console.warn("Failed saving theme mode to storage:", e);
+    }
+  };
+
+  const setIosTabStyle = async (style: IosTabStyle) => {
+    setIosTabStyleState(style);
+    try {
+      await AsyncStorage.setItem(IOS_TAB_STYLE_STORAGE_KEY, style);
+      // Persist to backend
+      await userService.updateContentPreferences({ ios_tab_style: style });
+    } catch (e) {
+      console.warn("Failed saving iOS tab style preference:", e);
     }
   };
 
@@ -71,8 +115,10 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       colors,
       setThemeMode,
       toggleTheme,
+      iosTabStyle,
+      setIosTabStyle,
     }),
-    [activeTheme, themeMode, colors]
+    [activeTheme, themeMode, colors, iosTabStyle]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

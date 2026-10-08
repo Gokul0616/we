@@ -1,16 +1,18 @@
 import React from "react";
+import { StyleSheet, Platform } from "react-native";
 import { Tabs } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { Ionicons } from "@expo/vector-icons";
-import { Platform } from "react-native";
-import { Colors } from "../../constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
+import { FontFamily } from "../../constants/theme";
 
 export default function TabLayout() {
-  const { colors } = useTheme();
+  const { colors, isDark, iosTabStyle } = useTheme();
+  const insets = useSafeAreaInsets();
 
-  // On iOS: Use true native UITabBar with SF Symbols
-  if (Platform.OS === "ios") {
+  // On iOS, if user selected Native Tabs, render Apple's native UITabBar
+  if (Platform.OS === "ios" && iosTabStyle === "native") {
     return (
       <NativeTabs>
         <NativeTabs.Trigger name="index" disableTransparentOnScrollEdge>
@@ -36,7 +38,10 @@ export default function TabLayout() {
     );
   }
 
-  // On Android/Web: Use sleek modern custom bottom tabs
+  // Otherwise (iOS custom solid tabs or Android/Web): render solid OLED black / light tabs
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === "ios" ? 14 : 8);
+  const tabHeight = 52 + bottomPadding;
+
   return (
     <Tabs
       screenOptions={{
@@ -44,18 +49,18 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-          height: 64,
-          paddingBottom: 10,
-          paddingTop: 8,
+          backgroundColor: isDark ? "#000000" : colors.card,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: isDark ? "#1F1F1F" : colors.border,
+          height: tabHeight,
+          paddingBottom: bottomPadding,
+          paddingTop: 6,
           elevation: 0,
           shadowOpacity: 0,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "600",
+          fontFamily: FontFamily.semiBold,
           marginTop: 2,
         },
       }}
@@ -65,7 +70,11 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "home" : "home-outline"} size={23} color={color} />
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={23}
+              color={color}
+            />
           ),
         }}
       />
@@ -75,7 +84,11 @@ export default function TabLayout() {
         options={{
           title: "Explore",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "compass" : "compass-outline"} size={23} color={color} />
+            <Ionicons
+              name={focused ? "compass" : "compass-outline"}
+              size={23}
+              color={color}
+            />
           ),
         }}
       />
@@ -99,7 +112,11 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} size={23} color={color} />
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={23}
+              color={color}
+            />
           ),
         }}
       />

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Dimensions,
   ActivityIndicator,
   Alert,
 } from "react-native";
@@ -15,35 +14,38 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { userService } from "../../services/userService";
-import { authStorage } from "../../services/authStorage";
+import { authStorage, StoredUser } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
 import { resolveAvatarSource, PRESET_AVATAR_MAP } from "../../utils/mediaHelper";
 import { useTheme } from "../../context/ThemeContext";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
 const PRESET_AVATARS = [
+  { id: "asset:profile_gokul_avatar.jpg", source: PRESET_AVATAR_MAP["asset:profile_gokul_avatar.jpg"] },
+  { id: "asset:profile_avatar.jpg", source: PRESET_AVATAR_MAP["asset:profile_avatar.jpg"] },
   { id: "asset:onboarding_hero.jpg", source: PRESET_AVATAR_MAP["asset:onboarding_hero.jpg"] },
   { id: "asset:onboarding_slide_2.jpg", source: PRESET_AVATAR_MAP["asset:onboarding_slide_2.jpg"] },
   { id: "asset:onboarding_slide_3.jpg", source: PRESET_AVATAR_MAP["asset:onboarding_slide_3.jpg"] },
-  { id: "asset:onboarding_slide_4.jpg", source: PRESET_AVATAR_MAP["asset:onboarding_slide_4.jpg"] },
   { id: "asset:explore_food.jpg", source: PRESET_AVATAR_MAP["asset:explore_food.jpg"] },
 ];
 
 export default function ChangeProfilePhotoScreen() {
   const router = useRouter();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [saving, setSaving] = useState(false);
+  const [initialAvatar, setInitialAvatar] = useState<string>("");
   const [currentAvatar, setCurrentAvatar] = useState<string>("");
-  const [avatarTab, setAvatarTab] = useState<"gallery" | "camera" | "remove">("gallery");
 
   useEffect(() => {
     authStorage.getUser().then((u) => {
-      if (u?.avatar_url) {
-        setCurrentAvatar(u.avatar_url);
+      if (u) {
+        const avatar = u.avatar_url || "asset:default_avatar.png";
+        setInitialAvatar(avatar);
+        setCurrentAvatar(avatar);
       }
     });
   }, []);
+
+  const hasChanges = currentAvatar !== initialAvatar;
 
   const pickFromGallery = async () => {
     try {
@@ -63,6 +65,7 @@ export default function ChangeProfilePhotoScreen() {
       }
     } catch (e) {
       console.warn("pickFromGallery error:", e);
+      toast.error("Failed to open gallery");
     }
   };
 
@@ -83,15 +86,25 @@ export default function ChangeProfilePhotoScreen() {
       }
     } catch (e) {
       console.warn("takeWithCamera error:", e);
+      toast.error("Failed to open camera");
     }
   };
 
+  const handleRemovePhoto = () => {
+    setCurrentAvatar("asset:default_avatar.png");
+  };
+
   const handleSave = async () => {
-    if (saving) return;
+    if (saving || !hasChanges) return;
     setSaving(true);
     try {
-      let finalAvatarUrl = currentAvatar;
-      if (currentAvatar && !currentAvatar.startsWith("http://") && !currentAvatar.startsWith("https://") && !currentAvatar.startsWith("asset:")) {
+      let finalAvatarUrl = currentAvatar || "asset:default_avatar.png";
+      if (
+        currentAvatar &&
+        !currentAvatar.startsWith("http://") &&
+        !currentAvatar.startsWith("https://") &&
+        !currentAvatar.startsWith("asset:")
+      ) {
         finalAvatarUrl = await userService.uploadImage(currentAvatar, "avatar");
       }
 
@@ -99,170 +112,112 @@ export default function ChangeProfilePhotoScreen() {
         avatar_url: finalAvatarUrl,
       });
       setSaving(false);
-      toast.success("Profile photo updated successfully");
+      toast.success("Profile picture updated");
       router.back();
     } catch (e) {
       setSaving(false);
       console.log("Save avatar error:", e);
-      Alert.alert("Error", "Failed to update profile photo.");
+      toast.error("Failed to update profile photo");
     }
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
-      {/* Header */}
-      <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+      edges={["top", "bottom"]}
+    >
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.headerLeft}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Change Profile Photo</Text>
-        <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={saving}>
+        
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          Profile Photo
+        </Text>
+        
+        <TouchableOpacity
+          onPress={handleSave}
+          disabled={!hasChanges || saving}
+          style={styles.headerRight}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+            <Text
+              style={[
+                styles.headerSaveText,
+                { color: hasChanges ? colors.primary : colors.textSecondary },
+                !hasChanges && { opacity: 0.5 }
+              ]}
+            >
+              Save
+            </Text>
           )}
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Large Avatar Preview */}
-        <View style={styles.centerPreviewContainer}>
-          <View style={[styles.largeAvatarWrapper, { backgroundColor: colors.surface }]}>
-            <Image source={resolveAvatarSource(currentAvatar)} style={styles.largeAvatar} />
-            <TouchableOpacity
-              style={[
-                styles.largeAvatarCameraBadge,
-                { backgroundColor: colors.surface, borderColor: colors.background },
-              ]}
-              activeOpacity={0.8}
-              onPress={takeWithCamera}
-            >
-              <Ionicons name="camera" size={18} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.avatarSection}>
+          <Image
+            source={resolveAvatarSource(currentAvatar)}
+            style={[styles.avatar, { borderColor: colors.border }]}
+          />
         </View>
 
-        {/* Tab Switcher: Gallery | Camera | Remove */}
-        <View style={[styles.segmentedTabContainer, { backgroundColor: colors.surface }]}>
+        <View style={[styles.optionsGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TouchableOpacity
-            style={[
-              styles.segmentBtn,
-              avatarTab === "gallery" && [
-                styles.segmentBtnActive,
-                { backgroundColor: isDark ? colors.surfaceHighlight : "#FFFFFF" },
-              ],
-            ]}
-            onPress={() => {
-              setAvatarTab("gallery");
-              pickFromGallery();
-            }}
+            style={[styles.optionRow, { borderBottomColor: colors.border }]}
+            onPress={pickFromGallery}
           >
-            <Ionicons
-              name="images-outline"
-              size={16}
-              color={avatarTab === "gallery" ? colors.primary : colors.textSecondary}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                { color: colors.textSecondary },
-                avatarTab === "gallery" && { color: colors.primary, fontWeight: "700" },
-              ]}
-            >
-              Gallery
-            </Text>
+            <Text style={[styles.optionText, { color: colors.textPrimary }]}>Choose from Library</Text>
+            <Ionicons name="images-outline" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-
           <TouchableOpacity
-            style={[
-              styles.segmentBtn,
-              avatarTab === "camera" && [
-                styles.segmentBtnActive,
-                { backgroundColor: isDark ? colors.surfaceHighlight : "#FFFFFF" },
-              ],
-            ]}
-            onPress={() => {
-              setAvatarTab("camera");
-              takeWithCamera();
-            }}
+            style={[styles.optionRow, { borderBottomColor: colors.border }]}
+            onPress={takeWithCamera}
           >
-            <Ionicons
-              name="camera-outline"
-              size={16}
-              color={avatarTab === "camera" ? colors.primary : colors.textSecondary}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                { color: colors.textSecondary },
-                avatarTab === "camera" && { color: colors.primary, fontWeight: "700" },
-              ]}
-            >
-              Camera
-            </Text>
+            <Text style={[styles.optionText, { color: colors.textPrimary }]}>Take Photo</Text>
+            <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-
           <TouchableOpacity
-            style={[
-              styles.segmentBtn,
-              avatarTab === "remove" && [
-                styles.segmentBtnActive,
-                { backgroundColor: isDark ? colors.surfaceHighlight : "#FFFFFF" },
-              ],
-            ]}
-            onPress={() => {
-              setAvatarTab("remove");
-              setCurrentAvatar("");
-            }}
+            style={styles.optionRow}
+            onPress={handleRemovePhoto}
           >
-            <Ionicons
-              name="trash-outline"
-              size={16}
-              color={avatarTab === "remove" ? "#EF4444" : colors.textSecondary}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                { color: colors.textSecondary },
-                avatarTab === "remove" && { color: "#EF4444", fontWeight: "700" },
-              ]}
-            >
-              Remove
-            </Text>
+            <Text style={[styles.optionText, { color: "#EF4444" }]}>Remove Current Photo</Text>
+            <Ionicons name="trash-outline" size={20} color="#EF4444" />
           </TouchableOpacity>
         </View>
 
-        {/* 3-Column Media Grid */}
-        <View style={styles.photoGrid}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          PRESET AVATARS
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.presetsList}
+        >
           {PRESET_AVATARS.map((item) => {
             const isSelected = currentAvatar === item.id;
             return (
               <TouchableOpacity
                 key={item.id}
-                style={[
-                  styles.photoGridItem,
-                  { backgroundColor: colors.surface },
-                  isSelected && styles.photoGridItemSelected,
-                ]}
-                activeOpacity={0.8}
                 onPress={() => setCurrentAvatar(item.id)}
+                activeOpacity={0.8}
+                style={[
+                  styles.presetWrapper,
+                  { borderColor: isSelected ? colors.primary : "transparent" }
+                ]}
               >
-                <Image source={item.source} style={styles.photoGridImage} />
-                {isSelected && (
-                  <View style={styles.gridCheckBadge}>
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                  </View>
-                )}
+                <Image source={item.source} style={styles.presetImage} />
               </TouchableOpacity>
             );
           })}
-        </View>
-
-        <Text style={[styles.helperNoticeText, { color: colors.textSecondary }]}>High quality photos work best. Keep it real.</Text>
+        </ScrollView>
       </ScrollView>
     </SafeAreaView>
   );
@@ -271,144 +226,89 @@ export default function ChangeProfilePhotoScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
   },
-  headerRow: {
-    height: 52,
+  header: {
+    height: 54,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerIconButton: {
-    padding: 6,
+  headerLeft: {
+    width: 60,
+    alignItems: "flex-start",
+    justifyContent: "center",
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: "700",
-    color: "#0F172A",
+    fontWeight: "600",
+    textAlign: "center",
   },
-  headerSaveButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  headerRight: {
+    width: 60,
+    alignItems: "flex-end",
+    justifyContent: "center",
   },
   headerSaveText: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#2563EB",
+    fontWeight: "600",
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 60,
   },
-  centerPreviewContainer: {
+  avatarSection: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 24,
+    paddingVertical: 40,
   },
-  largeAvatarWrapper: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "#E2E8F0",
-    position: "relative",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 5,
+  avatar: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 1,
   },
-  largeAvatar: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 60,
-  },
-  largeAvatarCameraBadge: {
-    position: "absolute",
-    right: 0,
-    bottom: 0,
-    backgroundColor: "#0F172A",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#FFFFFF",
-  },
-  segmentedTabContainer: {
-    flexDirection: "row",
-    backgroundColor: "#E2E8F0",
-    borderRadius: 12,
+  optionsGroup: {
     marginHorizontal: 16,
-    padding: 4,
-    marginBottom: 20,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
   },
-  segmentBtn: {
-    flex: 1,
+  optionRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
-    borderRadius: 9,
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  segmentBtnActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+  optionText: {
+    fontSize: 16,
+    fontWeight: "400",
   },
-  segmentText: {
-    fontSize: 13,
+  sectionTitle: {
+    fontSize: 12,
     fontWeight: "600",
-    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 32,
+    marginBottom: 12,
+    marginLeft: 20,
   },
-  segmentTextActive: {
-    color: "#2563EB",
+  presetsList: {
+    paddingHorizontal: 16,
+    gap: 12,
   },
-  photoGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 14,
-    gap: 10,
-    marginBottom: 16,
-  },
-  photoGridItem: {
-    width: (SCREEN_WIDTH - 28 - 20) / 3,
-    height: (SCREEN_WIDTH - 28 - 20) / 3,
-    borderRadius: 12,
-    overflow: "hidden",
-    position: "relative",
+  presetWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 2,
-    borderColor: "transparent",
+    padding: 2,
   },
-  photoGridItemSelected: {
-    borderColor: "#2563EB",
-  },
-  photoGridImage: {
+  presetImage: {
     width: "100%",
     height: "100%",
-  },
-  gridCheckBadge: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    backgroundColor: "#2563EB",
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  helperNoticeText: {
-    textAlign: "center",
-    fontSize: 13,
-    color: "#94A3B8",
-    marginHorizontal: 30,
-    marginTop: 8,
+    borderRadius: 30,
   },
 });

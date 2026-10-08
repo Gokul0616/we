@@ -32,9 +32,10 @@ async def enrich_sync_posts(ctx: QueryContext, posts: list[dict]):
 
 @sync_engine.query("posts:getFeed")
 async def get_feed(ctx: QueryContext, args: dict[str, Any]):
-    limit = args.get("limit", 30)
+    limit = args.get("limit", 15)
+    skip = args.get("skip", 0)
     # The reader automatically tracks Read Set (coll:posts, doc:posts:id)
-    posts = await ctx.db.find("posts", {}, sort_field="created_at", sort_order=-1, limit=limit)
+    posts = await ctx.db.find("posts", {}, sort_field="created_at", sort_order=-1, limit=limit, skip=skip)
     
     current_user_id = ctx.auth_user.get("sub") if ctx.auth_user else None
     for p in posts:
@@ -135,7 +136,64 @@ async def list_notifications(ctx: QueryContext, args: dict[str, Any]):
     if not ctx.auth_user:
         return []
     user_id = ctx.auth_user["sub"]
-    return await ctx.db.find("notifications", {"recipient_id": user_id}, sort_field="created_at", sort_order=-1, limit=30)
+    notifs = await ctx.db.find("notifications", {"recipient_id": user_id}, sort_field="created_at", sort_order=-1, limit=50);
+    for n in notifs:
+        actor_id = n.get("actor_id")
+        if actor_id:
+            try:
+                actor = await ctx.reader.get("users", actor_id)
+                if actor:
+                    n["actor_username"] = actor.get("username", n.get("actor_username"))
+                    n["actor_fullName"] = actor.get("full_name")
+                    n["actor_avatar"] = actor.get("avatar_url")
+            except Exception:
+                pass
+    return notifs
+
+@sync_engine.query("notifications:unreadCount")
+async def unread_notifications_count(ctx: QueryContext, args: dict[str, Any]):
+    if not ctx.auth_user:
+        return {"count": 0}
+    user_id = ctx.auth_user["sub"]
+    unread = await ctx.db.find("notifications", {"recipient_id": user_id, "read": False})
+    return {"count": len(unread)}
+
+@sync_engine.mutation("notifications:markRead")
+async def mark_notification_read(ctx: MutationContext, args: dict[str, Any]):
+    if not ctx.auth_user:
+        return {"success": False}
+    user_id = ctx.auth_user["sub"]
+    notif_id = args.get("notificationId")
+    if notif_id:
+        notif = await ctx.reader.get("notifications", notif_id)
+        if notif and notif.get("recipient_id") == user_id:
+            await ctx.db.update("notifications", notif_id, {"$set": {"read": True, "readAt": datetime.now(timezone.utc)}})
+    return {"success": True}
+
+@sync_engine.mutation("notifications:markAllRead")
+async def mark_all_notifications_read(ctx: MutationContext, args: dict[str, Any]):
+    if not ctx.auth_user:
+        return {"success": False}
+    user_id = ctx.auth_user["sub"]
+    notifs = await ctx.reader.find("notifications", {"recipient_id": user_id, "read": False})
+    for n in notifs:
+        nid = str(n.get("id", n.get("_id", "")))
+        if nid:
+            await ctx.db.update("notifications", nid, {"$set": {"read": True, "readAt": datetime.now(timezone.utc)}})
+    return {"success": True}
+
+@sync_engine.mutation("notifications:clearAll")
+async def clear_all_notifications(ctx: MutationContext, args: dict[str, Any]):
+    if not ctx.auth_user:
+        return {"success": False}
+    user_id = ctx.auth_user["sub"]
+    notifs = await ctx.reader.find("notifications", {"recipient_id": user_id})
+    for n in notifs:
+        nid = str(n.get("id", n.get("_id", "")))
+        if nid:
+            await ctx.db.delete("notifications", nid)
+    return {"success": True}
+
 
 @sync_engine.query("users:checkUsername")
 async def check_username_query(ctx: QueryContext, args: dict[str, Any]):
@@ -168,7 +226,8 @@ async def get_user_posts(ctx: QueryContext, args: dict[str, Any]):
     user_id = args.get("userId")
     username = args.get("username")
     tab = args.get("tab", "posts")
-    limit = args.get("limit", 40)
+    limit = args.get("limit", 12)
+    skip = args.get("skip", 0)
 
     query = {}
     if user_id:
@@ -240,7 +299,7 @@ async def get_user_posts(ctx: QueryContext, args: dict[str, Any]):
             ]
         } if all_match_ids else {"_id": "__no_post__"}
 
-    posts = await ctx.db.find("posts", query, sort_field="created_at", sort_order=-1, limit=limit)
+    posts = await ctx.db.find("posts", query, sort_field="created_at", sort_order=-1, limit=limit, skip=skip)
     current_user_id = ctx.auth_user.get("sub") if ctx.auth_user else None
     for p in posts:
         liked_by = p.get("liked_by", [])
@@ -276,7 +335,7 @@ async def create_post(ctx: MutationContext, args: dict[str, Any]):
         except Exception:
             pass
 
-    author_avatar = (user.get("avatar_url") if user else None) or args.get("author_avatar") or f"https://api.dicebear.com/7.x/avataaars/svg?seed={username}"
+    author_avatar = (user.get("avatar_url") if user else None) or args.get("author_avatar") or "asset:default_avatar.png"
     author_fullName = (user.get("full_name") if user else None) or username
 
     media_urls = args.get("media_urls", [])
@@ -348,15 +407,22 @@ async def toggle_like(ctx: MutationContext, args: dict[str, Any]):
 
         # Also create notification if not self-like
         if post.get("author_id") and post["author_id"] != user_id:
-            await ctx.db.insert("notifications", {
+            existing_notif = await ctx.reader.find("notifications", {
                 "recipient_id": post["author_id"],
                 "actor_id": user_id,
-                "actor_username": username,
                 "type": "LIKE",
-                "post_id": post_id,
-                "read": False,
-                "created_at": datetime.now(timezone.utc)
-            })
+                "post_id": post_id
+            }, limit=1)
+            if not existing_notif:
+                await ctx.db.insert("notifications", {
+                    "recipient_id": post["author_id"],
+                    "actor_id": user_id,
+                    "actor_username": username,
+                    "type": "LIKE",
+                    "post_id": post_id,
+                    "read": False,
+                    "created_at": datetime.now(timezone.utc)
+                })
 
     return {"postId": post_id, "isLiked": is_liked, "likesCount": new_count}
 
@@ -383,7 +449,7 @@ async def add_comment(ctx: MutationContext, args: dict[str, Any]):
         except Exception:
             pass
 
-    author_avatar = (user.get("avatar_url") if user else None) or args.get("author_avatar") or f"https://api.dicebear.com/7.x/avataaars/svg?seed={username}"
+    author_avatar = (user.get("avatar_url") if user else None) or args.get("author_avatar") or "asset:default_avatar.png"
     author_fullName = (user.get("full_name") if user else None) or username
 
     comment_doc = {
@@ -401,6 +467,21 @@ async def add_comment(ctx: MutationContext, args: dict[str, Any]):
     await ctx.db.update("posts", post_id, {"$inc": {"comments_count": 1}})
 
     comment_doc["id"] = comment_id
+    
+    # Create COMMENT notification
+    post = await ctx.reader.get("posts", post_id)
+    if post and post.get("author_id") and post["author_id"] != user_id:
+        await ctx.db.insert("notifications", {
+            "recipient_id": post["author_id"],
+            "actor_id": user_id,
+            "actor_username": username,
+            "type": "COMMENT",
+            "post_id": post_id,
+            "comment_id": comment_id,
+            "read": False,
+            "created_at": datetime.now(timezone.utc)
+        })
+
     return comment_doc
 
 @sync_engine.mutation("users:updateProfile")
@@ -417,13 +498,18 @@ async def update_profile_mutation(ctx: MutationContext, args: dict[str, Any]):
         raise ValueError("User ID required to update profile")
 
     fields = [
-        "full_name", "username", "bio", "avatar_url", "cover_url",
-        "location", "website", "social_links", "privacy_settings"
+        "full_name", "username", "email", "phone", "gender", "date_of_birth",
+        "bio", "avatar_url", "cover_url", "location", "website",
+        "social_links", "privacy_settings", "notification_settings",
+        "content_preferences", "two_factor", "blocked_users"
     ]
     updates = {}
     for f in fields:
         if f in args and args[f] is not None:
-            updates[f] = args[f]
+            if f == "avatar_url" and not args[f]:
+                updates[f] = "asset:default_avatar.png"
+            else:
+                updates[f] = args[f]
 
     if updates:
         updates["updated_at"] = datetime.now(timezone.utc)
@@ -443,37 +529,192 @@ async def toggle_follow_mutation(ctx: MutationContext, args: dict[str, Any]):
     if not target_username:
         raise ValueError("Target username is required")
 
-    existing = await ctx.reader.find("follows", {
+    users_found = await ctx.reader.find("users", {"username": target_username}, limit=1)
+    target_user = users_found[0] if users_found else None
+    target_id = str(target_user.get("id", target_user.get("_id", ""))) if target_user else None
+    
+    if target_id == user_id:
+        raise ValueError("Cannot follow yourself")
+
+    is_private = target_user.get("privacy_settings", {}).get("is_private", False) if target_user else False
+
+    existing_follow = await ctx.reader.find("follows", {
         "follower_id": str(user_id),
         "target_username": target_username
     }, limit=1)
 
-    if existing:
-        follow_id = str(existing[0].get("id", existing[0].get("_id", "")))
+    existing_request = await ctx.reader.find("follow_requests", {
+        "follower_id": str(user_id),
+        "target_username": target_username
+    }, limit=1)
+
+    is_following = False
+    is_requested = False
+
+    if existing_follow:
+        follow_id = str(existing_follow[0].get("id", existing_follow[0].get("_id", "")))
         await ctx.db.delete("follows", follow_id)
-        is_following = False
+    elif existing_request:
+        req_id = str(existing_request[0].get("id", existing_request[0].get("_id", "")))
+        await ctx.db.delete("follow_requests", req_id)
+        if target_id:
+            notifs = await ctx.reader.find("notifications", {
+                "recipient_id": target_id,
+                "actor_id": user_id,
+                "type": "FOLLOW_REQUEST"
+            })
+            for n in notifs:
+                nid = str(n.get("id", n.get("_id", "")))
+                await ctx.db.delete("notifications", nid)
     else:
-        await ctx.db.insert("follows", {
-            "follower_id": str(user_id),
-            "follower_username": my_username,
-            "target_username": target_username,
-            "created_at": datetime.now(timezone.utc)
-        })
-        is_following = True
+        if is_private:
+            await ctx.db.insert("follow_requests", {
+                "follower_id": str(user_id),
+                "follower_username": my_username,
+                "target_id": target_id,
+                "target_username": target_username,
+                "created_at": datetime.now(timezone.utc)
+            })
+            is_requested = True
+            
+            if target_id:
+                ext_notif = await ctx.reader.find("notifications", {
+                    "recipient_id": target_id,
+                    "actor_id": user_id,
+                    "type": "FOLLOW_REQUEST"
+                }, limit=1)
+                if not ext_notif:
+                    await ctx.db.insert("notifications", {
+                        "recipient_id": target_id,
+                        "actor_id": user_id,
+                        "actor_username": my_username,
+                        "type": "FOLLOW_REQUEST",
+                        "read": False,
+                        "created_at": datetime.now(timezone.utc)
+                    })
+        else:
+            await ctx.db.insert("follows", {
+                "follower_id": str(user_id),
+                "follower_username": my_username,
+                "target_username": target_username,
+                "created_at": datetime.now(timezone.utc)
+            })
+            is_following = True
+
+            if target_id:
+                ext_notif = await ctx.reader.find("notifications", {
+                    "recipient_id": target_id,
+                    "actor_id": user_id,
+                    "type": "FOLLOW"
+                }, limit=1)
+                if not ext_notif:
+                    await ctx.db.insert("notifications", {
+                        "recipient_id": target_id,
+                        "actor_id": user_id,
+                        "actor_username": my_username,
+                        "type": "FOLLOW",
+                        "read": False,
+                        "created_at": datetime.now(timezone.utc)
+                    })
 
     all_follows = await ctx.reader.find("follows", {"target_username": target_username})
+    all_following = await ctx.reader.find("follows", {"follower_username": target_username})
     return {
         "targetUsername": target_username,
         "isFollowing": is_following,
-        "followersCount": len(all_follows)
+        "isRequested": is_requested,
+        "followersCount": len(all_follows),
+        "followingCount": len(all_following)
     }
+
+@sync_engine.query("followRequests:list")
+async def list_follow_requests(ctx: QueryContext, args: dict[str, Any]):
+    if not ctx.auth_user:
+        return []
+    user_id = ctx.auth_user["sub"]
+    reqs = await ctx.db.find("follow_requests", {"target_id": user_id}, sort_field="created_at", sort_order=-1)
+    for r in reqs:
+        actor_id = r.get("follower_id")
+        if actor_id:
+            try:
+                actor = await ctx.reader.get("users", actor_id)
+                if actor:
+                    r["actor_username"] = actor.get("username", r.get("follower_username"))
+                    r["actor_fullName"] = actor.get("full_name")
+                    r["actor_avatar"] = actor.get("avatar_url")
+            except Exception:
+                pass
+    return reqs
+
+@sync_engine.mutation("users:acceptFollowRequest")
+async def accept_follow_request(ctx: MutationContext, args: dict[str, Any]):
+    if not ctx.auth_user:
+        raise PermissionError("Authentication required")
+    user_id = ctx.auth_user["sub"]
+    my_username = ctx.auth_user.get("username", "")
+    
+    follower_id = args.get("followerId")
+    if not follower_id:
+        raise ValueError("followerId required")
+
+    req = await ctx.reader.find("follow_requests", {
+        "target_id": user_id,
+        "follower_id": follower_id
+    }, limit=1)
+    
+    if req:
+        req_id = str(req[0].get("id", req[0].get("_id", "")))
+        follower_username = req[0].get("follower_username", "")
+        await ctx.db.delete("follow_requests", req_id)
+        
+        # Create follow
+        await ctx.db.insert("follows", {
+            "follower_id": str(follower_id),
+            "follower_username": follower_username,
+            "target_username": my_username,
+            "created_at": datetime.now(timezone.utc)
+        })
+        
+        # Create FOLLOW_ACCEPTED notification for the follower
+        await ctx.db.insert("notifications", {
+            "recipient_id": follower_id,
+            "actor_id": user_id,
+            "actor_username": my_username,
+            "type": "FOLLOW_ACCEPTED",
+            "read": False,
+            "created_at": datetime.now(timezone.utc)
+        })
+        
+    return {"success": True}
+
+@sync_engine.mutation("users:rejectFollowRequest")
+async def reject_follow_request(ctx: MutationContext, args: dict[str, Any]):
+    if not ctx.auth_user:
+        raise PermissionError("Authentication required")
+    user_id = ctx.auth_user["sub"]
+    
+    follower_id = args.get("followerId")
+    if not follower_id:
+        raise ValueError("followerId required")
+
+    req = await ctx.reader.find("follow_requests", {
+        "target_id": user_id,
+        "follower_id": follower_id
+    }, limit=1)
+    
+    if req:
+        req_id = str(req[0].get("id", req[0].get("_id", "")))
+        await ctx.db.delete("follow_requests", req_id)
+        
+    return {"success": True}
+
 
 @sync_engine.query("users:getFollowStatus")
 async def get_follow_status_query(ctx: QueryContext, args: dict[str, Any]):
     user_id = ctx.auth_user["sub"] if ctx.auth_user else args.get("followerId")
     target_username = args.get("targetUsername", "").strip().lower()
     if not target_username:
-        return {"targetUsername": "", "isFollowing": False, "followersCount": 0}
+        return {"targetUsername": "", "isFollowing": False, "followersCount": 0, "followingCount": 0}
 
     is_following = False
     if user_id:
@@ -484,8 +725,10 @@ async def get_follow_status_query(ctx: QueryContext, args: dict[str, Any]):
         is_following = bool(existing)
 
     all_follows = await ctx.db.find("follows", {"target_username": target_username})
+    all_following = await ctx.db.find("follows", {"follower_username": target_username})
     return {
         "targetUsername": target_username,
         "isFollowing": is_following,
-        "followersCount": len(all_follows)
+        "followersCount": len(all_follows),
+        "followingCount": len(all_following)
     }

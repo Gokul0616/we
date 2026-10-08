@@ -26,6 +26,7 @@ import { authStorage, StoredUser } from "../../services/authStorage";
 import { userService } from "../../services/userService";
 import { toast } from "../../services/toastService";
 import { PostMedia } from "../../components/common/PostMedia";
+import { resolveAvatarSource, DEFAULT_AVATAR } from "../../utils/mediaHelper";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -65,9 +66,7 @@ export default function PostDetailScreen() {
         id: postId,
         author_username: params.author_username || "",
         author_fullName: params.author_fullName || "",
-        author_avatar: params.author_avatar
-          ? { uri: params.author_avatar }
-          : require("../../../assets/images/onboarding_hero.jpg"),
+        author_avatar: resolveAvatarSource(params.author_avatar),
         media_url: params.media_url,
         media_type: params.media_type || (params.media_url?.toLowerCase().endsWith(".mp4") || params.media_url?.toLowerCase().endsWith(".mov") ? "video" : "photo"),
         caption: params.caption || "",
@@ -127,7 +126,7 @@ export default function PostDetailScreen() {
       id: postId,
       author_username: "user",
       author_fullName: "User",
-      author_avatar: require("../../../assets/images/profile_avatar.jpg"),
+      author_avatar: DEFAULT_AVATAR,
       media_url: undefined,
       media_type: "photo",
       fallbackImage: undefined,
@@ -150,23 +149,35 @@ export default function PostDetailScreen() {
   const [commentsList, setCommentsList] = useState<CommentItem[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
 
-  // 2. Fetch logged in user
+  // 2. Fetch logged in user and subscribe to changes
   useEffect(() => {
+    const handleUser = (u: StoredUser) => {
+      setCurrentUser(u);
+      setPost((prev) => {
+        if (prev.author_username === u.username) {
+          return {
+            ...prev,
+            author_avatar: resolveAvatarSource(u.avatar_url ? { uri: u.avatar_url } : prev.author_avatar),
+            author_fullName: u.full_name || prev.author_fullName || u.username,
+          };
+        }
+        return prev;
+      });
+    };
+
     authStorage.getUser().then((u) => {
       if (u) {
-        setCurrentUser(u);
-        setPost((prev) => {
-          if (prev.author_username === u.username) {
-            return {
-              ...prev,
-              author_avatar: u.avatar_url ? { uri: u.avatar_url } : prev.author_avatar,
-              author_fullName: u.full_name || prev.author_fullName || u.username,
-            };
-          }
-          return prev;
-        });
+        handleUser(u);
       }
     });
+
+    const unsubscribe = userService.subscribe((u) => {
+      handleUser(u);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // 3. Convex-like Reactive Sync Subscription for Post Details & Comments
@@ -211,11 +222,8 @@ export default function PostDetailScreen() {
   const updateFromLivePost = (livePost: any) => {
     const isMine = currentUser && (currentUser.username === livePost.author_username || currentUser.id === livePost.author_id);
     setPost((prev) => {
-      const resolvedAvatar = isMine && currentUser?.avatar_url
-        ? { uri: currentUser.avatar_url }
-        : (livePost.author_avatar
-            ? (typeof livePost.author_avatar === "string" ? { uri: livePost.author_avatar } : livePost.author_avatar)
-            : prev.author_avatar);
+      const authorAvatar = (isMine && currentUser?.avatar_url) ? currentUser.avatar_url : livePost.author_avatar;
+      const resolvedAvatar = resolveAvatarSource(authorAvatar || prev.author_avatar);
       const resolvedFullName = isMine && currentUser?.full_name ? currentUser.full_name : (livePost.author_fullName || prev.author_fullName);
 
       return {
@@ -243,17 +251,13 @@ export default function PostDetailScreen() {
   const mapComments = (raw: any[]): CommentItem[] => {
     return raw.map((c) => {
       const isMine = currentUser && (currentUser.username === c.author_username || currentUser.id === c.author_id);
-      const avatarUri = isMine && currentUser?.avatar_url
+      const rawAvatar = isMine && currentUser?.avatar_url
         ? currentUser.avatar_url
-        : (c.author_avatar && typeof c.author_avatar === "string" ? c.author_avatar : undefined);
+        : (c.author_avatar || c.avatar);
       return {
         id: String(c.id || c._id || `c_${Math.random()}`),
         author_username: c.author_username || c.username || "user",
-        author_avatar: avatarUri
-          ? { uri: avatarUri }
-          : (c.author_avatar && typeof c.author_avatar === "object"
-              ? c.author_avatar
-              : require("../../../assets/images/profile_avatar.jpg")),
+        author_avatar: resolveAvatarSource(rawAvatar),
         content: c.content || c.text || "",
         created_at: c.created_at ? formatTimeAgo(c.created_at) : "Just now",
         likes: c.likes || 0,
@@ -415,7 +419,7 @@ export default function PostDetailScreen() {
             activeOpacity={0.8}
             onPress={handleAuthorPress}
           >
-            <Image source={post.author_avatar} style={styles.authorAvatar} />
+            <Image source={resolveAvatarSource(post.author_avatar)} style={styles.authorAvatar} />
             <View>
               <Text style={[styles.authorUsername, { color: colors.textPrimary }]}>{post.author_username}</Text>
               {post.location ? (
@@ -538,7 +542,7 @@ export default function PostDetailScreen() {
           ) : (
             commentsList.map((c) => (
               <View key={c.id} style={styles.commentRow}>
-                <Image source={c.author_avatar} style={styles.commentAvatar} />
+                <Image source={resolveAvatarSource(c.author_avatar)} style={styles.commentAvatar} />
                 <View style={styles.commentContent}>
                   <Text style={[styles.commentBody, { color: colors.textPrimary }]}>
                     <Text style={[styles.commentAuthor, { color: colors.textPrimary }]}>{c.author_username} </Text>
@@ -566,7 +570,7 @@ export default function PostDetailScreen() {
       >
         <View style={[styles.addCommentBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
           <Image
-            source={currentUser?.avatar_url ? { uri: currentUser.avatar_url } : require("../../../assets/images/profile_avatar.jpg")}
+            source={resolveAvatarSource(currentUser?.avatar_url)}
             style={styles.myCommentAvatar}
           />
           <TextInput

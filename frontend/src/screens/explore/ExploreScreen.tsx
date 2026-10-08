@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { authStorage, StoredUser } from "../../services/authStorage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TILE_GAP = 1.5;
@@ -32,7 +33,7 @@ const IMG_FOOD = require("../../../assets/images/explore_food.jpg");
 const IMG_CINQUE = require("../../../assets/images/cinque_terre_post.jpg");
 const IMG_BALI = require("../../../assets/images/home_feed_bali_post.jpg");
 const IMG_MOUNTAIN = require("../../../assets/images/splash_mountain.jpg");
-const IMG_AVATAR = require("../../../assets/images/onboarding_hero.jpg");
+const IMG_AVATAR = require("../../../assets/images/default_avatar.png");
 const IMG_HERO = require("../../../assets/images/onboarding_hero.jpg");
 const IMG_SLIDE_2 = require("../../../assets/images/onboarding_slide_2.jpg");
 const IMG_SLIDE_3 = require("../../../assets/images/onboarding_slide_3.jpg");
@@ -378,6 +379,11 @@ export function ExploreScreen() {
   const [previewPost, setPreviewPost] = useState<ExplorePost | null>(null);
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
   const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
+
+  React.useEffect(() => {
+    authStorage.getUser().then(u => setCurrentUser(u));
+  }, []);
 
   // Animation values for Instagram Peek & Pop
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
@@ -386,7 +392,7 @@ export function ExploreScreen() {
 
   // Route to My Profile or Others' Profile based on ownership
   const handleAuthorPress = (author: { username: string; fullName: string; isMe?: boolean }) => {
-    if (author.isMe) {
+    if (author.isMe || (currentUser?.username && currentUser.username === author.username)) {
       router.push("/(tabs)/profile");
     } else {
       router.push({

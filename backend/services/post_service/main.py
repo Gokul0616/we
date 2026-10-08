@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
 from bson import ObjectId
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -101,7 +101,7 @@ async def enrich_posts_with_author_info(posts: list[dict], db):
     return posts
 
 @app.get("/posts")
-async def get_feed(limit: int = 30, skip: int = 0, author_username: Optional[str] = None, author_id: Optional[str] = None):
+async def get_feed(limit: int = 15, skip: int = 0, author_username: Optional[str] = None, author_id: Optional[str] = None):
     db = get_database()
     query = {}
     if author_username:
@@ -135,7 +135,7 @@ async def get_feed(limit: int = 30, skip: int = 0, author_username: Optional[str
     return {"posts": posts}
 
 @app.get("/posts/user/{identifier}")
-async def get_user_posts(identifier: str, tab: str = "posts", limit: int = 40, skip: int = 0):
+async def get_user_posts(identifier: str, tab: str = "posts", limit: int = 12, skip: int = 0):
     db = get_database()
     # Check if identifier matches username or author_id
     query = {"$or": [{"author_username": identifier}, {"author_id": identifier}]}
@@ -264,6 +264,8 @@ async def upload_media(request: Request):
         with open(file_path, "wb") as f:
             f.write(file_bytes)
 
+        proto = request.headers.get("x-forwarded-proto", "http")
+        host = request.headers.get("host", "192.168.1.83:8002")
         file_url = f"{proto}://{host}/uploads/{filename}"
         return {"url": file_url, "filename": filename, "status": "ok"}
 
@@ -299,6 +301,8 @@ async def upload_media(request: Request):
         file_bytes = base64.b64decode(raw_data)
         with open(file_path, "wb") as f:
             f.write(file_bytes)
+        proto = request.headers.get("x-forwarded-proto", "http")
+        host = request.headers.get("host", "192.168.1.83:8002")
         file_url = f"{proto}://{host}/uploads/{filename}"
         return {"url": file_url, "filename": filename, "status": "ok"}
     except Exception:
@@ -329,7 +333,7 @@ async def create_post(
         pass
 
     if not author_avatar:
-        author_avatar = f"https://api.dicebear.com/7.x/avataaars/svg?seed={username}"
+        author_avatar = "asset:default_avatar.png"
 
     primary_media = post_in.media_url
     if not primary_media and post_in.media_urls and len(post_in.media_urls) > 0:
@@ -580,6 +584,9 @@ async def add_comment(
             author_fullName = user_doc.get("full_name") or username
     except Exception:
         pass
+
+    if not author_avatar:
+        author_avatar = "asset:default_avatar.png"
 
     try:
         obj_id = ObjectId(post_id)

@@ -17,6 +17,7 @@ import { CustomAlert } from "../components/CustomAlert";
 import { apiClient } from "../services/apiClient";
 import { authStorage } from "../services/authStorage";
 import { ThemeProvider, useTheme } from "../context/ThemeContext";
+import { NotificationProvider } from "../context/NotificationContext";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -197,8 +198,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     apiClient.setOnUnauthorized(async () => {
+      const existingToken = await authStorage.getToken();
       await authStorage.clear();
-      router.replace("/onboarding");
+      if (existingToken) {
+        router.replace("/onboarding");
+      }
     });
   }, [router]);
 
@@ -214,7 +218,9 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <RootLayoutNav />
+      <NotificationProvider>
+        <RootLayoutNav />
+      </NotificationProvider>
     </ThemeProvider>
   );
 }

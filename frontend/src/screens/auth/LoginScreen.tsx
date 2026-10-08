@@ -46,12 +46,16 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
 
     try {
       const cleanIdentifier = identifier.trim().toLowerCase().replace(/^@/, "");
-      const data = await apiClient.post(ENDPOINTS.auth.login, {
-        email: cleanIdentifier,
-        username: cleanIdentifier,
-        login: cleanIdentifier,
-        password,
-      });
+      const data = await apiClient.post(
+        ENDPOINTS.auth.login,
+        {
+          email: cleanIdentifier,
+          username: cleanIdentifier,
+          login: cleanIdentifier,
+          password,
+        },
+        { skipUnauthorizedHandler: true }
+      );
 
       if (data?.access_token) {
         await authStorage.saveToken(data.access_token);

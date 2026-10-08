@@ -20,7 +20,7 @@ import { useTheme } from "../../context/ThemeContext";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Local image references
-const IMG_AVATAR = require("../../../assets/images/onboarding_hero.jpg");
+const IMG_AVATAR = require("../../../assets/images/default_avatar.png");
 
 export interface ChatThread {
   id: string;

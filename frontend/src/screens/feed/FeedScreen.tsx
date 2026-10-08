@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,6 +10,7 @@ import {
   Dimensions,
   RefreshControl,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,260 +21,50 @@ import { syncClient } from "../../services/reactiveSyncClient";
 
 import { ExplorePost } from "../explore/ExploreScreen";
 import { PostMedia } from "../../components/common/PostMedia";
+import { FeedActivityIndicator } from "../../components/feed/FeedActivityIndicator";
 import { authStorage, StoredUser } from "../../services/authStorage";
 import { useTheme } from "../../context/ThemeContext";
+import { resolveAvatarSource, resolveFullUrl, DEFAULT_AVATAR } from "../../utils/mediaHelper";
+import { userService } from "../../services/userService";
+import { useNotifications } from "../../context/NotificationContext";
 
-const { width } = Dimensions.get("window");
-
-interface Story {
-  id: string;
-  username: string;
-  avatar: any;
-  hasUnseenStory?: boolean;
-  isUser?: boolean;
-}
-
-export interface PostItem {
-  id: string;
-  author: {
-    username: string;
-    avatar: any;
-    location?: string;
-    fullName?: string;
-  };
-  mediaType?: string;
-  image: any;
-  likesCount: number;
-  commentsCount: number;
-  caption: string;
-  timeAgo: string;
-  location?: string;
-  isLiked?: boolean;
-  isSaved?: boolean;
-}
-
-export const FEED_POSTS: PostItem[] = [];
-
-interface FeedScreenProps {
-  onSignOut?: () => void;
-}
-
-const mapBackendPost = (bp: any, currentUser?: StoredUser | null): PostItem => {
-  const isMine = currentUser && (currentUser.username === bp.author_username || currentUser.id === bp.author_id);
-  const avatarUrl = isMine && currentUser?.avatar_url
-    ? currentUser.avatar_url
-    : (bp.author_avatar && typeof bp.author_avatar === "string" ? bp.author_avatar : undefined);
-  const fullName = isMine && currentUser?.full_name
-    ? currentUser.full_name
-    : (bp.author_fullName || bp.author_username || "User");
-
-  return {
-    id: String(bp.id || bp._id),
-    author: {
-      username: bp.author_username || "user",
-      fullName: fullName,
-      avatar: avatarUrl
-        ? { uri: avatarUrl }
-        : (bp.author_avatar && typeof bp.author_avatar === "object"
-            ? bp.author_avatar
-            : require("../../../assets/images/onboarding_hero.jpg")),
-      location: bp.location,
-    },
-    location: bp.location,
-    mediaType: bp.media_type || (bp.media_url?.toLowerCase().endsWith(".mp4") || bp.media_url?.toLowerCase().endsWith(".mov") ? "video" : "photo"),
-    image: bp.media_url && typeof bp.media_url === "string"
-      ? { uri: bp.media_url }
-      : bp.media_urls?.[0] && typeof bp.media_urls[0] === "string"
-      ? { uri: bp.media_urls[0] }
-      : require("../../../assets/images/home_feed_bali_post.jpg"),
-    likesCount: bp.likes_count || 0,
-    commentsCount: bp.comments_count || 0,
-    caption: bp.content || "",
-    timeAgo: "2h",
-    isLiked: !!bp.is_liked,
-    isSaved: false,
-  };
-};
-
-export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
+// --- START: Extracted Memoized Post Component ---
+const PostCardItem = React.memo(({ 
+  item, 
+  currentUser, 
+  colors, 
+  handleToggleLike, 
+  handleToggleSave 
+}: { 
+  item: PostItem; 
+  currentUser: StoredUser | null;
+  colors: any;
+  handleToggleLike: (id: string) => void;
+  handleToggleSave: (id: string) => void;
+}) => {
   const router = useRouter();
-  const { colors, isDark } = useTheme();
-  const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [posts, setPosts] = useState<PostItem[]>([]);
-
-  useEffect(() => {
-    authStorage.getUser().then((u) => {
-      if (u) setCurrentUser(u);
-    });
-  }, []);
-
-  // Stories
-  const stories: Story[] = [
-    {
-      id: "user",
-      username: "Your story",
-      avatar: require("../../../assets/images/onboarding_hero.jpg"),
-      isUser: true,
-    },
-    {
-      id: "sarah",
-      username: "sarah_k",
-      avatar: { uri: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&q=80" },
-      hasUnseenStory: true,
-    },
-    {
-      id: "travel",
-      username: "travel.diary",
-      avatar: { uri: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=160&q=80" },
-      hasUnseenStory: true,
-    },
-    {
-      id: "alex",
-      username: "alex_wanderer",
-      avatar: { uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&q=80" },
-      hasUnseenStory: true,
-    },
-  ];
-
-  useEffect(() => {
-    // 1. Initial fetch from backend postService
-    postService.getFeedPosts().then((backendPosts) => {
-      if (backendPosts && backendPosts.length > 0) {
-        setPosts(backendPosts.map((p) => mapBackendPost(p, currentUser)));
-      }
-    });
-
-    // 2. Convex-style live reactive sync subscription:
-    const unsubscribeSync = syncClient.subscribe("posts:getFeed", {}, (livePosts: any[]) => {
-      if (Array.isArray(livePosts) && livePosts.length > 0) {
-        setPosts(livePosts.map((p) => mapBackendPost(p, currentUser)));
-      }
-    });
-
-    // 3. Local postService notifications
-    const unsubscribeLocal = postService.subscribe((newPost) => {
-      const formatted = mapBackendPost(newPost, currentUser);
-      setPosts((prev) => [formatted, ...prev.filter((p) => p.id !== formatted.id)]);
-    });
-
-    return () => {
-      unsubscribeSync();
-      unsubscribeLocal();
-    };
-  }, [currentUser]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    const fresh = await postService.getFeedPosts();
-    if (fresh && fresh.length > 0) {
-      setPosts(fresh.map((p) => mapBackendPost(p, currentUser)));
-    }
-    setRefreshing(false);
-  };
-
-  const handleToggleLike = async (postId: string) => {
-    // Optimistic local update
-    setPosts((prev) =>
-      prev.map((post) => {
-        if (post.id === postId) {
-          const nextLiked = !post.isLiked;
-          return {
-            ...post,
-            isLiked: nextLiked,
-            likesCount: nextLiked ? post.likesCount + 1 : Math.max(0, post.likesCount - 1),
-          };
-        }
-        return post;
-      })
-    );
-
-    // Convex-like mutation auto-synced across cluster
-    try {
-      await syncClient.mutation("posts:like", { postId });
-    } catch (e) {
-      console.warn("Like mutation failed:", e);
-    }
-  };
-
-  const handleToggleSave = (postId: string) => {
-    setPosts((prev) =>
-      prev.map((post) => {
-        if (post.id === postId) {
-          return { ...post, isSaved: !post.isSaved };
-        }
-        return post;
-      })
-    );
-  };
-
-  const renderStoriesHeader = () => (
-    <View style={[styles.storiesContainer, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.storiesScrollContent}
-      >
-        {stories.map((story) => (
-          <TouchableOpacity
-            key={story.id}
-            style={styles.storyItem}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (story.isUser) {
-                router.push("/(tabs)/profile");
-              } else {
-                router.push({
-                  pathname: "/user-profile",
-                  params: {
-                    username: story.username,
-                    name: story.username.replace("_", " ").replace(".", " ").toUpperCase(),
-                  },
-                });
-              }
-            }}
-          >
-            <View
-              style={[
-                styles.storyRing,
-                { backgroundColor: colors.background, borderColor: colors.border },
-                story.hasUnseenStory && styles.storyRingActive,
-                story.isUser && { borderColor: colors.border },
-              ]}
-            >
-              <Image source={story.avatar} style={styles.storyAvatar} />
-              {story.isUser && (
-                <View style={[styles.storyAddBadge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
-                  <Ionicons name="add" size={14} color="#FFFFFF" />
-                </View>
-              )}
-            </View>
-            <Text style={[styles.storyUsername, { color: colors.textSecondary }]} numberOfLines={1}>
-              {story.username}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
-
-  const renderPost = ({ item }: { item: PostItem }) => (
+  
+  return (
     <View style={[styles.postCard, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
       {/* Post Header */}
       <View style={styles.postHeader}>
         <TouchableOpacity
           style={styles.authorRow}
           activeOpacity={0.7}
-          onPress={() =>
-            router.push({
-              pathname: "/user-profile",
-              params: {
-                username: item.author.username,
-                name: item.author.username.replace("_", " ").replace(".", " ").toUpperCase(),
-                location: item.author.location || "",
-              },
-            })
-          }
+          onPress={() => {
+            if (currentUser?.username && currentUser.username === item.author.username) {
+              router.push("/(tabs)/profile");
+            } else {
+              router.push({
+                pathname: "/user-profile",
+                params: {
+                  username: item.author.username,
+                  name: item.author.username.replace("_", " ").replace(".", " ").toUpperCase(),
+                  location: item.author.location || "",
+                },
+              });
+            }
+          }}
         >
           <Image source={item.author.avatar} style={styles.authorAvatar} />
           <View style={styles.authorInfo}>
@@ -293,33 +84,37 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
         </TouchableOpacity>
       </View>
 
-      {/* Post Image with Rounded Corners */}
-      <TouchableOpacity
-        style={[styles.imageWrapper, { backgroundColor: colors.surface }]}
-        activeOpacity={0.94}
-        onPress={() => {
-          const mediaUri = typeof item.image === "object" && item.image?.uri ? item.image.uri : undefined;
-          const avatarUri = typeof item.author?.avatar === "object" && item.author?.avatar?.uri ? item.author.avatar.uri : undefined;
-          router.push({
-            pathname: "/post/[id]",
-            params: {
-              id: item.id,
-              media_url: mediaUri,
-              caption: item.caption || "",
-              location: item.location || "",
-              author_username: item.author?.username || "",
-              author_fullName: item.author?.fullName || "",
-              author_avatar: avatarUri,
-              likes_count: String(item.likesCount || 0),
-              comments_count: String(item.commentsCount || 0),
-              is_liked: item.isLiked ? "1" : "0",
-              media_type: item.mediaType || "photo",
-            },
-          });
-        }}
-      >
-        <PostMedia source={item.image} mediaType={item.mediaType} style={styles.postImage} resizeMode="cover" />
-      </TouchableOpacity>
+      {/* Post Image with Rounded Corners & Indicator */}
+      <View style={{ position: "relative", zIndex: 10 }}>
+        <TouchableOpacity
+          style={[styles.imageWrapper, { backgroundColor: colors.surface }]}
+          activeOpacity={0.94}
+          onPress={() => {
+            const mediaUri = typeof item.image === "object" && item.image?.uri ? item.image.uri : undefined;
+            const avatarUri = typeof item.author?.avatar === "object" && item.author?.avatar?.uri ? item.author.avatar.uri : undefined;
+            router.push({
+              pathname: "/post/[id]",
+              params: {
+                id: item.id,
+                media_url: mediaUri,
+                caption: item.caption || "",
+                location: item.location || "",
+                author_username: item.author?.username || "",
+                author_fullName: item.author?.fullName || "",
+                author_avatar: avatarUri,
+                likes_count: String(item.likesCount || 0),
+                comments_count: String(item.commentsCount || 0),
+                is_liked: item.isLiked ? "1" : "0",
+                media_type: item.mediaType || "photo",
+              },
+            });
+          }}
+        >
+          <PostMedia source={item.image} mediaType={item.mediaType} style={styles.postImage} resizeMode="cover" />
+        </TouchableOpacity>
+        
+        <FeedActivityIndicator postId={item.id} />
+      </View>
 
       {/* Actions Row */}
       <View style={styles.actionsBar}>
@@ -418,6 +213,317 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
       </View>
     </View>
   );
+});
+// --- END: Extracted Memoized Post Component ---
+
+const { width } = Dimensions.get("window");
+
+interface Story {
+  id: string;
+  username: string;
+  avatar: any;
+  hasUnseenStory?: boolean;
+  isUser?: boolean;
+}
+
+export interface PostItem {
+  id: string;
+  author: {
+    username: string;
+    avatar: any;
+    location?: string;
+    fullName?: string;
+  };
+  mediaType?: string;
+  image: any;
+  likesCount: number;
+  commentsCount: number;
+  caption: string;
+  timeAgo: string;
+  location?: string;
+  isLiked?: boolean;
+  isSaved?: boolean;
+}
+
+export const FEED_POSTS: PostItem[] = [];
+
+interface FeedScreenProps {
+  onSignOut?: () => void;
+}
+
+const mapBackendPost = (bp: any, currentUser?: StoredUser | null): PostItem => {
+  const isMine = currentUser && (currentUser.username === bp.author_username || currentUser.id === bp.author_id);
+  const avatarUrl = isMine && currentUser?.avatar_url
+    ? currentUser.avatar_url
+    : (bp.author_avatar && typeof bp.author_avatar === "string" ? bp.author_avatar : undefined);
+  const fullName = isMine && currentUser?.full_name
+    ? currentUser.full_name
+    : (bp.author_fullName || bp.author_username || "User");
+
+  return {
+    id: String(bp.id || bp._id),
+    author: {
+      username: bp.author_username || "user",
+      fullName: fullName,
+      avatar: resolveAvatarSource(avatarUrl || bp.author_avatar),
+      location: bp.location,
+    },
+    location: bp.location,
+    mediaType: bp.media_type || (bp.media_url?.toLowerCase().endsWith(".mp4") || bp.media_url?.toLowerCase().endsWith(".mov") ? "video" : "photo"),
+    image: bp.media_url && typeof bp.media_url === "string"
+      ? { uri: resolveFullUrl(bp.media_url) }
+      : bp.media_urls?.[0] && typeof bp.media_urls[0] === "string"
+      ? { uri: resolveFullUrl(bp.media_urls[0]) }
+      : require("../../../assets/images/home_feed_bali_post.jpg"),
+    likesCount: bp.likes_count || 0,
+    commentsCount: bp.comments_count || 0,
+    caption: bp.content || "",
+    timeAgo: "2h",
+    isLiked: !!bp.is_liked,
+    isSaved: false,
+  };
+};
+
+export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
+  const router = useRouter();
+  const { colors, isDark } = useTheme();
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [posts, setPosts] = useState<PostItem[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const isLoadingRef = useRef(false);
+  const { unreadCount } = useNotifications();
+  const PAGE_SIZE = 15;
+  const [bellIconRight, setBellIconRight] = useState<number | undefined>(undefined);
+  const bellRef = useRef<View>(null);
+
+  useEffect(() => {
+    const handleUser = (u: StoredUser) => {
+      setCurrentUser(u);
+      setPosts((prev) => prev.map((p) => {
+        if (p.author.username === u.username) {
+          return {
+            ...p,
+            author: {
+              ...p.author,
+              avatar: resolveAvatarSource(u.avatar_url ? { uri: u.avatar_url } : p.author.avatar),
+              fullName: u.full_name || p.author.fullName,
+            }
+          };
+        }
+        return p;
+      }));
+    };
+
+    authStorage.getUser().then((u) => {
+      if (u) handleUser(u);
+    });
+
+    const unsubscribe = userService.subscribe(handleUser);
+    return () => unsubscribe();
+  }, []);
+
+  // Stories
+  const stories: Story[] = [
+    {
+      id: "user",
+      username: "Your story",
+      avatar: resolveAvatarSource(currentUser?.avatar_url),
+      isUser: true,
+    },
+    {
+      id: "sarah",
+      username: "sarah_k",
+      avatar: { uri: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&q=80" },
+      hasUnseenStory: true,
+    },
+    {
+      id: "travel",
+      username: "travel.diary",
+      avatar: { uri: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=160&q=80" },
+      hasUnseenStory: true,
+    },
+    {
+      id: "alex",
+      username: "alex_wanderer",
+      avatar: { uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=160&q=80" },
+      hasUnseenStory: true,
+    },
+  ];
+
+  useEffect(() => {
+    // 1. Initial fetch from backend postService (paginated limit: 15, skip: 0)
+    postService.getFeedPosts({ limit: PAGE_SIZE, skip: 0 }).then((backendPosts) => {
+      if (backendPosts && backendPosts.length > 0) {
+        setPosts(backendPosts.map((p) => mapBackendPost(p, currentUser)));
+        setHasMore(backendPosts.length >= PAGE_SIZE);
+      }
+    });
+
+    // 2. Convex-style live reactive sync subscription:
+    const unsubscribeSync = syncClient.subscribe("posts:getFeed", { limit: PAGE_SIZE, skip: 0 }, (livePosts: any[]) => {
+      if (Array.isArray(livePosts) && livePosts.length > 0) {
+        setPosts((prev) => {
+          const mapped = livePosts.map((p) => mapBackendPost(p, currentUser));
+          if (prev.length <= PAGE_SIZE) {
+            return mapped;
+          }
+          const liveIds = new Set(mapped.map((p) => p.id));
+          const tail = prev.filter((p) => !liveIds.has(p.id));
+          return [...mapped, ...tail];
+        });
+      }
+    });
+
+    // 3. Local postService notifications
+    const unsubscribeLocal = postService.subscribe((newPost) => {
+      const formatted = mapBackendPost(newPost, currentUser);
+      setPosts((prev) => [formatted, ...prev.filter((p) => p.id !== formatted.id)]);
+    });
+
+    return () => {
+      unsubscribeSync();
+      unsubscribeLocal();
+    };
+  }, [currentUser]);
+
+  const loadMoreFeedPosts = async () => {
+    if (isLoadingRef.current || !hasMore || refreshing) return;
+    isLoadingRef.current = true;
+    setLoadingMore(true);
+    try {
+      const nextBatch = await postService.getFeedPosts({
+        limit: PAGE_SIZE,
+        skip: posts.length,
+      });
+      if (Array.isArray(nextBatch) && nextBatch.length > 0) {
+        const mapped = nextBatch.map((p) => mapBackendPost(p, currentUser));
+        setPosts((prev) => {
+          const existingIds = new Set(prev.map((item) => item.id));
+          const newItems = mapped.filter((item) => !existingIds.has(item.id));
+          return [...prev, ...newItems];
+        });
+        setHasMore(nextBatch.length >= PAGE_SIZE);
+      } else {
+        setHasMore(false);
+      }
+    } catch (e) {
+      console.warn("Failed to load more feed posts:", e);
+    } finally {
+      isLoadingRef.current = false;
+      setLoadingMore(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setHasMore(true);
+    try {
+      const fresh = await postService.getFeedPosts({ limit: PAGE_SIZE, skip: 0 });
+      if (fresh && fresh.length > 0) {
+        setPosts(fresh.map((p) => mapBackendPost(p, currentUser)));
+        setHasMore(fresh.length >= PAGE_SIZE);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleToggleLike = async (postId: string) => {
+    // Optimistic local update
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id === postId) {
+          const nextLiked = !post.isLiked;
+          return {
+            ...post,
+            isLiked: nextLiked,
+            likesCount: nextLiked ? post.likesCount + 1 : Math.max(0, post.likesCount - 1),
+          };
+        }
+        return post;
+      })
+    );
+
+    // Convex-like mutation auto-synced across cluster
+    try {
+      await syncClient.mutation("posts:like", { postId });
+    } catch (e) {
+      console.warn("Like mutation failed:", e);
+    }
+  };
+
+  const handleToggleSave = (postId: string) => {
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id === postId) {
+          return { ...post, isSaved: !post.isSaved };
+        }
+        return post;
+      })
+    );
+  };
+
+  const renderStoriesHeader = () => (
+    <View style={[styles.storiesContainer, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.storiesScrollContent}
+      >
+        {stories.map((story) => (
+          <TouchableOpacity
+            key={story.id}
+            style={styles.storyItem}
+            activeOpacity={0.8}
+            onPress={() => {
+              if (story.isUser || (currentUser?.username && currentUser.username === story.username)) {
+                router.push("/(tabs)/profile");
+              } else {
+                router.push({
+                  pathname: "/user-profile",
+                  params: {
+                    username: story.username,
+                    name: story.username.replace("_", " ").replace(".", " ").toUpperCase(),
+                  },
+                });
+              }
+            }}
+          >
+            <View
+              style={[
+                styles.storyRing,
+                { backgroundColor: colors.background, borderColor: colors.border },
+                story.hasUnseenStory && styles.storyRingActive,
+                story.isUser && { borderColor: colors.border },
+              ]}
+            >
+              <Image source={story.avatar} style={styles.storyAvatar} />
+              {story.isUser && (
+                <View style={[styles.storyAddBadge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
+                  <Ionicons name="add" size={14} color="#FFFFFF" />
+                </View>
+              )}
+            </View>
+            <Text style={[styles.storyUsername, { color: colors.textSecondary }]} numberOfLines={1}>
+              {story.username}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
+  const renderPost = React.useCallback(({ item }: { item: PostItem }) => (
+    <PostCardItem 
+      item={item} 
+      currentUser={currentUser} 
+      colors={colors} 
+      handleToggleLike={handleToggleLike} 
+      handleToggleSave={handleToggleSave} 
+    />
+  ), [currentUser, colors]);
 
   return (
     <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: colors.background }]}>
@@ -435,16 +541,34 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
           >
             <Ionicons name="add-circle-outline" size={26} color={colors.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.topIconBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            activeOpacity={0.7}
-            onPress={() => router.push("/notifications")}
+          <View
+            ref={bellRef}
+            collapsable={false}
+            onLayout={() => {
+              bellRef.current?.measureInWindow((x, y, w, h) => {
+                // Calculate the center-x of the bell icon relative to the right side of the screen
+                setBellIconRight(x + w / 2);
+              });
+            }}
           >
-            <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
-            <View style={[styles.notifBadge, { borderColor: colors.background }]} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.topIconBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
+              onPress={() => router.push("/notifications")}
+            >
+              <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
+              {unreadCount > 0 && (
+                <View style={[styles.notifBadge, { borderColor: colors.background }]} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
+      </View>
+
+      {/* Global Activity Indicator - zero-height wrapper so it floats below header without affecting layout */}
+      <View style={{ zIndex: 9999, elevation: 9999, height: 0 }}>
+        <FeedActivityIndicator isGlobal={true} bellIconCenterX={bellIconRight} />
       </View>
 
       {/* Feed List */}
@@ -455,6 +579,15 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
         renderItem={renderPost}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+        onEndReached={loadMoreFeedPosts}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loadingMoreContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : null
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -472,6 +605,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  loadingMoreContainer: {
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
   topBar: {
     height: 52,

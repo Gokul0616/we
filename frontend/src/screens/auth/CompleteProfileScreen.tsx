@@ -20,6 +20,7 @@ import { ENDPOINTS } from "../../constants/api";
 import { apiClient } from "../../services/apiClient";
 import { toast } from "../../services/toastService";
 import { authStorage } from "../../services/authStorage";
+import { userService } from "../../services/userService";
 
 interface CompleteProfileScreenProps {
   email: string;
@@ -84,7 +85,7 @@ export function CompleteProfileScreen({
 
     checkTimeoutRef.current = setTimeout(async () => {
       try {
-        const res = await apiClient.get(ENDPOINTS.auth.checkUsername(clean));
+        const res = await userService.checkUsername(clean);
         setUsernameCheck(res);
       } catch (err: any) {
         setUsernameCheck(null);
@@ -106,6 +107,7 @@ export function CompleteProfileScreen({
         username: username.trim().toLowerCase(),
         password,
         full_name: fullName.trim(),
+        avatar_url: "asset:default_avatar.png",
       });
 
       if (data?.access_token) {

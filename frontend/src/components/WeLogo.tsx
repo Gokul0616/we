@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { Colors } from "../constants/theme";
+import { Colors, FontFamily } from "../constants/theme";
 
 interface WeLogoProps {
   size?: "sm" | "md" | "lg" | "xl";
@@ -62,11 +62,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logoText: {
-    fontWeight: "900",
-    fontFamily: "System",
+    fontFamily: FontFamily.extraBold,
   },
   tagline: {
-    fontWeight: "600",
+    fontFamily: FontFamily.semiBold,
     letterSpacing: 0.5,
   },
 });

@@ -189,7 +189,7 @@ class PostService {
       id: "post_" + Date.now(),
       author_id,
       author_username,
-      author_avatar: user?.avatar_url || require("../../assets/images/onboarding_hero.jpg"),
+      author_avatar: user?.avatar_url || require("../../assets/images/default_avatar.png"),
       content: payload.content,
       media_url: payload.media_url,
       media_urls: payload.media_urls || (payload.media_url ? [payload.media_url] : []),
@@ -214,13 +214,19 @@ class PostService {
    */
   public async getUserPosts(
     usernameOrId: string = "",
-    tab: "posts" | "replies" | "media" | "likes" = "posts"
+    tab: "posts" | "replies" | "media" | "likes" = "posts",
+    options?: { limit?: number; skip?: number }
   ): Promise<PostItemData[]> {
+    const limit = options?.limit ?? 12;
+    const skip = options?.skip ?? 0;
+
     // 1. First try Sync Engine live query
     try {
       const syncPosts = await syncClient.query<PostItemData[]>("posts:getUserPosts", {
         username: usernameOrId,
         tab,
+        limit,
+        skip,
       });
       if (Array.isArray(syncPosts)) {
         return syncPosts;
@@ -232,7 +238,7 @@ class PostService {
     // 2. HTTP endpoint using env
     try {
       const res = await apiClient.get<{ posts: PostItemData[] }>(
-        ENDPOINTS.posts.userPosts(usernameOrId, tab),
+        ENDPOINTS.posts.userPosts(usernameOrId, tab, limit, skip),
         { silent: true }
       );
       if (res && Array.isArray(res.posts)) {
@@ -248,10 +254,13 @@ class PostService {
   /**
    * Fetch all feed posts from backend using reactive sync / env endpoint
    */
-  public async getFeedPosts(): Promise<PostItemData[]> {
+  public async getFeedPosts(options?: { limit?: number; skip?: number }): Promise<PostItemData[]> {
+    const limit = options?.limit ?? 15;
+    const skip = options?.skip ?? 0;
+
     // 1. First try Sync Engine query
     try {
-      const syncPosts = await syncClient.query<PostItemData[]>("posts:getFeed", { limit: 30 });
+      const syncPosts = await syncClient.query<PostItemData[]>("posts:getFeed", { limit, skip });
       if (Array.isArray(syncPosts)) {
         return syncPosts;
       }
@@ -262,7 +271,7 @@ class PostService {
     // 2. HTTP endpoint using env
     try {
       const res = await apiClient.get<{ posts: PostItemData[] }>(
-        ENDPOINTS.posts.list,
+        ENDPOINTS.posts.list(limit, skip),
         { silent: true }
       );
       if (res && Array.isArray(res.posts)) {
