@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   Animated,
   TouchableOpacity,
@@ -11,6 +10,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { toast, ToastPayload } from "../services/toastService";
+import { AppText } from "./common/AppText";
+import { FontFamily } from "../constants/theme";
 
 export function GlobalToast() {
   const insets = useSafeAreaInsets();
@@ -114,9 +115,9 @@ export function GlobalToast() {
             color={iconInfo.color}
             style={styles.icon}
           />
-          <Text style={styles.nativeText} numberOfLines={3}>
+          <AppText style={styles.nativeText} numberOfLines={3}>
             {currentToast.message}
-          </Text>
+          </AppText>
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
   },
   nativeText: {
     fontSize: 13.5,
-    fontWeight: "600",
+    fontFamily: FontFamily.semiBold,
     color: "#FFFFFF",
     letterSpacing: -0.2,
     flexShrink: 1,

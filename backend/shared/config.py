@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     POST_SERVICE_PORT: int = int(os.getenv("POST_SERVICE_PORT", "8002"))
     NOTIFICATION_SERVICE_PORT: int = int(os.getenv("NOTIFICATION_SERVICE_PORT", "8003"))
 
+    SERVER_HOST: str = os.getenv("SERVER_HOST", "192.168.1.83")
+    BACKEND_BASE_URL: str = os.getenv("BACKEND_BASE_URL", "http://192.168.1.83:8000")
+    GATEWAY_URL: str = os.getenv("GATEWAY_URL", "http://192.168.1.83:8000")
+    AUTH_SERVICE_URL: str = os.getenv("AUTH_SERVICE_URL", "http://192.168.1.83:8001")
+    POST_SERVICE_URL: str = os.getenv("POST_SERVICE_URL", "http://192.168.1.83:8002")
+
     class Config:
         env_file = str(ENV_PATH)
         extra = "allow"

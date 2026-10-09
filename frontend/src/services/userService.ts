@@ -2,6 +2,7 @@ import { apiClient } from "./apiClient";
 import { syncClient } from "./reactiveSyncClient";
 import { authStorage, StoredUser } from "./authStorage";
 import { ENDPOINTS } from "../constants/api";
+import { uploadFileToServer } from "../utils/fileUploader";
 
 export interface UserUpdatePayload {
   full_name?: string;
@@ -45,7 +46,7 @@ class UserService {
       try {
         l(user);
       } catch (e) {
-        console.warn("UserListener error:", e);
+        console.log("UserListener error:", e);
       }
     });
   }
@@ -62,8 +63,14 @@ class UserService {
           return syncUser;
         }
       } catch (e) {
-        console.warn("Sync engine getProfile by username fallback:", e);
+        console.log("Sync engine getProfile by username fallback:", e);
       }
+      try {
+        const res = await apiClient.get<StoredUser>(`/users/${clean}`, { silent: true });
+        if (res && (res.id || (res as any)._id)) {
+          return res;
+        }
+      } catch (_) {}
       return null;
     }
 
@@ -79,7 +86,7 @@ class UserService {
         return syncUser;
       }
     } catch (e) {
-      console.warn("Sync engine getProfile fallback to HTTP:", e);
+      console.log("Sync engine getProfile fallback to HTTP:", e);
     }
 
     // 3. Try HTTP /me endpoint
@@ -91,73 +98,17 @@ class UserService {
         return res;
       }
     } catch (e) {
-      console.warn("HTTP getProfile fallback to cache:", e);
+      console.log("HTTP getProfile fallback to cache:", e);
     }
 
     return cached;
   }
 
   /**
-   * Upload an image (avatar or cover)
+   * Upload an image (avatar or cover) to backend server
    */
   public async uploadImage(uri: string, type: "avatar" | "cover" = "avatar"): Promise<string> {
-    if (!uri) return uri;
-    if (uri.startsWith("http://") || uri.startsWith("https://")) {
-      return uri;
-    }
-
-    try {
-      const filename = uri.split("/").pop() || `${type}.jpg`;
-      const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
-      const mimeType = ext === "png" ? "image/png" : "image/jpeg";
-
-      const formData = new FormData();
-      formData.append("file", {
-        uri,
-        name: filename,
-        type: mimeType,
-      } as any);
-
-      const token = await authStorage.getToken();
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-      };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const res = await fetch(ENDPOINTS.posts.upload, {
-        method: "POST",
-        body: formData,
-        headers,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.url) {
-          return data.url;
-        }
-      }
-    } catch (e) {
-      console.warn("Upload image via FormData error, trying JSON fallback:", e);
-    }
-
-    try {
-      const res = await apiClient.post<{ url: string; status: string }>(
-        ENDPOINTS.posts.upload,
-        {
-          data: uri,
-          media_type: "image/jpeg",
-        },
-        { silent: true }
-      );
-      if (res && res.url) {
-        return res.url;
-      }
-    } catch (e) {
-      console.warn("Upload image fallback:", e);
-    }
-    return uri;
+    return uploadFileToServer(uri, type);
   }
 
   /**
@@ -187,7 +138,7 @@ class UserService {
         this.notify(merged);
       }
     } catch (e) {
-      console.warn("Sync engine updateProfile fallback to HTTP:", e);
+      console.log("Sync engine updateProfile fallback to HTTP:", e);
     }
 
     // 2. HTTP PUT /me endpoint
@@ -206,7 +157,7 @@ class UserService {
         return res.user;
       }
     } catch (e) {
-      console.warn("HTTP updateProfile error:", e);
+      console.log("HTTP updateProfile error:", e);
     }
 
     // 3. Fallback optimistic local update
@@ -245,7 +196,7 @@ class UserService {
   public async deleteAccount(): Promise<boolean> {
     try {
       await apiClient.delete(ENDPOINTS.auth.deleteAccount);
-    } catch (_) {}
+    } catch (_) { }
     await authStorage.clear();
     return true;
   }
@@ -335,7 +286,7 @@ class UserService {
         };
       }
     } catch (e) {
-      console.warn("Sync engine toggleFollow fallback to HTTP:", e);
+      console.log("Sync engine toggleFollow fallback to HTTP:", e);
     }
 
     // 2. Try HTTP endpoint
@@ -354,7 +305,7 @@ class UserService {
         };
       }
     } catch (e) {
-      console.warn("HTTP toggleFollow error:", e);
+      console.log("HTTP toggleFollow error:", e);
     }
 
     return { isFollowing: true, followersCount: 1, followingCount: 0, postsCount: 0 };
@@ -384,7 +335,7 @@ class UserService {
           postsCount: syncRes.postsCount ?? 0,
         };
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // 2. Try HTTP endpoint
     try {
@@ -400,7 +351,7 @@ class UserService {
           postsCount: res.posts_count ?? 0,
         };
       }
-    } catch (_) {}
+    } catch (_) { }
 
     return { isFollowing: false, followersCount: 0, followingCount: 0, postsCount: 0 };
   }
@@ -410,15 +361,15 @@ class UserService {
    */
   public async checkUsername(username: string): Promise<any> {
     const clean = username.replace(/^@/, "").trim().toLowerCase();
-    
+
     // 1. Try Reactive Sync query
     try {
       const syncRes = await syncClient.query("users:checkUsername", { username: clean });
       if (syncRes) return syncRes;
     } catch (e) {
-      console.warn("Sync engine checkUsername fallback to HTTP:", e);
+      console.log("Sync engine checkUsername fallback to HTTP:", e);
     }
-    
+
     // 2. Try HTTP endpoint
     try {
       return await apiClient.get(`/auth/check-username/${clean}`, { silent: true });
@@ -428,24 +379,49 @@ class UserService {
   }
 
   /**
-   * Get notifications for the current user
+   * Get notifications for the current user with optional filter ('all' | 'follows' | 'likes' | 'comments')
    */
-  public async getNotifications(): Promise<any[]> {
+  public async getNotifications(filter?: string): Promise<any[]> {
+    const filterKey = filter && filter.toLowerCase() !== "all" ? filter.toLowerCase() : undefined;
+    const user = await authStorage.getUser();
+
     // 1. Try Reactive Sync query
     try {
-      const syncRes = await syncClient.query("notifications:list", {});
+      const syncRes = await syncClient.query("notifications:list", { filter: filterKey });
       if (Array.isArray(syncRes)) return syncRes;
     } catch (e) {
-      console.warn("Sync engine getNotifications fallback to HTTP:", e);
+      console.log("Sync engine getNotifications fallback to HTTP:", e);
     }
-    
-    // 2. Try HTTP endpoint (fallback if it exists, otherwise empty array)
+
+    // 2. Try HTTP endpoint (fallback)
     try {
-      const res = await apiClient.get<{ notifications: any[] }>("/notifications", { silent: true });
+      const url = user?.id
+        ? `/notifications/${user.id}${filterKey ? `?filter=${filterKey}` : ""}`
+        : `/notifications${filterKey ? `?filter=${filterKey}` : ""}`;
+      const res = await apiClient.get<{ notifications: any[] }>(url, { silent: true });
       if (res && Array.isArray(res.notifications)) return res.notifications;
     } catch (e) {
       // Endpoint might not exist in Python backend yet
     }
+    return [];
+  }
+
+  /**
+   * Get available accounts from backend for account switcher
+   */
+  public async getAvailableAccounts(limit = 10): Promise<StoredUser[]> {
+    // 1. Try Reactive Sync query
+    try {
+      const syncRes = await syncClient.query("users:getAll", { limit });
+      if (Array.isArray(syncRes) && syncRes.length > 0) return syncRes;
+    } catch (_) {}
+
+    // 2. Try HTTP endpoint on Auth Service
+    try {
+      const res = await apiClient.get<StoredUser[]>(`/users?limit=${limit}`, { silent: true });
+      if (Array.isArray(res) && res.length > 0) return res;
+    } catch (_) {}
+
     return [];
   }
 }

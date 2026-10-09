@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -7,6 +7,7 @@ import { authStorage } from "../../services/authStorage";
 import { userService } from "../../services/userService";
 import { toast } from "../../services/toastService";
 import { SettingsHeader, SettingsSection } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
 
 export default function BlockedUsersScreen() {
   const { colors, isDark } = useTheme();
@@ -57,14 +58,14 @@ export default function BlockedUsersScreen() {
             </View>
           </View>
 
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
+          <AppText weight="bold" style={[styles.title, { color: colors.textPrimary }]}>
             No blocked users yet
-          </Text>
+          </AppText>
 
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          <AppText style={[styles.subtitle, { color: colors.textSecondary }]}>
             When you block someone, they won't be able to see your profile or
             interact with you.
-          </Text>
+          </AppText>
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -73,13 +74,15 @@ export default function BlockedUsersScreen() {
               <View key={username} style={styles.userRow}>
                 <View style={styles.userInfo}>
                   <Ionicons name="person-circle-outline" size={32} color={colors.textSecondary} />
-                  <Text style={[styles.usernameText, { color: colors.textPrimary }]}>@{username}</Text>
+                  <AppText weight="semiBold" style={[styles.usernameText, { color: colors.textPrimary }]}>@{username}</AppText>
                 </View>
                 <TouchableOpacity
                   style={[styles.unblockBtn, { borderColor: colors.border }]}
                   onPress={() => handleUnblock(username)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Unblock @${username}`}
                 >
-                  <Text style={[styles.unblockText, { color: colors.textPrimary }]}>Unblock</Text>
+                  <AppText weight="semiBold" style={[styles.unblockText, { color: colors.textPrimary }]}>Unblock</AppText>
                 </TouchableOpacity>
               </View>
             ))}

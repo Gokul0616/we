@@ -1,7 +1,6 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   ScrollView,
   TouchableOpacity,
@@ -15,6 +14,8 @@ import {
   ActivityIndicator,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Modal,
+  PanResponder,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,6 +27,19 @@ import { showAlert } from "../../services/alertService";
 import { postService, PostItemData } from "../../services/postService";
 import { PostMedia } from "../../components/common/PostMedia";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import { SwitchAccountModal } from "../../components/common/SwitchAccountModal";
+import * as Haptics from "expo-haptics";
+
+const triggerHaptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Medium) => {
+  try {
+    Haptics.impactAsync(style);
+  } catch (_) {
+    try {
+      Vibration.vibrate(30);
+    } catch (_) {}
+  }
+};
 
 const { width } = Dimensions.get("window");
 const TILE_SIZE = (width - 4) / 3;
@@ -41,7 +55,7 @@ export interface ProfilePostItem {
   image: any;
   likes: number;
   comments: number;
-  type?: "photo" | "reel" | "carousel" | "video";
+  type?: "photo" | "reel" | "carousel" | "video" | "none";
   caption?: string;
   location?: string;
   created_at?: string;
@@ -93,6 +107,9 @@ export default function ProfileTab() {
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
+  // Twitter / X Style Switch Account Modal
+  const [showAccountSwitch, setShowAccountSwitch] = useState(false);
+
   // Load user data once on mount and subscribe to real-time changes
   useEffect(() => {
     const updateUserState = async (u: any) => {
@@ -130,9 +147,9 @@ export default function ProfileTab() {
 
     // Subscribe to instant reactive updates from Edit Profile screen & backend
     const unsubscribeUser = userService.subscribe(updateUserState);
-    
+
     // Subscribe to real-time follow stats (followers/following counts)
-    let unsubscribeFollowStats = () => {};
+    let unsubscribeFollowStats = () => { };
     authStorage.getUser().then(u => {
       if (u && u.username) {
         unsubscribeFollowStats = syncClient.subscribe("users:getFollowStatus", { targetUsername: u.username }, (data) => {
@@ -266,7 +283,7 @@ export default function ProfileTab() {
             author: {
               username: p.author_username || userProfile.username,
               fullName: isMe ? userProfile.fullName : (p.author_fullName || p.author_username || "User"),
-              avatar: resolveAvatarSource(isMe ? userProfile.avatar : (p.author_avatar ? { uri: p.author_avatar } : userProfile.avatar)),
+              avatar: resolveAvatarSource(isMe ? userProfile.avatar : (p.author_avatar || userProfile.avatar)),
               isMe,
             },
           };
@@ -284,7 +301,7 @@ export default function ProfileTab() {
         setHasMore(fetched.length >= PAGE_SIZE);
       }
     } catch (e) {
-      console.warn("Error loading user posts:", e);
+      console.log("Error loading user posts:", e);
     } finally {
       isLoadingRef.current = false;
       setLoadingMore(false);
@@ -326,10 +343,13 @@ export default function ProfileTab() {
     });
   };
 
+  const handleOpenAccountSwitch = () => {
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+    setShowAccountSwitch(true);
+  };
+
   const handlePostLongPress = (post: ProfilePostItem) => {
-    try {
-      Vibration.vibrate(35);
-    } catch (_) { }
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
 
     setPreviewPost(post);
     scaleAnim.setValue(0.85);
@@ -495,16 +515,39 @@ export default function ProfileTab() {
       {/* Top Header matching Screen 06 */}
       <View style={[styles.topHeader, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <View style={styles.topHeaderLeft}>
-          <Image
-            source={userProfile.avatar}
-            style={[styles.topHeaderAvatar, { borderColor: colors.border }]}
-          />
-          <Text
-            style={[styles.topHeaderUsername, { color: colors.textPrimary }]}
-            numberOfLines={1}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onLongPress={handleOpenAccountSwitch}
+            delayLongPress={280}
+            accessibilityRole="button"
+            accessibilityLabel="Profile avatar. Long press to switch accounts."
           >
-            @{userProfile.username || "Profile"}
-          </Text>
+            <Image
+              source={userProfile.avatar}
+              style={[styles.topHeaderAvatar, { borderColor: colors.border }]}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.topHeaderUserButton}
+            onPress={handleOpenAccountSwitch}
+            accessibilityRole="button"
+            accessibilityLabel="Switch accounts"
+          >
+            <AppText
+              weight="bold"
+              style={[styles.topHeaderUsername, { color: colors.textPrimary }]}
+              numberOfLines={1}
+            >
+              @{userProfile.username || "Profile"}
+            </AppText>
+            <Ionicons
+              name="chevron-down"
+              size={15}
+              color={colors.textSecondary}
+              style={{ marginLeft: 4 }}
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.topHeaderRight}>
@@ -544,8 +587,8 @@ export default function ProfileTab() {
           <View style={styles.statsContainerRight}>
             {stats.map((stat) => (
               <View key={stat.label} style={styles.statColumn}>
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                <AppText weight="bold" style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</AppText>
+                <AppText style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</AppText>
               </View>
             ))}
           </View>
@@ -553,19 +596,19 @@ export default function ProfileTab() {
 
         {/* Profile Bio & Details */}
         <View style={styles.bioContainer}>
-          <Text style={[styles.fullName, { color: colors.textPrimary }]}>{userProfile.fullName}</Text>
-          <Text style={[styles.handle, { color: colors.textSecondary }]}>@{userProfile.username}</Text>
-          <Text style={[styles.bioText, { color: colors.textPrimary }]}>{userProfile.bio}</Text>
+          <AppText weight="bold" style={[styles.fullName, { color: colors.textPrimary }]}>{userProfile.fullName}</AppText>
+          <AppText style={[styles.handle, { color: colors.textSecondary }]}>@{userProfile.username}</AppText>
+          <AppText style={[styles.bioText, { color: colors.textPrimary }]}>{userProfile.bio}</AppText>
           {(userProfile as any).location ? (
             <View style={[styles.linkRow, { marginBottom: 4 }]}>
               <Ionicons name="location-outline" size={15} color={colors.textSecondary} />
-              <Text style={[styles.linkText, { color: colors.textSecondary }]}>{(userProfile as any).location}</Text>
+              <AppText style={[styles.linkText, { color: colors.textSecondary }]}>{(userProfile as any).location}</AppText>
             </View>
           ) : null}
           {/* Website link row - commented out
           <View style={styles.linkRow}>
             <Ionicons name="link-outline" size={15} color={Colors.primary} />
-            <Text style={styles.linkText}>{(userProfile as any).website || `we.social/@${userProfile.username}`}</Text>
+            <AppText style={styles.linkText}>{(userProfile as any).website || `we.social/@${userProfile.username}`}</AppText>
           </View>
           */}
         </View>
@@ -581,14 +624,14 @@ export default function ProfileTab() {
               <View style={[styles.highlightRing, { borderColor: colors.borderLight }]}>
                 <Image source={item.image} style={styles.highlightThumb} />
               </View>
-              <Text style={[styles.highlightTitle, { color: colors.textPrimary }]}>{item.title}</Text>
+              <AppText weight="medium" style={[styles.highlightTitle, { color: colors.textPrimary }]}>{item.title}</AppText>
             </View>
           ))}
           <TouchableOpacity style={styles.highlightItem} activeOpacity={0.7}>
             <View style={[styles.highlightRing, styles.highlightAddRing, { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <Ionicons name="add" size={24} color={colors.textSecondary} />
             </View>
-            <Text style={[styles.highlightTitle, { color: colors.textPrimary }]}>New</Text>
+            <AppText weight="medium" style={[styles.highlightTitle, { color: colors.textPrimary }]}>New</AppText>
           </TouchableOpacity>
         </ScrollView>
 
@@ -620,13 +663,16 @@ export default function ProfileTab() {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[
-                    styles.subTabText,
-                    { color: colors.textMuted },
-                    isActive && { color: colors.textPrimary, fontFamily: FontFamily.semiBold }
-                  ]}>
+                  <AppText
+                    weight={isActive ? "semiBold" : "medium"}
+                    style={[
+                      styles.subTabText,
+                      { color: colors.textMuted },
+                      isActive && { color: colors.textPrimary },
+                    ]}
+                  >
                     {tab}
-                  </Text>
+                  </AppText>
                   {isActive && <View style={[styles.activeTabIndicator, { backgroundColor: colors.textPrimary }]} />}
                 </TouchableOpacity>
               );
@@ -650,8 +696,8 @@ export default function ProfileTab() {
               size={48}
               color={colors.textMuted}
             />
-            <Text style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>No {activeTab} yet</Text>
-            <Text style={[styles.emptyStateSubtitle, { color: colors.textSecondary }]}>
+            <AppText weight="bold" style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>No {activeTab} yet</AppText>
+            <AppText style={[styles.emptyStateSubtitle, { color: colors.textSecondary }]}>
               {activeTab === "Media"
                 ? "Photos and videos you post will appear here."
                 : activeTab === "Replies"
@@ -659,7 +705,7 @@ export default function ProfileTab() {
                   : activeTab === "Likes"
                     ? "Posts you like will be saved to this tab."
                     : "When you share photos and videos, they will appear on your profile."}
-            </Text>
+            </AppText>
           </View>
         ) : (
           <View style={styles.photoGrid}>
@@ -700,7 +746,7 @@ export default function ProfileTab() {
                           color={colors.textSecondary}
                         />
                       </View>
-                      <Text
+                      <AppText
                         style={[
                           styles.gridFallbackCaption,
                           { color: colors.textPrimary },
@@ -708,7 +754,7 @@ export default function ProfileTab() {
                         numberOfLines={4}
                       >
                         {post.caption || "Text post"}
-                      </Text>
+                      </AppText>
                       <View
                         style={[
                           styles.gridFallbackFooter,
@@ -716,14 +762,14 @@ export default function ProfileTab() {
                         ]}
                       >
                         <Ionicons name="heart" size={11} color="#EF4444" />
-                        <Text
+                        <AppText
                           style={[
                             styles.gridFallbackLikes,
                             { color: colors.textMuted },
                           ]}
                         >
                           {post.likes || 0}
-                        </Text>
+                        </AppText>
                       </View>
                     </View>
                   )}
@@ -840,9 +886,9 @@ export default function ProfileTab() {
                   source={previewPost.author.avatar}
                   style={styles.peekAvatar}
                 />
-                <Text style={styles.peekUsername} numberOfLines={1}>
+                <AppText weight="bold" style={styles.peekUsername} numberOfLines={1}>
                   {previewPost.author.username}
-                </Text>
+                </AppText>
               </View>
 
               {/* Clean Media or Theme-Adaptable Post Preview */}
@@ -859,9 +905,9 @@ export default function ProfileTab() {
                 ) : (
                   <View style={[styles.peekTextCard, { backgroundColor: colors.surface }]}>
                     <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.textSecondary} style={{ marginBottom: 10 }} />
-                    <Text style={[styles.peekTextContent, { color: colors.textPrimary }]}>
+                    <AppText style={[styles.peekTextContent, { color: colors.textPrimary }]}>
                       {previewPost.caption || "Text post"}
-                    </Text>
+                    </AppText>
                   </View>
                 )}
               </View>
@@ -885,17 +931,17 @@ export default function ProfileTab() {
                       likedPosts[previewPost.id] ? "#ED4956" : "#0F172A"
                     }
                   />
-                  <Text
+                  <AppText
+                    weight={likedPosts[previewPost.id] ? "semiBold" : "medium"}
                     style={[
                       styles.contextMenuLabel,
                       likedPosts[previewPost.id] && {
                         color: "#ED4956",
-                        fontFamily: FontFamily.semiBold,
                       },
                     ]}
                   >
                     {likedPosts[previewPost.id] ? "Liked" : "Like"}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
 
                 {/* Repost */}
@@ -905,7 +951,7 @@ export default function ProfileTab() {
                   onPress={() => closePreview()}
                 >
                   <Ionicons name="repeat-outline" size={22} color="#0F172A" />
-                  <Text style={styles.contextMenuLabel}>Repost</Text>
+                  <AppText weight="medium" style={styles.contextMenuLabel}>Repost</AppText>
                 </TouchableOpacity>
 
                 {/* Share */}
@@ -921,7 +967,7 @@ export default function ProfileTab() {
                     size={21}
                     color="#0F172A"
                   />
-                  <Text style={styles.contextMenuLabel}>Share</Text>
+                  <AppText weight="medium" style={styles.contextMenuLabel}>Share</AppText>
                 </TouchableOpacity>
 
                 {/* View Post */}
@@ -937,7 +983,7 @@ export default function ProfileTab() {
                     size={22}
                     color="#0F172A"
                   />
-                  <Text style={styles.contextMenuLabel}>View Post</Text>
+                  <AppText weight="medium" style={styles.contextMenuLabel}>View Post</AppText>
                 </TouchableOpacity>
 
                 {/* Not interested */}
@@ -947,7 +993,7 @@ export default function ProfileTab() {
                   onPress={() => closePreview()}
                 >
                   <Ionicons name="eye-off-outline" size={21} color="#0F172A" />
-                  <Text style={styles.contextMenuLabel}>Not interested</Text>
+                  <AppText weight="medium" style={styles.contextMenuLabel}>Not interested</AppText>
                 </TouchableOpacity>
 
                 {/* Report */}
@@ -961,9 +1007,9 @@ export default function ProfileTab() {
                     size={22}
                     color="#ED4956"
                   />
-                  <Text style={[styles.contextMenuLabel, { color: "#ED4956" }]}>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: "#ED4956" }]}>
                     Report
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
 
@@ -977,6 +1023,13 @@ export default function ProfileTab() {
           </Animated.View>
         </Animated.View>
       )}
+
+      {/* Twitter / X Style Switch Account Modal (Above Native Tabs) */}
+      <SwitchAccountModal
+        visible={showAccountSwitch}
+        onClose={() => setShowAccountSwitch(false)}
+        user={userProfile}
+      />
     </SafeAreaView>
   );
 }
@@ -1362,5 +1415,121 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  topHeaderUserButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  accountSheetBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.62)",
+    zIndex: 9998,
+  },
+  accountSheetContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: Platform.OS === "ios" ? 36 : 24,
+    zIndex: 9999,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 24,
+  },
+  sheetHandleRow: {
+    alignItems: "center",
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4.5,
+    borderRadius: 3,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontFamily: FontFamily.bold,
+  },
+  sheetDoneText: {
+    fontSize: 15,
+    fontFamily: FontFamily.bold,
+  },
+  accountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 16,
+  },
+  accountAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  accountInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  accountNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  accountFullName: {
+    fontSize: 15,
+    fontFamily: FontFamily.bold,
+  },
+  accountHandle: {
+    fontSize: 13,
+    fontFamily: FontFamily.regular,
+    marginTop: 2,
+  },
+  activeCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 20,
+    marginVertical: 10,
+  },
+  sheetActionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  sheetActionIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+  sheetActionLabel: {
+    fontSize: 15,
+    fontFamily: FontFamily.medium,
   },
 });

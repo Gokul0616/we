@@ -1,13 +1,15 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from bson import ObjectId
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 
 from shared.config import settings
 from shared.database import connect_to_mongo, close_mongo_connection, get_database
 from shared.models import UserRegister, UserLogin, UserProfile, UserUpdate, PasswordChangeRequest
+from shared.file_storage import FileStorage, UPLOAD_DIR
 from .security import get_password_hash, verify_password, create_access_token, decode_token
 
 security = HTTPBearer()
@@ -27,6 +29,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
@@ -48,6 +52,35 @@ DEV_OTP_STORE = {}
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "auth_service"}
+
+@app.post("/upload")
+async def upload_file(request: Request):
+    content_type = request.headers.get("content-type", "")
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme or "http")
+    host = request.headers.get("host") or "192.168.1.83:8001"
+    base_url = settings.BACKEND_BASE_URL or f"{proto}://{host}"
+
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        uploaded_file = form.get("file")
+        if not uploaded_file:
+            raise HTTPException(status_code=400, detail="No file selected for upload")
+        subfolder = str(form.get("folder") or "avatars")
+        return await FileStorage.save_upload_file(uploaded_file, subfolder=subfolder, base_url=base_url)
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    data = payload.get("data", "")
+    media_type = payload.get("media_type", "image/jpeg")
+    subfolder = payload.get("folder", "avatars")
+
+    if data.startswith("http://") or data.startswith("https://"):
+        return {"url": data, "status": "ok"}
+
+    return FileStorage.save_base64(data, media_type=media_type, subfolder=subfolder, base_url=base_url)
 
 @app.post("/send-otp")
 async def send_otp(payload: dict):
@@ -299,9 +332,21 @@ async def update_profile(
     if update_data.bio is not None:
         updates["bio"] = update_data.bio
     if update_data.avatar_url is not None:
-        updates["avatar_url"] = update_data.avatar_url if update_data.avatar_url else "asset:default_avatar.png"
+        avatar = update_data.avatar_url.strip() if update_data.avatar_url else "asset:default_avatar.png"
+        if avatar.startswith("file://") or avatar.startswith("content://"):
+            raise HTTPException(
+                status_code=400,
+                detail="Local device file URIs cannot be saved as avatar. Please upload the file first via /upload."
+            )
+        updates["avatar_url"] = avatar
     if update_data.cover_url is not None:
-        updates["cover_url"] = update_data.cover_url
+        cover = update_data.cover_url.strip() if update_data.cover_url else ""
+        if cover.startswith("file://") or cover.startswith("content://"):
+            raise HTTPException(
+                status_code=400,
+                detail="Local device file URIs cannot be saved as cover. Please upload the file first via /upload."
+            )
+        updates["cover_url"] = cover
     if update_data.location is not None:
         updates["location"] = update_data.location
     if update_data.website is not None:
@@ -495,6 +540,32 @@ async def get_follow_status(
         "following_count": following_count,
         "posts_count": posts_count
     }
+
+@app.get("/users")
+async def get_all_users(limit: int = 20):
+    db = get_database()
+    cursor = db.users.find({}, {"password_hash": 0}).limit(limit)
+    users = await cursor.to_list(length=limit)
+    for u in users:
+        u["id"] = str(u["_id"])
+        del u["_id"]
+    return users
+
+@app.get("/users/{target_username}")
+async def get_user_profile_by_username(target_username: str):
+    clean_target = target_username.strip().lower()
+    db = get_database()
+    user = await db.users.find_one({"username": clean_target})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user["id"] = str(user["_id"])
+    del user["_id"]
+    if "password_hash" in user:
+        del user["password_hash"]
+    user["followers_count"] = await db.follows.count_documents({"target_username": clean_target})
+    user["following_count"] = await db.follows.count_documents({"follower_username": clean_target})
+    user["posts_count"] = await db.posts.count_documents({"author_username": clean_target})
+    return user
 
 if __name__ == "__main__":
     import uvicorn

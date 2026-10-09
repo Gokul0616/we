@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -18,6 +17,7 @@ import {
   SettingsSection,
   SettingsRadioRow,
 } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
 
 const GENDER_OPTIONS = [
   { id: "Female", label: "Female", desc: "She / Her" },
@@ -67,13 +67,15 @@ export default function GenderSettingsScreen() {
             onPress={handleSave}
             disabled={saving}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Save gender"
           >
             {saving ? (
               <ActivityIndicator size="small" color="#2563EB" />
             ) : (
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#2563EB" }}>
+              <AppText weight="bold" style={{ fontSize: 16, color: "#2563EB" }}>
                 Save
-              </Text>
+              </AppText>
             )}
           </TouchableOpacity>
         }
@@ -84,9 +86,9 @@ export default function GenderSettingsScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.instruction, { color: colors.textSecondary }]}>
+        <AppText style={[styles.instruction, { color: colors.textSecondary }]}>
           This won't be part of your public profile unless you choose to display it.
-        </Text>
+        </AppText>
 
         <SettingsSection title="Select Your Gender">
           {GENDER_OPTIONS.map((g, index) => (

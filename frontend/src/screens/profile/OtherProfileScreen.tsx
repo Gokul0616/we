@@ -1,7 +1,6 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   ScrollView,
   TouchableOpacity,
@@ -12,6 +11,7 @@ import {
   Vibration,
   Platform,
   ActivityIndicator,
+  RefreshControl,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
@@ -23,9 +23,11 @@ import { Colors, FontFamily } from "../../constants/theme";
 import { toast } from "../../services/toastService";
 import { userService } from "../../services/userService";
 import { postService } from "../../services/postService";
+import { authStorage } from "../../services/authStorage";
 import { useTheme } from "../../context/ThemeContext";
 import { PostMedia } from "../../components/common/PostMedia";
-import { resolveFullUrl, resolveAvatarSource } from "../../utils/mediaHelper";
+import { AppText } from "../../components/common/AppText";
+import { resolveFullUrl, resolveAvatarSource, DEFAULT_AVATAR } from "../../utils/mediaHelper";
 import { syncClient } from "../../services/reactiveSyncClient";
 
 const { width } = Dimensions.get("window");
@@ -46,8 +48,9 @@ export interface OtherProfilePostItem {
   image: any;
   likes: number;
   comments: number;
-  type?: "photo" | "reel" | "carousel";
+  type?: "photo" | "reel" | "carousel" | "video";
   caption?: string;
+  location?: string;
   created_at?: string;
   author: {
     username: string;
@@ -57,28 +60,35 @@ export interface OtherProfilePostItem {
   };
 }
 
-
-
 export function OtherProfileScreen({
-  username = "alex_wanderer",
-  name = "Alex Wanderer",
+  username = "",
+  name,
   avatar,
-  location = "Bali, Indonesia",
-  bio = "Travel & Landscape Photographer 📷\nExploring the world one cliff at a time 🌊",
+  location,
+  bio,
   onBack,
   onMessage,
 }: OtherProfileProps) {
   const router = useRouter();
   const { colors, isDark } = useTheme();
+
+  const cleanUsername = useMemo(() => {
+    return (username || "").replace(/^@/, "").trim().toLowerCase();
+  }, [username]);
+
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [targetUser, setTargetUser] = useState<any>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
-  const [targetUser, setTargetUser] = useState<any>(null);
+  const [postsCount, setPostsCount] = useState(0);
+
   const [activeTab, setActiveTab] = useState<"Posts" | "Replies" | "Media" | "Likes">("Posts");
   const [posts, setPosts] = useState<OtherProfilePostItem[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const isLoadingRef = useRef(false);
   const PAGE_SIZE = 12;
 
@@ -89,39 +99,58 @@ export function OtherProfileScreen({
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
-  const [postsCount, setPostsCount] = useState(0);
+  // Resolve user info dynamically
+  const isMe = useMemo(() => {
+    if (!currentUser || !cleanUsername) return false;
+    return (
+      currentUser.username?.toLowerCase() === cleanUsername ||
+      currentUser.id === targetUser?.id
+    );
+  }, [currentUser, cleanUsername, targetUser]);
 
-  const displayAvatar = targetUser?.avatar_url
-    ? resolveAvatarSource(targetUser.avatar_url)
-    : (avatar ? resolveAvatarSource(avatar) : require("../../../assets/images/home_feed_bali_post.jpg"));
+  const displayName = targetUser?.full_name || name || targetUser?.username || cleanUsername || "User";
+  const displayBio = targetUser?.bio !== undefined ? targetUser.bio : (bio || "");
+  const displayLocation = targetUser?.location !== undefined ? targetUser.location : (location || "");
+  const displayAvatar = resolveAvatarSource(targetUser?.avatar_url || avatar);
 
-  const displayName = targetUser?.full_name || name;
-  const displayBio = targetUser?.bio || bio;
-  const displayLocation = targetUser?.location || location;
+  // Story highlights (demo for alex_wanderer, or real user highlights if any)
+  const highlights = useMemo(() => {
+    if (cleanUsername === "alex_wanderer") {
+      return [
+        { id: "1", title: "Bali", image: require("../../../assets/images/home_feed_bali_post.jpg") },
+        { id: "2", title: "Italy", image: require("../../../assets/images/cinque_terre_post.jpg") },
+        { id: "3", title: "Iceland", image: require("../../../assets/images/splash_mountain.jpg") },
+        { id: "4", title: "Moments", image: require("../../../assets/images/onboarding_hero.jpg") },
+      ];
+    }
+    return targetUser?.highlights || [];
+  }, [cleanUsername, targetUser]);
 
-  // Load real follow status and posts on mount & when active tab changes
-  React.useEffect(() => {
+  // Load current user, target profile, follow status, and posts
+  useEffect(() => {
     let isCancelled = false;
 
-    // Fetch profile data
-    userService.getProfile(username).then((res) => {
+    // Check logged in user
+    authStorage.getUser().then((u) => {
+      if (!isCancelled && u) {
+        setCurrentUser(u);
+      }
+    });
+
+    if (!cleanUsername) return;
+
+    // 1. Fetch profile data
+    userService.getProfile(cleanUsername).then((res) => {
       if (!isCancelled && res) {
         setTargetUser(res);
+        if (typeof res.posts_count === "number") setPostsCount(res.posts_count);
+        if (typeof res.followers_count === "number") setFollowersCount(res.followers_count);
+        if (typeof res.following_count === "number") setFollowingCount(res.following_count);
       }
     });
 
-    // Initial fetch for follow status
-    userService.getFollowStatus(username).then((res) => {
-      if (!isCancelled) {
-        setIsFollowing(res.isFollowing);
-        setFollowersCount(res.followersCount);
-        setFollowingCount(res.followingCount);
-        setPostsCount(res.postsCount);
-      }
-    });
-
-    // Subscribe to reactive follow status updates
-    const unsubFollow = syncClient.subscribe("users:getFollowStatus", { targetUsername: username }, (res: any) => {
+    // 2. Fetch follow status
+    userService.getFollowStatus(cleanUsername).then((res) => {
       if (!isCancelled && res) {
         if (typeof res.isFollowing === "boolean") setIsFollowing(res.isFollowing);
         if (typeof res.followersCount === "number") setFollowersCount(res.followersCount);
@@ -130,37 +159,52 @@ export function OtherProfileScreen({
       }
     });
 
-    // Subscribe to reactive posts updates
-    const unsubPosts = syncClient.subscribe("posts:getUserPosts", { username, tab: activeTab.toLowerCase(), limit: PAGE_SIZE, skip: 0 }, (livePosts: any) => {
-      if (!isCancelled && Array.isArray(livePosts) && livePosts.length > 0) {
-        const mapped: OtherProfilePostItem[] = livePosts.map((p: any) => ({
-          id: String(p.id || p._id),
-          image: p.media_url && typeof p.media_url === "string"
-            ? { uri: resolveFullUrl(p.media_url) }
-            : p.media_urls?.[0] && typeof p.media_urls[0] === "string"
-              ? { uri: resolveFullUrl(p.media_urls[0]) }
-              : null,
-          likes: p.likes_count || 0,
-          comments: p.comments_count || 0,
-          type: p.media_type || "photo",
-          caption: p.content || p.caption || "",
-          created_at: p.created_at || (p as any).createdAt,
-          author: {
-            username: p.author_username || username,
-            fullName: p.author_fullName || displayName,
-            avatar: p.author_avatar ? resolveAvatarSource(p.author_avatar) : displayAvatar,
-            isMe: false,
-          },
-        }));
-
-        setPosts((prev) => {
-          if (prev.length <= PAGE_SIZE) return mapped;
-          const liveIds = new Set(mapped.map((p) => p.id));
-          const tail = prev.filter((p) => !liveIds.has(p.id));
-          return [...mapped, ...tail];
-        });
+    // 3. Subscribe to reactive follow status updates
+    const unsubFollow = syncClient.subscribe("users:getFollowStatus", { targetUsername: cleanUsername }, (res: any) => {
+      if (!isCancelled && res) {
+        if (typeof res.isFollowing === "boolean") setIsFollowing(res.isFollowing);
+        if (typeof res.followersCount === "number") setFollowersCount(res.followersCount);
+        if (typeof res.followingCount === "number") setFollowingCount(res.followingCount);
+        if (typeof res.postsCount === "number") setPostsCount(res.postsCount);
       }
     });
+
+    // 4. Subscribe to reactive posts updates
+    const unsubPosts = syncClient.subscribe(
+      "posts:getUserPosts",
+      { username: cleanUsername, tab: activeTab.toLowerCase(), limit: PAGE_SIZE, skip: 0 },
+      (livePosts: any) => {
+        if (!isCancelled && Array.isArray(livePosts)) {
+          const mapped: OtherProfilePostItem[] = livePosts.map((p: any) => ({
+            id: String(p.id || p._id),
+            image: p.media_url && typeof p.media_url === "string"
+              ? { uri: resolveFullUrl(p.media_url) }
+              : p.media_urls?.[0] && typeof p.media_urls[0] === "string"
+                ? { uri: resolveFullUrl(p.media_urls[0]) }
+                : null,
+            likes: p.likes_count || 0,
+            comments: p.comments_count || 0,
+            type: p.media_type || (p.media_url?.toLowerCase().endsWith(".mp4") || p.media_url?.toLowerCase().endsWith(".mov") ? "video" : "photo"),
+            caption: p.content || p.caption || "",
+            location: p.location || "",
+            created_at: p.created_at || (p as any).createdAt,
+            author: {
+              username: p.author_username || cleanUsername,
+              fullName: p.author_fullName || displayName,
+              avatar: resolveAvatarSource(p.author_avatar || displayAvatar),
+              isMe: false,
+            },
+          }));
+
+          setPosts((prev) => {
+            if (prev.length <= PAGE_SIZE) return mapped;
+            const liveIds = new Set(mapped.map((p) => p.id));
+            const tail = prev.filter((p) => !liveIds.has(p.id));
+            return [...mapped, ...tail];
+          });
+        }
+      }
+    );
 
     setHasMore(true);
     loadPosts(false);
@@ -170,11 +214,15 @@ export function OtherProfileScreen({
       unsubFollow();
       unsubPosts();
     };
-  }, [username, activeTab]);
+  }, [cleanUsername, activeTab]);
 
   const loadPosts = async (isLoadMore = false) => {
     if (isLoadingRef.current) return;
     if (isLoadMore && !hasMore) return;
+    if (!cleanUsername) {
+      setLoadingPosts(false);
+      return;
+    }
 
     isLoadingRef.current = true;
     if (isLoadMore) {
@@ -185,7 +233,7 @@ export function OtherProfileScreen({
 
     try {
       const skip = isLoadMore ? posts.length : 0;
-      const rawPosts = await postService.getUserPosts(username, activeTab.toLowerCase() as any, {
+      const rawPosts = await postService.getUserPosts(cleanUsername, activeTab.toLowerCase() as any, {
         limit: PAGE_SIZE,
         skip,
       });
@@ -200,11 +248,12 @@ export function OtherProfileScreen({
               : null,
           likes: p.likes_count || 0,
           comments: p.comments_count || 0,
-          type: p.media_type || "photo",
+          type: p.media_type || (p.media_url?.toLowerCase().endsWith(".mp4") || p.media_url?.toLowerCase().endsWith(".mov") ? "video" : "photo"),
           caption: p.content || p.caption || "",
+          location: p.location || "",
           created_at: p.created_at || (p as any).createdAt,
           author: {
-            username: p.author_username || username,
+            username: p.author_username || cleanUsername,
             fullName: p.author_fullName || displayName,
             avatar: p.author_avatar ? resolveAvatarSource(p.author_avatar) : displayAvatar,
             isMe: false,
@@ -218,31 +267,74 @@ export function OtherProfileScreen({
             return [...prev, ...newItems];
           });
         } else {
-          if (mapped.length > 0) {
-            setPosts(mapped);
-          } else if (username === "alex_wanderer") {
-            setPosts(INITIAL_FALLBACK_POSTS);
-          } else {
-            setPosts([]);
+          setPosts(mapped);
+          if (activeTab === "Posts" && postsCount === 0 && mapped.length > 0) {
+            setPostsCount(mapped.length);
           }
         }
         setHasMore(rawPosts.length >= PAGE_SIZE);
       } else if (!isLoadMore) {
-        if (username === "alex_wanderer") {
-          setPosts(INITIAL_FALLBACK_POSTS);
-        } else {
-          setPosts([]);
-        }
+        setPosts([]);
       }
     } catch (e) {
-      console.warn("Failed to load user posts:", e);
-      if (!isLoadMore && username === "alex_wanderer") {
-        setPosts(INITIAL_FALLBACK_POSTS);
+      console.log("Failed to load user posts:", e);
+      if (!isLoadMore) {
+        setPosts([]);
       }
     } finally {
       isLoadingRef.current = false;
       setLoadingPosts(false);
       setLoadingMore(false);
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    if (!cleanUsername) return;
+    setRefreshing(true);
+    setHasMore(true);
+    try {
+      const [profileRes, followRes] = await Promise.all([
+        userService.getProfile(cleanUsername),
+        userService.getFollowStatus(cleanUsername),
+      ]);
+      if (profileRes) {
+        setTargetUser(profileRes);
+        if (typeof profileRes.posts_count === "number") setPostsCount(profileRes.posts_count);
+        if (typeof profileRes.followers_count === "number") setFollowersCount(profileRes.followers_count);
+        if (typeof profileRes.following_count === "number") setFollowingCount(profileRes.following_count);
+      }
+      if (followRes) {
+        if (typeof followRes.isFollowing === "boolean") setIsFollowing(followRes.isFollowing);
+        if (typeof followRes.followersCount === "number") setFollowersCount(followRes.followersCount);
+        if (typeof followRes.followingCount === "number") setFollowingCount(followRes.followingCount);
+        if (typeof followRes.postsCount === "number") setPostsCount(followRes.postsCount);
+      }
+    } catch (err) {
+      console.log("Error refreshing other profile:", err);
+    }
+    await loadPosts(false);
+    setRefreshing(false);
+  }, [cleanUsername, activeTab]);
+
+  const handleToggleFollow = async () => {
+    if (!cleanUsername) return;
+    const nextFollowing = !isFollowing;
+    setIsFollowing(nextFollowing);
+    setFollowersCount((prev) => (nextFollowing ? prev + 1 : Math.max(0, prev - 1)));
+    if (nextFollowing) {
+      toast.success(`Following @${cleanUsername}`);
+    } else {
+      toast.info(`Unfollowed @${cleanUsername}`);
+    }
+
+    try {
+      const res = await userService.toggleFollow(cleanUsername);
+      if (typeof res.isFollowing === "boolean") setIsFollowing(res.isFollowing);
+      if (typeof res.followersCount === "number") setFollowersCount(res.followersCount);
+      if (typeof res.followingCount === "number") setFollowingCount(res.followingCount);
+      if (typeof res.postsCount === "number") setPostsCount(res.postsCount);
+    } catch (e) {
+      console.log("Toggle follow error:", e);
     }
   };
 
@@ -254,116 +346,19 @@ export function OtherProfileScreen({
   };
 
   const stats = [
-    { label: "Posts", value: formatStatNumber(postsCount) },
+    { label: "Posts", value: formatStatNumber(postsCount || (activeTab === "Posts" ? posts.length : 0)) },
     { label: "Followers", value: formatStatNumber(followersCount) },
     { label: "Following", value: formatStatNumber(followingCount) },
   ];
 
-  const highlights = [
-    { id: "1", title: "Bali", image: require("../../../assets/images/home_feed_bali_post.jpg") },
-    { id: "2", title: "Italy", image: require("../../../assets/images/cinque_terre_post.jpg") },
-    { id: "3", title: "Iceland", image: require("../../../assets/images/splash_mountain.jpg") },
-    { id: "4", title: "Moments", image: require("../../../assets/images/onboarding_hero.jpg") },
-  ];
-
-  const INITIAL_FALLBACK_POSTS: OtherProfilePostItem[] = [
-    {
-      id: "p1",
-      image: require("../../../assets/images/home_feed_bali_post.jpg"),
-      likes: 4210,
-      comments: 132,
-      type: "photo",
-      author: { username, fullName: name, avatar: displayAvatar, isMe: false },
-    },
-    {
-      id: "p2",
-      image: require("../../../assets/images/cinque_terre_post.jpg"),
-      likes: 8910,
-      comments: 310,
-      type: "photo",
-      author: { username, fullName: name, avatar: displayAvatar, isMe: false },
-    },
-    {
-      id: "p3",
-      image: require("../../../assets/images/splash_mountain.jpg"),
-      likes: 5400,
-      comments: 98,
-      type: "photo",
-      author: { username, fullName: name, avatar: displayAvatar, isMe: false },
-    },
-    {
-      id: "p4",
-      image: require("../../../assets/images/onboarding_slide_2.jpg"),
-      likes: 3100,
-      comments: 72,
-      type: "carousel",
-      author: { username, fullName: name, avatar: displayAvatar, isMe: false },
-    },
-    {
-      id: "p5",
-      image: require("../../../assets/images/onboarding_hero.jpg"),
-      likes: 11200,
-      comments: 480,
-      type: "reel",
-      author: { username, fullName: name, avatar: displayAvatar, isMe: false },
-    },
-    {
-      id: "p6",
-      image: require("../../../assets/images/onboarding_slide_3.jpg"),
-      likes: 6700,
-      comments: 145,
-      type: "photo",
-      author: { username, fullName: name, avatar: displayAvatar, isMe: false },
-    },
-    {
-      id: "p7",
-      image: require("../../../assets/images/onboarding_slide_4.jpg"),
-      likes: 4900,
-      comments: 112,
-      type: "photo",
-      author: { username, fullName: name, avatar: displayAvatar, isMe: false },
-    },
-    {
-      id: "p8",
-      image: require("../../../assets/images/home_feed_bali_post.jpg"),
-      likes: 7800,
-      comments: 230,
-      type: "photo",
-      author: { username, fullName: name, avatar: displayAvatar, isMe: false },
-    },
-    {
-      id: "p9",
-      image: require("../../../assets/images/cinque_terre_post.jpg"),
-      likes: 13500,
-      comments: 520,
-      type: "carousel",
-      author: { username, fullName: name, avatar: displayAvatar, isMe: false },
-    },
-  ];
-
-  const handleToggleFollow = async () => {
-    const nextFollowing = !isFollowing;
-    setIsFollowing(nextFollowing);
-    setFollowersCount((prev) => (nextFollowing ? prev + 1 : Math.max(0, prev - 1)));
-    if (nextFollowing) {
-      toast.success(`Following @${username}`);
-    } else {
-      toast.info(`Unfollowed @${username}`);
+  const filteredPosts = useMemo(() => {
+    if (activeTab === "Media") {
+      return posts.filter(
+        (p) => p.type === "photo" || p.type === "reel" || p.type === "carousel" || p.type === "video" || !!p.image
+      );
     }
-
-    try {
-      const res = await userService.toggleFollow(username);
-      setIsFollowing(res.isFollowing);
-      if (typeof res.followersCount === "number") {
-        setFollowersCount(res.followersCount);
-      }
-      if (typeof res.followingCount === "number") {
-        setFollowingCount(res.followingCount);
-      }
-    } catch (e) {
-      console.warn("Toggle follow error:", e);
-    }
-  };
+    return posts;
+  }, [posts, activeTab]);
 
   const handlePostPress = (post: OtherProfilePostItem) => {
     const mediaUri = typeof post.image === "object" && post.image?.uri ? post.image.uri : undefined;
@@ -379,6 +374,7 @@ export function OtherProfileScreen({
         media_url: mediaUri,
         media_type: post.type || "photo",
         caption: post.caption || "",
+        location: post.location || "",
         author_username: post.author.username,
         author_fullName: post.author.fullName,
         author_avatar: avatarUri,
@@ -449,6 +445,7 @@ export function OtherProfileScreen({
         try {
           Vibration.vibrate(25);
         } catch (_) { }
+        toast.info("Reposted to feed");
         break;
       case "share":
         if (onMessage) onMessage();
@@ -475,7 +472,7 @@ export function OtherProfileScreen({
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 140;
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
-      if (!isLoadingRef.current && hasMore && !loadingPosts) {
+      if (!isLoadingRef.current && hasMore && !loadingPosts && !refreshing) {
         loadPosts(true);
       }
     }
@@ -497,89 +494,210 @@ export function OtherProfileScreen({
         </TouchableOpacity>
 
         <View style={styles.headerTitleRow}>
-          <Text style={[styles.headerUsername, { color: colors.textPrimary }]}>{username}</Text>
-          <Ionicons name="checkmark-circle" size={16} color={colors.primary} style={{ marginLeft: 4 }} />
+          <AppText weight="bold" style={[styles.headerUsername, { color: colors.textPrimary }]} numberOfLines={1}>
+            {cleanUsername ? `@${cleanUsername}` : "Profile"}
+          </AppText>
+          {(targetUser?.is_verified || targetUser?.verified) && (
+            <Ionicons name="checkmark-circle" size={16} color={colors.primary} style={{ marginLeft: 4 }} />
+          )}
         </View>
 
-        <TouchableOpacity
-          style={styles.moreBtn}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
+        {Platform.OS === "ios" ? (
+          <MenuView
+            actions={[
+              {
+                id: "share",
+                title: "Share Profile",
+                image: "square.and.arrow.up",
+              },
+              {
+                id: "report",
+                title: "Report Account",
+                image: "exclamationmark.bubble",
+                attributes: { destructive: true },
+              },
+              {
+                id: "block",
+                title: "Block User",
+                image: "hand.raised",
+                attributes: { destructive: true },
+              },
+            ]}
+            onPressAction={({ nativeEvent }) => {
+              if (nativeEvent.event === "share") {
+                toast.success("Profile link copied!");
+              } else if (nativeEvent.event === "report") {
+                toast.info(`Reported @${cleanUsername}`);
+              } else if (nativeEvent.event === "block") {
+                toast.info(`Blocked @${cleanUsername}`);
+              }
+            }}
+          >
+            <TouchableOpacity
+              style={styles.moreBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </MenuView>
+        ) : (
+          <TouchableOpacity
+            style={styles.moreBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.7}
+            onPress={() => toast.success("Profile options")}
+          >
+            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        stickyHeaderIndices={[4]}
+        stickyHeaderIndices={[1]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
-        {/* Profile Header Row: Avatar on LEFT, Stats on RIGHT */}
-        <View style={styles.profileHeaderRow}>
-          <View style={styles.avatarContainer}>
-            <Image source={displayAvatar} style={styles.avatar} />
-          </View>
-
-          <View style={styles.statsContainerRight}>
-            {stats.map((stat) => (
-              <View key={stat.label} style={styles.statColumn}>
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Bio Section */}
-        <View style={styles.bioContainer}>
-          <Text style={[styles.fullName, { color: colors.textPrimary }]}>{displayName}</Text>
-          <Text style={[styles.location, { color: colors.textSecondary }]}>{displayLocation}</Text>
-          <Text style={[styles.bioText, { color: colors.textPrimary }]}>{displayBio}</Text>
-        </View>
-
-        {/* Action Buttons Row: Follow + Message */}
-        <View style={styles.actionButtonsRow}>
-          <TouchableOpacity
-            style={[styles.followBtn, isFollowing && { backgroundColor: colors.surface }]}
-            onPress={handleToggleFollow}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.followBtnText, isFollowing && { color: colors.textPrimary }]}>
-              {isFollowing ? "Following" : "Follow"}
-            </Text>
-          </TouchableOpacity>
-
-          {onMessage && (
-            <TouchableOpacity style={[styles.messageBtn, { backgroundColor: colors.surface }]} onPress={onMessage} activeOpacity={0.8}>
-              <Text style={[styles.messageBtnText, { color: colors.textPrimary }]}>Message</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity style={[styles.suggestedUserBtn, { backgroundColor: colors.surface }]} activeOpacity={0.8}>
-            <Ionicons name="person-add-outline" size={16} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Story Highlights Tray */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.highlightsTray}
-        >
-          {highlights.map((item) => (
-            <View key={item.id} style={styles.highlightItem}>
-              <View style={[styles.highlightRing, { borderColor: colors.borderLight }]}>
-                <Image source={item.image} style={styles.highlightThumb} />
-              </View>
-              <Text style={[styles.highlightTitle, { color: colors.textPrimary }]}>{item.title}</Text>
+        {/* Child 0: Profile Header & Details Section */}
+        <View style={{ width: "100%" }}>
+          {/* Profile Header Row: Avatar on LEFT, Stats on RIGHT */}
+          <View style={styles.profileHeaderRow}>
+            <View style={styles.avatarContainer}>
+              <Image source={displayAvatar} style={[styles.avatar, { borderColor: colors.border }]} />
             </View>
-          ))}
-        </ScrollView>
 
-        {/* Sub Tabs: Posts | Replies | Media | Likes (Sticky below header) */}
+            <View style={styles.statsContainerRight}>
+              {stats.map((stat) => (
+                <View key={stat.label} style={styles.statColumn}>
+                  <AppText weight="bold" style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</AppText>
+                  <AppText style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</AppText>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Bio Section */}
+          <View style={styles.bioContainer}>
+            <AppText weight="bold" style={[styles.fullName, { color: colors.textPrimary }]}>{displayName}</AppText>
+            {cleanUsername ? (
+              <AppText style={[styles.handle, { color: colors.textSecondary }]}>@{cleanUsername}</AppText>
+            ) : null}
+            {displayLocation ? (
+              <View style={styles.locationRow}>
+                <Ionicons name="location-outline" size={14} color={colors.textSecondary} style={{ marginRight: 3 }} />
+                <AppText style={[styles.location, { color: colors.textSecondary }]}>{displayLocation}</AppText>
+              </View>
+            ) : null}
+            {displayBio ? (
+              <AppText style={[styles.bioText, { color: colors.textPrimary }]}>{displayBio}</AppText>
+            ) : null}
+          </View>
+
+          {/* Action Buttons Row */}
+          <View style={styles.actionButtonsRow}>
+            {isMe ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.followBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+                  onPress={() => router.push("/edit-profile" as any)}
+                  activeOpacity={0.8}
+                >
+                  <AppText weight="semiBold" style={[styles.followBtnText, { color: colors.textPrimary }]}>
+                    Edit Profile
+                  </AppText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.messageBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+                  onPress={() => toast.success("Profile link copied!")}
+                  activeOpacity={0.8}
+                >
+                  <AppText weight="semiBold" style={[styles.messageBtnText, { color: colors.textPrimary }]}>
+                    Share Profile
+                  </AppText>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.followBtn,
+                    { backgroundColor: isFollowing ? colors.surface : colors.primary },
+                    isFollowing && { borderWidth: 1, borderColor: colors.border },
+                  ]}
+                  onPress={handleToggleFollow}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                >
+                  <AppText
+                    weight="semiBold"
+                    style={[
+                      styles.followBtnText,
+                      { color: isFollowing ? colors.textPrimary : "#FFFFFF" },
+                    ]}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
+                  </AppText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.messageBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+                  onPress={() => {
+                    if (onMessage) {
+                      onMessage();
+                    } else {
+                      router.push({ pathname: "/(tabs)/messages", params: { recipient: cleanUsername } } as any);
+                    }
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                >
+                  <AppText weight="semiBold" style={[styles.messageBtnText, { color: colors.textPrimary }]}>
+                    Message
+                  </AppText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.suggestedUserBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => router.push("/search" as any)}
+                >
+                  <Ionicons name="person-add-outline" size={16} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
+          {/* Story Highlights Tray (only shown if highlights exist) */}
+          {highlights.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.highlightsTray}
+            >
+              {highlights.map((item: any) => (
+                <View key={item.id} style={styles.highlightItem}>
+                  <View style={[styles.highlightRing, { borderColor: colors.borderLight, backgroundColor: colors.surface }]}>
+                    <Image source={item.image} style={styles.highlightThumb} />
+                  </View>
+                  <AppText weight="medium" style={[styles.highlightTitle, { color: colors.textPrimary }]}>{item.title}</AppText>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+
+        {/* Child 1: Sticky Sub Tabs */}
         <View style={{ zIndex: 10, elevation: 4, backgroundColor: colors.background, width: "100%" }}>
           <View
             style={[
@@ -607,13 +725,16 @@ export function OtherProfileScreen({
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[
-                    styles.subTabText,
-                    { color: colors.textMuted },
-                    isActive && { color: colors.textPrimary, fontFamily: FontFamily.semiBold }
-                  ]}>
+                  <AppText
+                    weight={isActive ? "semiBold" : "medium"}
+                    style={[
+                      styles.subTabText,
+                      { color: colors.textMuted },
+                      isActive && { color: colors.textPrimary },
+                    ]}
+                  >
                     {tab}
-                  </Text>
+                  </AppText>
                   {isActive && <View style={[styles.activeTabIndicator, { backgroundColor: colors.textPrimary }]} />}
                 </TouchableOpacity>
               );
@@ -621,16 +742,42 @@ export function OtherProfileScreen({
           </View>
         </View>
 
-        {/* 3-Column Photo Grid with Native iOS Context Menu & Android Peek & Pop */}
-        <View style={styles.photoGrid}>
-          {posts.length === 0 && !loadingPosts ? (
-            <View style={styles.emptyStateContainer}>
-              <Ionicons name="images-outline" size={44} color={colors.textMuted} />
-              <Text style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>No {activeTab} yet</Text>
-              <Text style={[styles.emptyStateSub, { color: colors.textSecondary }]}>When @{username} shares {activeTab.toLowerCase()}, they'll appear here.</Text>
-            </View>
-          ) : (
-            posts.map((post) => {
+        {/* Child 2: Posts Grid or Empty State */}
+        {loadingPosts && posts.length === 0 ? (
+          <View style={styles.initialLoaderContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        ) : filteredPosts.length === 0 ? (
+          <View style={styles.emptyStateContainer}>
+            <Ionicons
+              name={
+                activeTab === "Media"
+                  ? "images-outline"
+                  : activeTab === "Replies"
+                    ? "chatbubbles-outline"
+                    : activeTab === "Likes"
+                      ? "heart-outline"
+                      : "camera-outline"
+              }
+              size={48}
+              color={colors.textMuted}
+            />
+            <AppText weight="bold" style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>
+              No {activeTab} yet
+            </AppText>
+            <AppText style={[styles.emptyStateSub, { color: colors.textSecondary }]}>
+              {activeTab === "Media"
+                ? `Photos and videos shared by @${cleanUsername || "user"} will appear here.`
+                : activeTab === "Replies"
+                  ? `Replies by @${cleanUsername || "user"} will appear here.`
+                  : activeTab === "Likes"
+                    ? `Posts liked by @${cleanUsername || "user"} will appear here.`
+                    : `When @${cleanUsername || "user"} shares photos and videos, they will appear here.`}
+            </AppText>
+          </View>
+        ) : (
+          <View style={styles.photoGrid}>
+            {filteredPosts.map((post) => {
               const isLiked = !!likedPosts[post.id];
 
               const tileContent = (
@@ -667,7 +814,7 @@ export function OtherProfileScreen({
                           color={colors.textSecondary}
                         />
                       </View>
-                      <Text
+                      <AppText
                         style={[
                           styles.gridFallbackCaption,
                           { color: colors.textPrimary },
@@ -675,7 +822,7 @@ export function OtherProfileScreen({
                         numberOfLines={4}
                       >
                         {post.caption || "Text post"}
-                      </Text>
+                      </AppText>
                       <View
                         style={[
                           styles.gridFallbackFooter,
@@ -683,14 +830,14 @@ export function OtherProfileScreen({
                         ]}
                       >
                         <Ionicons name="heart" size={11} color="#EF4444" />
-                        <Text
+                        <AppText
                           style={[
                             styles.gridFallbackLikes,
                             { color: colors.textMuted },
                           ]}
                         >
                           {post.likes || 0}
-                        </Text>
+                        </AppText>
                       </View>
                     </View>
                   )}
@@ -754,8 +901,9 @@ export function OtherProfileScreen({
                   {tileContent}
                 </React.Fragment>
               );
-            }))}
-        </View>
+            })}
+          </View>
+        )}
 
         {/* Loading more indicator at bottom of ScrollView */}
         {loadingMore && (
@@ -806,20 +954,30 @@ export function OtherProfileScreen({
                   source={previewPost.author.avatar}
                   style={styles.peekAvatar}
                 />
-                <Text style={[styles.peekUsername, { color: colors.textPrimary }]} numberOfLines={1}>
+                <AppText weight="bold" style={[styles.peekUsername, { color: colors.textPrimary }]} numberOfLines={1}>
                   {previewPost.author.username}
-                </Text>
+                </AppText>
               </View>
 
-              {/* Clean Media */}
-              <View style={styles.peekMediaWrapper}>
-                <PostMedia
-                  source={previewPost.image}
-                  mediaType={previewPost.type}
-                  style={styles.peekImage}
-                  resizeMode="cover"
-                  autoPlay={false}
-                />
+              {/* Clean Media or Fallback */}
+              <View style={[styles.peekMediaWrapper, { backgroundColor: colors.card }]}>
+                {previewPost.image ? (
+                  <PostMedia
+                    source={previewPost.image}
+                    mediaType={previewPost.type}
+                    style={styles.peekImage}
+                    resizeMode="cover"
+                    isDetailScreen
+                    autoPlay={false}
+                  />
+                ) : (
+                  <View style={[styles.peekTextCard, { backgroundColor: colors.surface }]}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.textSecondary} style={{ marginBottom: 10 }} />
+                    <AppText style={[styles.peekTextContent, { color: colors.textPrimary }]}>
+                      {previewPost.caption || "Text post"}
+                    </AppText>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
 
@@ -844,18 +1002,18 @@ export function OtherProfileScreen({
                       likedPosts[previewPost.id] ? "#ED4956" : colors.textPrimary
                     }
                   />
-                  <Text
+                  <AppText
+                    weight={likedPosts[previewPost.id] ? "semiBold" : "medium"}
                     style={[
                       styles.contextMenuLabel,
                       { color: colors.textPrimary },
                       likedPosts[previewPost.id] && {
                         color: "#ED4956",
-                        fontFamily: FontFamily.semiBold,
                       },
                     ]}
                   >
                     {likedPosts[previewPost.id] ? "Liked" : "Like"}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
 
                 {/* Repost */}
@@ -865,7 +1023,7 @@ export function OtherProfileScreen({
                   onPress={() => closePreview()}
                 >
                   <Ionicons name="repeat-outline" size={22} color={colors.textPrimary} />
-                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Repost</Text>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Repost</AppText>
                 </TouchableOpacity>
 
                 {/* Share */}
@@ -884,7 +1042,7 @@ export function OtherProfileScreen({
                     size={21}
                     color={colors.textPrimary}
                   />
-                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Share</Text>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Share</AppText>
                 </TouchableOpacity>
 
                 {/* View Post */}
@@ -900,7 +1058,7 @@ export function OtherProfileScreen({
                     size={22}
                     color={colors.textPrimary}
                   />
-                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>View Post</Text>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>View Post</AppText>
                 </TouchableOpacity>
 
                 {/* Not interested */}
@@ -910,7 +1068,7 @@ export function OtherProfileScreen({
                   onPress={() => closePreview()}
                 >
                   <Ionicons name="eye-off-outline" size={21} color={colors.textPrimary} />
-                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Not interested</Text>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Not interested</AppText>
                 </TouchableOpacity>
 
                 {/* Report */}
@@ -924,9 +1082,9 @@ export function OtherProfileScreen({
                     size={22}
                     color="#ED4956"
                   />
-                  <Text style={[styles.contextMenuLabel, { color: "#ED4956" }]}>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: "#ED4956" }]}>
                     Report
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
 
@@ -947,7 +1105,6 @@ export function OtherProfileScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
   topHeader: {
     height: 52,
@@ -955,9 +1112,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
   },
   backBtn: {
     padding: 4,
@@ -965,11 +1120,11 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     flexDirection: "row",
     alignItems: "center",
+    maxWidth: "70%",
   },
   headerUsername: {
     fontSize: 16,
     fontFamily: FontFamily.bold,
-    color: "#0F172A",
     letterSpacing: -0.2,
   },
   moreBtn: {
@@ -993,7 +1148,6 @@ const styles = StyleSheet.create({
     height: 82,
     borderRadius: 41,
     borderWidth: 2,
-    borderColor: "#E2E8F0",
   },
   statsContainerRight: {
     flex: 1,
@@ -1007,13 +1161,11 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 17,
     fontFamily: FontFamily.bold,
-    color: "#0F172A",
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 12,
     fontFamily: FontFamily.medium,
-    color: "#64748B",
   },
   bioContainer: {
     paddingHorizontal: 20,
@@ -1023,72 +1175,63 @@ const styles = StyleSheet.create({
   fullName: {
     fontSize: 16,
     fontFamily: FontFamily.bold,
-    color: "#0F172A",
+  },
+  handle: {
+    fontSize: 13,
+    fontFamily: FontFamily.regular,
+    marginTop: 1,
+    marginBottom: 2,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+    marginBottom: 4,
   },
   location: {
     fontSize: 13,
     fontFamily: FontFamily.regular,
-    color: "#64748B",
-    marginTop: 1,
-    marginBottom: 6,
   },
   bioText: {
     fontSize: 14,
     fontFamily: FontFamily.regular,
-    color: "#334155",
     lineHeight: 20,
+    marginTop: 2,
   },
   actionButtonsRow: {
     flexDirection: "row",
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 10,
     gap: 8,
   },
   followBtn: {
     flex: 1,
     height: 36,
-    backgroundColor: Colors.primary,
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
   },
-  followingBtn: {
-    backgroundColor: "#F1F5F9",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
   followBtnText: {
-    color: "#FFFFFF",
     fontFamily: FontFamily.semiBold,
     fontSize: 14,
-  },
-  followingBtnText: {
-    color: "#0F172A",
   },
   messageBtn: {
     flex: 1,
     height: 36,
-    backgroundColor: "#F1F5F9",
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
   },
   messageBtnText: {
-    color: "#0F172A",
     fontFamily: FontFamily.semiBold,
     fontSize: 14,
   },
   suggestedUserBtn: {
     width: 36,
     height: 36,
-    backgroundColor: "#F1F5F9",
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
   },
   highlightsTray: {
     paddingHorizontal: 20,
@@ -1106,8 +1249,6 @@ const styles = StyleSheet.create({
     borderRadius: 31,
     padding: 2.5,
     borderWidth: 1.5,
-    borderColor: "#E2E8F0",
-    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
@@ -1120,8 +1261,13 @@ const styles = StyleSheet.create({
   highlightTitle: {
     fontSize: 12,
     fontFamily: FontFamily.medium,
-    color: "#334155",
     textAlign: "center",
+  },
+  initialLoaderContainer: {
+    width: "100%",
+    paddingVertical: 48,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingMoreContainer: {
     paddingVertical: 18,
@@ -1135,8 +1281,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-    marginTop: 4,
   },
   subTabItem: {
     flex: 1,
@@ -1149,11 +1293,6 @@ const styles = StyleSheet.create({
   subTabText: {
     fontSize: 14,
     fontFamily: FontFamily.medium,
-    color: "#94A3B8",
-  },
-  subTabTextActive: {
-    color: "#0F172A",
-    fontFamily: FontFamily.bold,
   },
   activeTabIndicator: {
     position: "absolute",
@@ -1161,7 +1300,6 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     height: 2.5,
-    backgroundColor: Colors.primary,
     borderRadius: 1.5,
   },
   photoGrid: {
@@ -1208,7 +1346,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  // Instagram Peek & Pop Overlay
   peekOverlay: {
     position: "absolute",
     top: 0,
@@ -1235,7 +1372,6 @@ const styles = StyleSheet.create({
   },
   peekCard: {
     width: "100%",
-    backgroundColor: "#FFFFFF",
     borderRadius: 22,
     overflow: "hidden",
     shadowColor: "#000000",
@@ -1250,27 +1386,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 9,
     gap: 8,
-    backgroundColor: "#FFFFFF",
   },
   peekAvatar: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: "#E2E8F0",
   },
   peekUsername: {
     fontFamily: FontFamily.bold,
     fontSize: 13,
-    color: "#0F172A",
   },
   peekMediaWrapper: {
     width: "100%",
     aspectRatio: 1,
-    backgroundColor: "#000000",
   },
   peekImage: {
     width: "100%",
     height: "100%",
+  },
+  peekTextCard: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  peekTextContent: {
+    fontSize: 15,
+    fontFamily: FontFamily.medium,
+    textAlign: "center",
+    lineHeight: 22,
   },
   menuRowContainer: {
     flexDirection: "row",
@@ -1279,7 +1423,6 @@ const styles = StyleSheet.create({
   },
   instagramContextMenu: {
     width: 235,
-    backgroundColor: "rgba(255, 255, 255, 0.94)",
     borderRadius: 22,
     paddingVertical: 6,
     shadowColor: "#000000",
@@ -1302,7 +1445,6 @@ const styles = StyleSheet.create({
   contextMenuLabel: {
     fontFamily: FontFamily.medium,
     fontSize: 15,
-    color: "#0F172A",
   },
   emptyStateContainer: {
     width: "100%",

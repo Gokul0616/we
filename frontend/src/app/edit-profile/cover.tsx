@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -18,6 +17,8 @@ import { authStorage } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
 import { resolveCoverSource, PRESET_COVER_MAP } from "../../utils/mediaHelper";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import { AppImage } from "../../components/common/AppImage";
 
 const PRESET_COVERS = [
   { id: "asset:cinque_terre_post.jpg", source: PRESET_COVER_MAP["asset:cinque_terre_post.jpg"] },
@@ -57,7 +58,7 @@ export default function ChangeCoverPhotoScreen() {
         setCurrentCover(res.assets[0].uri);
       }
     } catch (e) {
-      console.warn("pickCoverFromGallery error:", e);
+      console.log("pickCoverFromGallery error:", e);
     }
   };
 
@@ -87,15 +88,26 @@ export default function ChangeCoverPhotoScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Change Cover Photo</Text>
-        <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={saving}>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Change Cover Photo</AppText>
+        <TouchableOpacity
+          style={styles.headerSaveButton}
+          onPress={handleSave}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel="Save cover photo"
+        >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+            <AppText weight="bold" style={[styles.headerSaveText, { color: colors.primary }]}>Save</AppText>
           )}
         </TouchableOpacity>
       </View>
@@ -103,16 +115,16 @@ export default function ChangeCoverPhotoScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Cover Viewport with Crop Brackets */}
         <View style={styles.coverViewport}>
-          <Image source={resolveCoverSource(currentCover)} style={styles.coverViewportImage} resizeMode="cover" />
+          <AppImage source={resolveCoverSource(currentCover)} style={styles.coverViewportImage} resizeMode="cover" />
           <View style={styles.cropBracketTL} />
           <View style={styles.cropBracketTR} />
           <View style={styles.cropBracketBL} />
           <View style={styles.cropBracketBR} />
         </View>
-        <Text style={[styles.coverDragHint, { color: colors.textSecondary }]}>Drag to adjust your cover photo</Text>
+        <AppText style={[styles.coverDragHint, { color: colors.textSecondary }]}>Drag to adjust your cover photo</AppText>
 
         {/* Suggested Presets Section */}
-        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Suggested</Text>
+        <AppText weight="bold" style={[styles.sectionHeading, { color: colors.textPrimary }]}>Suggested</AppText>
         <View style={styles.suggestedCoverRow}>
           {PRESET_COVERS.map((preset) => {
             const isSelected = currentCover === preset.id;
@@ -126,6 +138,8 @@ export default function ChangeCoverPhotoScreen() {
                 ]}
                 activeOpacity={0.8}
                 onPress={() => setCurrentCover(preset.id)}
+                accessibilityRole="button"
+                accessibilityLabel="Select suggested cover"
               >
                 <Image source={preset.source} style={styles.suggestedCoverThumb} />
                 {isSelected && (
@@ -149,9 +163,11 @@ export default function ChangeCoverPhotoScreen() {
           ]}
           activeOpacity={0.8}
           onPress={pickCoverFromGallery}
+          accessibilityRole="button"
+          accessibilityLabel="Choose cover from gallery"
         >
           <Ionicons name="images-outline" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.actionBtnOutlineText, { color: colors.primary }]}>Choose from Gallery</Text>
+          <AppText weight="semiBold" style={[styles.actionBtnOutlineText, { color: colors.primary }]}>Choose from Gallery</AppText>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -164,9 +180,11 @@ export default function ChangeCoverPhotoScreen() {
           ]}
           activeOpacity={0.8}
           onPress={() => setCurrentCover("asset:cinque_terre_post.jpg")}
+          accessibilityRole="button"
+          accessibilityLabel="Remove cover photo"
         >
           <Ionicons name="trash-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
-          <Text style={styles.actionBtnDangerOutlineText}>Remove Cover Photo</Text>
+          <AppText weight="semiBold" style={styles.actionBtnDangerOutlineText}>Remove Cover Photo</AppText>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

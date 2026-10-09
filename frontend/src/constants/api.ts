@@ -30,6 +30,7 @@ export const ENDPOINTS = {
     deleteAccount: `${API_CONFIG.AUTH_URL}/me`,
     blockUser: `${API_CONFIG.AUTH_URL}/users/block`,
     unblockUser: `${API_CONFIG.AUTH_URL}/users/unblock`,
+    upload: `${API_CONFIG.AUTH_URL}/upload`,
     health: `${API_CONFIG.AUTH_URL}/health`,
   },
   posts: {
@@ -42,6 +43,7 @@ export const ENDPOINTS = {
     comments: (id: string) => `${API_CONFIG.POSTS_URL}/posts/${id}/comments`,
   },
   gateway: {
+    upload: `${API_CONFIG.GATEWAY_URL}/upload`,
     health: `${API_CONFIG.GATEWAY_URL}/health`,
     query: `${API_CONFIG.GATEWAY_URL}/api/query`,
     mutation: `${API_CONFIG.GATEWAY_URL}/api/mutation`,

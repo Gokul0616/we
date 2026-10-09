@@ -1,18 +1,24 @@
 import { apiClient } from "./apiClient";
 import { syncClient } from "./reactiveSyncClient";
 import { authStorage } from "./authStorage";
-import { ENDPOINTS, API_CONFIG } from "../constants/api";
+import { ENDPOINTS } from "../constants/api";
+import { uploadFileToServer } from "../utils/fileUploader";
 
 export interface CreatePostPayload {
   content: string;
   media_url?: string;
   media_urls?: string[];
-  media_type?: "photo" | "video" | "carousel";
+  media_type?: "none" | "photo" | "video" | "carousel";
   location?: string;
+  /** Coordinates for `location` — both or neither (validated by the backend). */
+  location_lat?: number;
+  location_lng?: number;
   tags?: string[];
   labels?: string[];
   privacy?: "public" | "friends" | "private";
   add_to_story?: boolean;
+  /** Idempotency key — a retry of the same composed post returns the original. */
+  client_post_id?: string;
 }
 
 export interface PostItemData {
@@ -24,8 +30,10 @@ export interface PostItemData {
   content: string;
   media_url?: string;
   media_urls?: string[];
-  media_type?: "photo" | "video" | "carousel";
+  media_type?: "none" | "photo" | "video" | "carousel";
   location?: string;
+  location_lat?: number;
+  location_lng?: number;
   tags?: string[];
   labels?: string[];
   privacy?: string;
@@ -53,77 +61,47 @@ class PostService {
       try {
         listener(post);
       } catch (e) {
-        console.warn("PostListener error:", e);
+        console.log("PostListener error:", e);
       }
     });
   }
 
   /**
-   * Upload media file (multipart FormData or fallback) to backend server
+   * Upload media file (photo or video) to backend server.
+   * @param onProgress optional 0..1 callback for smooth per-file upload feedback.
    */
-  public async uploadMedia(uri: string, type: "photo" | "video" = "photo"): Promise<string> {
-    if (!uri) return uri;
-    if (uri.startsWith("http://") || uri.startsWith("https://")) {
-      return uri;
-    }
+  public async uploadMedia(
+    uri: string,
+    type: "photo" | "video" = "photo",
+    onProgress?: (progress: number) => void
+  ): Promise<string> {
+    return uploadFileToServer(uri, type, onProgress);
+  }
 
-    try {
-      const filename = uri.split("/").pop() || (type === "video" ? "media.mp4" : "media.jpg");
-      const ext = filename.split(".").pop()?.toLowerCase() || (type === "video" ? "mp4" : "jpg");
-      let mimeType = "image/jpeg";
-      if (type === "video") {
-        mimeType = ext === "mov" ? "video/quicktime" : "video/mp4";
-      } else if (ext === "png") {
-        mimeType = "image/png";
-      }
-
-      const formData = new FormData();
-      formData.append("file", {
-        uri,
-        name: filename,
-        type: mimeType,
-      } as any);
-
-      const token = await authStorage.getToken();
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-      };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const res = await fetch(ENDPOINTS.posts.upload, {
-        method: "POST",
-        body: formData,
-        headers,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.url) {
-          return data.url;
+  /**
+   * Upload every selected media file **in parallel** and return the remote URLs in
+   * the original selection order. Already-remote URLs are passed through without a
+   * network call (and counted as instantly complete).
+   *
+   * @param onItemProgress called with (index, 0..1) whenever a file's progress changes.
+   */
+  public async uploadMediaBatch(
+    items: { uri: string; type: "photo" | "video" }[],
+    onItemProgress?: (index: number, progress: number) => void
+  ): Promise<string[]> {
+    return Promise.all(
+      items.map(async (item, index) => {
+        if (
+          item.uri.startsWith("http://") ||
+          item.uri.startsWith("https://") ||
+          item.uri.startsWith("asset:")
+        ) {
+          onItemProgress?.(index, 1);
+          return item.uri;
         }
-      }
-    } catch (e) {
-      console.warn("Upload via FormData error, trying JSON fallback:", e);
-    }
-
-    try {
-      const response = await apiClient.post<{ url: string; status: string }>(
-        ENDPOINTS.posts.upload,
-        {
-          data: uri,
-          media_type: type === "video" ? "video/mp4" : "image/jpeg",
-        },
-        { silent: true }
-      );
-      if (response && response.url) {
-        return response.url;
-      }
-    } catch (e) {
-      console.warn("Upload fallback using local uri:", e);
-    }
-    return uri;
+        return this.uploadMedia(item.uri, item.type, (p) => onItemProgress?.(index, p));
+      })
+    );
   }
 
   /**
@@ -131,7 +109,6 @@ class PostService {
    */
   public async createPost(payload: CreatePostPayload): Promise<PostItemData> {
     const user = await authStorage.getUser();
-    const token = await authStorage.getToken();
 
     const author_username = user?.username || "user";
     const author_id = user?.id || "user_current";
@@ -144,10 +121,13 @@ class PostService {
         media_urls: payload.media_urls || (payload.media_url ? [payload.media_url] : []),
         media_type: payload.media_type || "photo",
         location: payload.location,
+        location_lat: payload.location_lat,
+        location_lng: payload.location_lng,
         tags: payload.tags || [],
         labels: payload.labels || [],
         privacy: payload.privacy || "public",
         add_to_story: payload.add_to_story || false,
+        client_post_id: payload.client_post_id,
       });
 
       if (syncResult && syncResult.id) {
@@ -155,7 +135,7 @@ class PostService {
         return syncResult;
       }
     } catch (err) {
-      console.warn("Sync mutation failed, falling back to HTTP:", err);
+      console.log("Sync mutation failed, falling back to HTTP:", err);
     }
 
     // 2. HTTP Fallback to Post Service using env endpoint
@@ -168,10 +148,13 @@ class PostService {
           media_urls: payload.media_urls || (payload.media_url ? [payload.media_url] : []),
           media_type: payload.media_type || "photo",
           location: payload.location,
+          location_lat: payload.location_lat,
+          location_lng: payload.location_lng,
           tags: payload.tags || [],
           labels: payload.labels || [],
           privacy: payload.privacy || "public",
           add_to_story: payload.add_to_story || false,
+          client_post_id: payload.client_post_id,
         },
         { silent: true }
       );
@@ -181,7 +164,7 @@ class PostService {
         return httpResult;
       }
     } catch (e) {
-      console.warn("HTTP create post failed, falling back to local object:", e);
+      console.log("HTTP create post failed, falling back to local object:", e);
     }
 
     // 3. Fallback post object
@@ -195,6 +178,8 @@ class PostService {
       media_urls: payload.media_urls || (payload.media_url ? [payload.media_url] : []),
       media_type: payload.media_type || "photo",
       location: payload.location,
+      location_lat: payload.location_lat,
+      location_lng: payload.location_lng,
       tags: payload.tags || [],
       labels: payload.labels || [],
       privacy: payload.privacy || "public",
@@ -232,7 +217,7 @@ class PostService {
         return syncPosts;
       }
     } catch (e) {
-      console.warn("Sync engine getUserPosts fallback to HTTP:", e);
+      console.log("Sync engine getUserPosts fallback to HTTP:", e);
     }
 
     // 2. HTTP endpoint using env
@@ -245,7 +230,7 @@ class PostService {
         return res.posts;
       }
     } catch (e) {
-      console.warn("HTTP getUserPosts failed:", e);
+      console.log("HTTP getUserPosts failed:", e);
     }
 
     return [];
@@ -265,7 +250,7 @@ class PostService {
         return syncPosts;
       }
     } catch (e) {
-      console.warn("Sync engine getFeed fallback to HTTP:", e);
+      console.log("Sync engine getFeed fallback to HTTP:", e);
     }
 
     // 2. HTTP endpoint using env
@@ -278,7 +263,7 @@ class PostService {
         return res.posts;
       }
     } catch (e) {
-      console.warn("HTTP getFeed failed:", e);
+      console.log("HTTP getFeed failed:", e);
     }
 
     return [];
@@ -297,7 +282,7 @@ class PostService {
         return syncPost;
       }
     } catch (e) {
-      console.warn("Sync engine getPost fallback to HTTP:", e);
+      console.log("Sync engine getPost fallback to HTTP:", e);
     }
 
     // 2. HTTP endpoint using env
@@ -307,7 +292,7 @@ class PostService {
         return res;
       }
     } catch (e) {
-      console.warn("HTTP getPostById failed:", e);
+      console.log("HTTP getPostById failed:", e);
     }
 
     return null;
@@ -323,7 +308,7 @@ class PostService {
         return res;
       }
     } catch (e) {
-      console.warn("Sync engine like fallback to HTTP:", e);
+      console.log("Sync engine like fallback to HTTP:", e);
     }
 
     try {
@@ -336,7 +321,7 @@ class PostService {
         return { isLiked: httpRes.is_liked, likesCount: httpRes.likes_count };
       }
     } catch (e) {
-      console.warn("HTTP like failed:", e);
+      console.log("HTTP like failed:", e);
     }
 
     return { isLiked: false, likesCount: 0 };
@@ -350,13 +335,13 @@ class PostService {
       const res = await syncClient.mutation("posts:addComment", { postId, content });
       if (res) return res;
     } catch (e) {
-      console.warn("Sync engine addComment fallback to HTTP:", e);
+      console.log("Sync engine addComment fallback to HTTP:", e);
     }
 
     try {
       return await apiClient.post(ENDPOINTS.posts.comments(postId), { content }, { silent: true });
     } catch (e) {
-      console.warn("HTTP addComment failed:", e);
+      console.log("HTTP addComment failed:", e);
     }
     return null;
   }
@@ -369,13 +354,15 @@ class PostService {
       const res = await syncClient.query<any[]>("posts:getComments", { postId });
       if (Array.isArray(res)) return res;
     } catch (e) {
-      console.warn("Sync engine getComments fallback to HTTP:", e);
+      console.log("Sync engine getComments fallback to HTTP:", e);
     }
 
     try {
       const httpRes = await apiClient.get<{ comments: any[] }>(ENDPOINTS.posts.comments(postId), { silent: true });
       if (httpRes && Array.isArray(httpRes.comments)) return httpRes.comments;
-    } catch (e) {}
+    } catch {
+      // no-op — fall through to the HTTP path
+    }
     return [];
   }
 }

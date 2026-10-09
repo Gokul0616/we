@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -16,6 +15,8 @@ import { userService } from "../../services/userService";
 import { authStorage } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 const QUICK_WEBSITE_LINKS = ["Portfolio", "GitHub", "LinkedIn", "Twitter"];
 
@@ -58,15 +59,26 @@ export default function EditWebsiteScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Website</Text>
-        <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={saving}>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Website</AppText>
+        <TouchableOpacity
+          style={styles.headerSaveButton}
+          onPress={handleSave}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel="Save website"
+        >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+            <AppText weight="bold" style={[styles.headerSaveText, { color: colors.primary }]}>Save</AppText>
           )}
         </TouchableOpacity>
       </View>
@@ -74,11 +86,11 @@ export default function EditWebsiteScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Website Input Card */}
         <View style={[styles.websiteInputCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Website URL</Text>
+          <AppText weight="semiBold" style={[styles.fieldLabel, { color: colors.textSecondary }]}>Website URL</AppText>
           <View style={[styles.websiteInputRow, { borderColor: colors.border }]}>
             <Ionicons name="link-outline" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
-              style={[styles.websiteTextInput, { color: colors.textPrimary }]}
+              style={[styles.websiteTextInput, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
               value={website}
               onChangeText={setWebsite}
               placeholder="https://yourwebsite.com"
@@ -90,7 +102,7 @@ export default function EditWebsiteScreen() {
         </View>
 
         {/* Quick Links Section */}
-        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Quick Links</Text>
+        <AppText weight="bold" style={[styles.sectionHeading, { color: colors.textPrimary }]}>Quick Links</AppText>
         <View style={styles.suggestionsWrap}>
           {QUICK_WEBSITE_LINKS.map((link) => (
             <TouchableOpacity
@@ -103,8 +115,10 @@ export default function EditWebsiteScreen() {
                 else if (link === "Twitter") setWebsite(`https://x.com/${username}`);
                 else setWebsite(`https://${username}.dev`);
               }}
+              accessibilityRole="button"
+              accessibilityLabel={`Use quick link ${link}`}
             >
-              <Text style={[styles.suggestionPillText, { color: colors.textPrimary }]}>{link}</Text>
+              <AppText weight="semiBold" style={[styles.suggestionPillText, { color: colors.textPrimary }]}>{link}</AppText>
             </TouchableOpacity>
           ))}
         </View>

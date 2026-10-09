@@ -14,10 +14,8 @@ import jwt
 from shared.config import settings
 from shared.database import connect_to_mongo, close_mongo_connection, get_database
 from shared.redis_bus import event_bus
-from shared.models import PostCreate, CommentCreate
-
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+from shared.models import PostCreate, CommentCreate, resolve_media_type
+from shared.file_storage import FileStorage, UPLOAD_DIR
 
 class UploadPayload(BaseModel):
     data: str  # Base64 data or URI
@@ -123,6 +121,8 @@ async def get_feed(limit: int = 15, skip: int = 0, author_username: Optional[str
             "media_urls": doc.get("media_urls", [doc["media_url"]] if doc.get("media_url") else []),
             "media_type": doc.get("media_type", "photo"),
             "location": doc.get("location"),
+            "location_lat": doc.get("location_lat"),
+            "location_lng": doc.get("location_lng"),
             "tags": doc.get("tags", []),
             "labels": doc.get("labels", []),
             "privacy": doc.get("privacy", "public"),
@@ -220,6 +220,8 @@ async def get_user_posts(identifier: str, tab: str = "posts", limit: int = 12, s
             "media_urls": doc.get("media_urls", [doc["media_url"]] if doc.get("media_url") else []),
             "media_type": doc.get("media_type", "photo"),
             "location": doc.get("location"),
+            "location_lat": doc.get("location_lat"),
+            "location_lng": doc.get("location_lng"),
             "tags": doc.get("tags", []),
             "labels": doc.get("labels", []),
             "privacy": doc.get("privacy", "public"),
@@ -236,6 +238,8 @@ async def upload_media(request: Request):
     content_type = request.headers.get("content-type", "")
     host = request.headers.get("host") or "192.168.1.83:8002"
     proto = request.headers.get("x-forwarded-proto", request.url.scheme or "http")
+    host = request.headers.get("host") or "192.168.1.83:8002"
+    base_url = settings.BACKEND_BASE_URL or f"{proto}://{host}"
 
     # 1. Multipart Form Data (Mobile FormData / Web File uploads)
     if "multipart/form-data" in content_type:
@@ -243,31 +247,8 @@ async def upload_media(request: Request):
         uploaded_file = form.get("file")
         if not uploaded_file:
             raise HTTPException(status_code=400, detail="No file uploaded")
-
-        orig_name = getattr(uploaded_file, "filename", "media.jpg")
-        ext = os.path.splitext(orig_name)[1].lower().lstrip(".")
-        if not ext:
-            mime = getattr(uploaded_file, "content_type", "")
-            if "video" in mime or "mp4" in mime:
-                ext = "mp4"
-            elif "mov" in mime:
-                ext = "mov"
-            elif "png" in mime:
-                ext = "png"
-            else:
-                ext = "jpg"
-
-        filename = f"{uuid.uuid4().hex}.{ext}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
-
-        file_bytes = await uploaded_file.read()
-        with open(file_path, "wb") as f:
-            f.write(file_bytes)
-
-        proto = request.headers.get("x-forwarded-proto", "http")
-        host = request.headers.get("host", "192.168.1.83:8002")
-        file_url = f"{proto}://{host}/uploads/{filename}"
-        return {"url": file_url, "filename": filename, "status": "ok"}
+        subfolder = str(form.get("folder") or "posts")
+        return await FileStorage.save_upload_file(uploaded_file, subfolder=subfolder, base_url=base_url)
 
     # 2. JSON Payload (base64 or direct URL)
     try:
@@ -277,37 +258,46 @@ async def upload_media(request: Request):
 
     data = payload.get("data", "")
     media_type = payload.get("media_type", "image/jpeg")
+    subfolder = payload.get("folder", "posts")
 
     # If it's already a http/https URL, return it
     if data.startswith("http://") or data.startswith("https://"):
         return {"url": data, "status": "ok"}
 
-    ext = "jpg"
-    if "png" in media_type:
-        ext = "png"
-    elif "mp4" in media_type or "video" in media_type:
-        ext = "mp4"
-    elif "mov" in media_type:
-        ext = "mov"
+    return FileStorage.save_base64(data, media_type=media_type, subfolder=subfolder, base_url=base_url)
 
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
+def serialize_post(doc: dict) -> dict:
+    """Normalise a `posts` document into the API response shape."""
+    created_at = doc.get("created_at")
+    if isinstance(created_at, datetime):
+        created_at = created_at.isoformat()
 
-    try:
-        raw_data = data
-        if "," in raw_data:
-            raw_data = raw_data.split(",", 1)[1]
-        import base64
-        file_bytes = base64.b64decode(raw_data)
-        with open(file_path, "wb") as f:
-            f.write(file_bytes)
-        proto = request.headers.get("x-forwarded-proto", "http")
-        host = request.headers.get("host", "192.168.1.83:8002")
-        file_url = f"{proto}://{host}/uploads/{filename}"
-        return {"url": file_url, "filename": filename, "status": "ok"}
-    except Exception:
-        # Fallback to returning raw data URI
-        return {"url": data, "status": "ok"}
+    media_urls = doc.get("media_urls") or (
+        [doc["media_url"]] if doc.get("media_url") else []
+    )
+
+    return {
+        "id": str(doc.get("_id") or doc.get("id") or ""),
+        "author_id": doc.get("author_id"),
+        "author_username": doc.get("author_username", "anonymous"),
+        "author_fullName": doc.get("author_fullName") or doc.get("author_username", "User"),
+        "author_avatar": doc.get("author_avatar"),
+        "content": doc.get("content", ""),
+        "media_url": doc.get("media_url"),
+        "media_urls": media_urls,
+        "media_type": doc.get("media_type", "photo"),
+        "location": doc.get("location"),
+        "location_lat": doc.get("location_lat"),
+        "location_lng": doc.get("location_lng"),
+        "tags": doc.get("tags", []),
+        "labels": doc.get("labels", []),
+        "privacy": doc.get("privacy", "public"),
+        "add_to_story": doc.get("add_to_story", False),
+        "likes_count": len(doc.get("liked_by", [])),
+        "comments_count": doc.get("comments_count", 0),
+        "created_at": created_at or str(doc.get("created_at", "")),
+    }
+
 
 @app.post("/posts")
 async def create_post(
@@ -317,6 +307,13 @@ async def create_post(
     db = get_database()
     user_id = user["sub"]
     username = user["username"]
+
+    # Idempotency: a client that retries after a network timeout must not
+    # create a duplicate — the same client_post_id returns the original post.
+    if post_in.client_post_id:
+        existing = await db.posts.find_one({"client_post_id": post_in.client_post_id})
+        if existing:
+            return serialize_post(existing)
 
     author_avatar = None
     author_fullName = username
@@ -339,6 +336,18 @@ async def create_post(
     if not primary_media and post_in.media_urls and len(post_in.media_urls) > 0:
         primary_media = post_in.media_urls[0]
 
+    if primary_media and (primary_media.startswith("file://") or primary_media.startswith("content://")):
+        raise HTTPException(
+            status_code=400,
+            detail="Local device file URIs cannot be saved as post media. Please upload the file first via /upload."
+        )
+
+    media_urls = post_in.media_urls or ([primary_media] if primary_media else [])
+    # Pydantic rejects device-local URIs up front; here we derive the real
+    # media_type from what is actually attached instead of trusting the
+    # client-side guess (e.g. "photo" for a post with zero media).
+    media_type = resolve_media_type(post_in.media_type, media_urls)
+
     post_doc = {
         "author_id": user_id,
         "author_username": username,
@@ -346,13 +355,16 @@ async def create_post(
         "author_avatar": author_avatar,
         "content": post_in.content,
         "media_url": primary_media,
-        "media_urls": post_in.media_urls or ([primary_media] if primary_media else []),
-        "media_type": post_in.media_type or "photo",
+        "media_urls": media_urls,
+        "media_type": media_type,
         "location": post_in.location,
+        "location_lat": post_in.location_lat,
+        "location_lng": post_in.location_lng,
         "tags": post_in.tags or [],
         "labels": post_in.labels or [],
         "privacy": post_in.privacy or "public",
         "add_to_story": post_in.add_to_story or False,
+        "client_post_id": post_in.client_post_id,
         "liked_by": [],
         "comments_count": 0,
         "created_at": datetime.now(timezone.utc)
@@ -361,25 +373,7 @@ async def create_post(
     result = await db.posts.insert_one(post_doc)
     post_id = str(result.inserted_id)
 
-    post_response = {
-        "id": post_id,
-        "author_id": user_id,
-        "author_username": username,
-        "author_fullName": author_fullName,
-        "author_avatar": post_doc["author_avatar"],
-        "content": post_in.content,
-        "media_url": primary_media,
-        "media_urls": post_doc["media_urls"],
-        "media_type": post_doc["media_type"],
-        "location": post_doc["location"],
-        "tags": post_doc["tags"],
-        "labels": post_doc["labels"],
-        "privacy": post_doc["privacy"],
-        "add_to_story": post_doc["add_to_story"],
-        "likes_count": 0,
-        "comments_count": 0,
-        "created_at": post_doc["created_at"].isoformat()
-    }
+    post_response = serialize_post({**post_doc, "_id": post_id})
 
     # Broadcast event to Redis channel:feed -> Gateway will push to all connected users
     await event_bus.publish("channel:feed", {
@@ -396,7 +390,11 @@ async def create_post(
         "recipient_id": user_id,
         "post_id": post_id,
         "title": "Post Published!",
-        "message": f"Your post '{post_in.content[:30]}...' is now live.",
+        "message": (
+            f"Your post '{post_in.content[:30]}...' is now live."
+            if post_in.content.strip()
+            else "Your post is now live."
+        ),
         "created_at": datetime.now(timezone.utc).isoformat()
     })
 
@@ -444,6 +442,8 @@ async def get_post_by_id(post_id: str):
         "media_urls": post.get("media_urls", [post["media_url"]] if post.get("media_url") else []),
         "media_type": post.get("media_type", "photo"),
         "location": post.get("location"),
+        "location_lat": post.get("location_lat"),
+        "location_lng": post.get("location_lng"),
         "tags": post.get("tags", []),
         "labels": post.get("labels", []),
         "privacy": post.get("privacy", "public"),

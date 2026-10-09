@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -10,6 +10,7 @@ import {
   SettingsSection,
   SettingsSwitchRow,
 } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
 
 export default function AppPermissionsScreen() {
   const { colors } = useTheme();
@@ -122,13 +123,13 @@ export default function AppPermissionsScreen() {
                 color={colors.textPrimary}
                 style={styles.icon}
               />
-              <Text style={[styles.dataLabel, { color: colors.textPrimary }]}>
+              <AppText weight="semiBold" style={[styles.dataLabel, { color: colors.textPrimary }]}>
                 Total data used
-              </Text>
+              </AppText>
             </View>
-            <Text style={[styles.dataValue, { color: colors.textSecondary }]}>
+            <AppText weight="semiBold" style={[styles.dataValue, { color: colors.textSecondary }]}>
               {dataUsed}
-            </Text>
+            </AppText>
           </View>
 
           <View
@@ -146,16 +147,18 @@ export default function AppPermissionsScreen() {
                 color={colors.textPrimary}
                 style={styles.icon}
               />
-              <Text style={[styles.dataLabel, { color: colors.textPrimary }]}>
+              <AppText weight="semiBold" style={[styles.dataLabel, { color: colors.textPrimary }]}>
                 Reset Stats
-              </Text>
+              </AppText>
             </View>
             <TouchableOpacity
               style={styles.resetBtn}
               onPress={handleResetData}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Reset stats"
             >
-              <Text style={styles.resetBtnText}>Reset</Text>
+              <AppText weight="semiBold" style={styles.resetBtnText}>Reset</AppText>
             </TouchableOpacity>
           </View>
         </SettingsSection>

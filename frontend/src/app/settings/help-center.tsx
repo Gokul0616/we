@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -11,6 +10,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 interface FAQItem {
   id: string;
@@ -94,7 +95,7 @@ export default function HelpCenterScreen() {
             style={{ marginRight: 8 }}
           />
           <TextInput
-            style={[styles.searchInput, { color: colors.textPrimary }]}
+            style={[styles.searchInput, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
             placeholder="Search help articles..."
             placeholderTextColor={colors.textMuted}
             value={query}
@@ -102,9 +103,9 @@ export default function HelpCenterScreen() {
           />
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+        <AppText weight="semiBold" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
           Frequently Asked Questions
-        </Text>
+        </AppText>
 
         <View style={styles.faqList}>
           {filtered.map((item) => {
@@ -118,16 +119,19 @@ export default function HelpCenterScreen() {
                 ]}
                 onPress={() => setExpandedId(isExpanded ? null : item.id)}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={item.question}
               >
                 <View style={styles.faqHeader}>
-                  <Text
+                  <AppText
+                    weight="semiBold"
                     style={[
                       styles.faqQuestion,
                       { color: isExpanded ? "#2563EB" : colors.textPrimary },
                     ]}
                   >
                     {item.question}
-                  </Text>
+                  </AppText>
                   <Ionicons
                     name={isExpanded ? "chevron-up" : "chevron-down"}
                     size={18}
@@ -140,11 +144,11 @@ export default function HelpCenterScreen() {
                     <View
                       style={[styles.divider, { backgroundColor: colors.borderLight }]}
                     />
-                    <Text
+                    <AppText
                       style={[styles.faqAnswer, { color: colors.textSecondary }]}
                     >
                       {item.answer}
-                    </Text>
+                    </AppText>
                   </View>
                 )}
               </TouchableOpacity>
@@ -153,9 +157,9 @@ export default function HelpCenterScreen() {
 
           {filtered.length === 0 && (
             <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              <AppText style={[styles.emptyText, { color: colors.textSecondary }]}>
                 No help articles matching "{query}"
-              </Text>
+              </AppText>
             </View>
           )}
         </View>

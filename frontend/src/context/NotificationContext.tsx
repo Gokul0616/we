@@ -10,7 +10,10 @@ export interface NotificationItem {
   actor_username: string;
   actor_fullName?: string;
   actor_avatar?: string;
+  /** Whether the authenticated user already follows the actor (drives "Follow Back" → "Following"). */
+  is_following?: boolean;
   post_id?: string;
+  post_media_url?: string;
   comment_id?: string;
   message?: string;
   read: boolean;
@@ -44,12 +47,12 @@ const NotificationContext = createContext<NotificationContextValue>({
   notifications: [],
   unreadCount: 0,
   followRequests: [],
-  markAsRead: async () => {},
-  markAllAsRead: async () => {},
-  acceptFollowRequest: async () => {},
-  rejectFollowRequest: async () => {},
-  clearAllNotifications: async () => {},
-  refreshNotifications: () => {},
+  markAsRead: async () => { },
+  markAllAsRead: async () => { },
+  acceptFollowRequest: async () => { },
+  rejectFollowRequest: async () => { },
+  clearAllNotifications: async () => { },
+  refreshNotifications: () => { },
 });
 
 export const useNotifications = () => useContext(NotificationContext);
@@ -112,7 +115,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (e) {
-      console.warn("Failed to mark as read", e);
+      console.log("Failed to mark as read", e);
     }
   }, []);
 
@@ -123,7 +126,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (e) {
-      console.warn("Failed to mark all as read", e);
+      console.log("Failed to mark all as read", e);
     }
   }, []);
 
@@ -132,7 +135,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       await syncClient.mutation("users:acceptFollowRequest", { followerId });
       // Follow requests and notifications update reactively
     } catch (e) {
-      console.warn("Failed to accept follow request", e);
+      console.log("Failed to accept follow request", e);
     }
   }, []);
 
@@ -141,7 +144,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       await syncClient.mutation("users:rejectFollowRequest", { followerId });
       // Follow requests update reactively
     } catch (e) {
-      console.warn("Failed to reject follow request", e);
+      console.log("Failed to reject follow request", e);
     }
   }, []);
 
@@ -151,7 +154,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setNotifications([]);
       setUnreadCount(0);
     } catch (e) {
-      console.warn("Failed to clear notifications", e);
+      console.log("Failed to clear notifications", e);
     }
   }, []);
 

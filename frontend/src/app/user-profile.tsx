@@ -9,16 +9,18 @@ export default function UserProfileRoute() {
     name?: string;
     location?: string;
     bio?: string;
+    avatar?: string;
   }>();
 
   return (
     <OtherProfileScreen
-      username={params.username || "alex_wanderer"}
-      name={params.name || "Alex Wanderer"}
-      location={params.location || "Bali, Indonesia"}
+      username={params.username || ""}
+      name={params.name}
+      avatar={params.avatar}
+      location={params.location}
       bio={params.bio}
       onBack={() => router.back()}
-      onMessage={() => router.push("/(tabs)/messages")}
+      onMessage={() => router.push({ pathname: "/(tabs)/messages", params: { recipient: params.username } } as any)}
     />
   );
 }

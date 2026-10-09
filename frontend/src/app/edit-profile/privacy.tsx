@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -16,6 +15,7 @@ import { userService } from "../../services/userService";
 import { authStorage } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
 
 export default function PrivacySettingsScreen() {
   const router = useRouter();
@@ -76,49 +76,62 @@ export default function PrivacySettingsScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Privacy Settings</Text>
-        <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={saving}>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Privacy Settings</AppText>
+        <TouchableOpacity
+          style={styles.headerSaveButton}
+          onPress={handleSave}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel="Save privacy settings"
+        >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+            <AppText weight="bold" style={[styles.headerSaveText, { color: colors.primary }]}>Save</AppText>
           )}
         </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Profile Visibility Navigation Option */}
-        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Profile Visibility</Text>
+        <AppText weight="bold" style={[styles.sectionHeading, { color: colors.textPrimary }]}>Profile Visibility</AppText>
         <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TouchableOpacity
             style={styles.navRow}
             activeOpacity={0.7}
             onPress={() => router.push("/edit-profile/visibility" as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile visibility"
           >
             <View style={[styles.iconCircle, { backgroundColor: isDark ? "rgba(37, 99, 235, 0.2)" : "#EFF6FF" }]}>
               <Ionicons name="eye-outline" size={18} color={colors.primary} />
             </View>
             <View style={styles.navCol}>
-              <Text style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Profile Visibility</Text>
-              <Text style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>
+              <AppText weight="semiBold" style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Profile Visibility</AppText>
+              <AppText style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>
                 Currently set to {getVisibilityLabel()}
-              </Text>
+              </AppText>
             </View>
-            <Text style={[styles.currentValueBadge, { color: colors.primary }]}>{getVisibilityLabel()}</Text>
+            <AppText weight="semiBold" style={[styles.currentValueBadge, { color: colors.primary }]}>{getVisibilityLabel()}</AppText>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
         {/* Messaging & Activity Toggles */}
-        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Activity & Messages</Text>
+        <AppText weight="bold" style={[styles.sectionHeading, { color: colors.textPrimary }]}>Activity & Messages</AppText>
         <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.toggleRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Show Activity Status</Text>
-              <Text style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>Let others know when you're online or active</Text>
+              <AppText weight="semiBold" style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Show Activity Status</AppText>
+              <AppText style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>Let others know when you're online or active</AppText>
             </View>
             <Switch
               value={privacy.show_activity_status}
@@ -136,8 +149,8 @@ export default function PrivacySettingsScreen() {
 
           <View style={styles.toggleRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Allow Direct Messages</Text>
-              <Text style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>Receive direct messages from anyone</Text>
+              <AppText weight="semiBold" style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Allow Direct Messages</AppText>
+              <AppText style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>Receive direct messages from anyone</AppText>
             </View>
             <Switch
               value={privacy.allow_direct_messages}
@@ -153,23 +166,25 @@ export default function PrivacySettingsScreen() {
         </View>
 
         {/* Mentions & Tagging Navigation Option */}
-        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Mentions & Tags</Text>
+        <AppText weight="bold" style={[styles.sectionHeading, { color: colors.textPrimary }]}>Mentions & Tags</AppText>
         <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TouchableOpacity
             style={styles.navRow}
             activeOpacity={0.7}
             onPress={() => router.push("/edit-profile/tagging" as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Edit who can tag you"
           >
             <View style={[styles.iconCircle, { backgroundColor: isDark ? "rgba(22, 163, 74, 0.2)" : "#F0FDF4" }]}>
               <Ionicons name="pricetag-outline" size={18} color="#16A34A" />
             </View>
             <View style={styles.navCol}>
-              <Text style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Who can tag you</Text>
-              <Text style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>
+              <AppText weight="semiBold" style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Who can tag you</AppText>
+              <AppText style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>
                 Control mentions in posts, reels, and stories
-              </Text>
+              </AppText>
             </View>
-            <Text style={[styles.currentValueBadge, { color: colors.primary }]}>{getTaggingLabel()}</Text>
+            <AppText weight="semiBold" style={[styles.currentValueBadge, { color: colors.primary }]}>{getTaggingLabel()}</AppText>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>

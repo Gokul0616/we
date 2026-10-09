@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   TextInput,
   ScrollView,
@@ -16,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
 import {
   CHATS_DATA,
   ChatThread,
@@ -126,10 +126,10 @@ export default function ChatScreen() {
             )}
           </View>
           <View style={styles.headerUserInfo}>
-            <Text style={[styles.headerUserName, { color: colors.textPrimary }]}>{chatThread.user.fullName}</Text>
-            <Text style={styles.headerUserStatus}>
+            <AppText weight="bold" style={[styles.headerUserName, { color: colors.textPrimary }]}>{chatThread.user.fullName}</AppText>
+            <AppText style={styles.headerUserStatus}>
               {chatThread.user.isOnline ? "Active now" : "Active recently"}
-            </Text>
+            </AppText>
           </View>
         </TouchableOpacity>
 
@@ -152,14 +152,14 @@ export default function ChatScreen() {
         {/* Instagram Profile Header in DM */}
         <View style={[styles.chatIntro, { borderBottomColor: colors.border }]}>
           <Image source={chatThread.user.avatar} style={styles.chatIntroAvatar} />
-          <Text style={[styles.chatIntroName, { color: colors.textPrimary }]}>{chatThread.user.fullName}</Text>
-          <Text style={[styles.chatIntroHandle, { color: colors.textSecondary }]}>@{chatThread.user.username}</Text>
-          <Text style={[styles.chatIntroSub, { color: colors.textMuted }]}>We · 2.4k followers · 18 posts</Text>
+          <AppText weight="bold" style={[styles.chatIntroName, { color: colors.textPrimary }]}>{chatThread.user.fullName}</AppText>
+          <AppText weight="medium" style={[styles.chatIntroHandle, { color: colors.textSecondary }]}>@{chatThread.user.username}</AppText>
+          <AppText style={[styles.chatIntroSub, { color: colors.textMuted }]}>We · 2.4k followers · 18 posts</AppText>
           <TouchableOpacity
             style={[styles.viewProfileBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
             onPress={() => router.push("/(tabs)/profile")}
           >
-            <Text style={[styles.viewProfileBtnText, { color: colors.textPrimary }]}>View profile</Text>
+            <AppText weight="semiBold" style={[styles.viewProfileBtnText, { color: colors.textPrimary }]}>View profile</AppText>
           </TouchableOpacity>
         </View>
 
@@ -177,7 +177,7 @@ export default function ChatScreen() {
                 <Image source={chatThread.user.avatar} style={styles.bubbleAvatar} />
               )}
               {isHeart ? (
-                <Text style={styles.heartEmoji}>❤️</Text>
+                <AppText style={styles.heartEmoji}>❤️</AppText>
               ) : (
                 <View
                   style={[
@@ -187,14 +187,14 @@ export default function ChatScreen() {
                       : [styles.bubbleThem, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }],
                   ]}
                 >
-                  <Text
+                  <AppText
                     style={[
                       styles.bubbleText,
                       isMe ? styles.bubbleTextMe : [styles.bubbleTextThem, { color: colors.textPrimary }],
                     ]}
                   >
                     {msg.text}
-                  </Text>
+                  </AppText>
                 </View>
               )}
             </View>
@@ -225,7 +225,7 @@ export default function ChatScreen() {
 
             {inputText.trim().length > 0 ? (
               <TouchableOpacity onPress={handleSend} style={styles.sendBtn}>
-                <Text style={styles.sendBtnText}>Send</Text>
+                <AppText weight="bold" style={styles.sendBtnText}>Send</AppText>
               </TouchableOpacity>
             ) : (
               <View style={styles.inputRightIcons}>

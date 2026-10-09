@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -15,6 +14,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { toast } from "../../services/toastService";
 import { userService } from "../../services/userService";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -67,13 +68,15 @@ export default function ChangePasswordScreen() {
             onPress={handleSave}
             disabled={saving}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Save new password"
           >
             {saving ? (
               <ActivityIndicator size="small" color="#2563EB" />
             ) : (
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#2563EB" }}>
+              <AppText weight="bold" style={{ fontSize: 16, color: "#2563EB" }}>
                 Save
-              </Text>
+              </AppText>
             )}
           </TouchableOpacity>
         }
@@ -84,17 +87,17 @@ export default function ChangePasswordScreen() {
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.instruction, { color: colors.textSecondary }]}>
+        <AppText style={[styles.instruction, { color: colors.textSecondary }]}>
           Your new password must be at least 6 characters long and include numbers or special characters.
-        </Text>
+        </AppText>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Current Password */}
           <View style={styles.inputRow}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Current Password</Text>
+            <AppText weight="semiBold" style={[styles.label, { color: colors.textSecondary }]}>Current Password</AppText>
             <View style={styles.inputWrapper}>
               <TextInput
-                style={[styles.input, { color: colors.textPrimary }]}
+                style={[styles.input, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
                 secureTextEntry={!showCurrent}
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
@@ -105,6 +108,7 @@ export default function ChangePasswordScreen() {
               <TouchableOpacity
                 onPress={() => setShowCurrent(!showCurrent)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
               >
                 <Ionicons
                   name={showCurrent ? "eye-off-outline" : "eye-outline"}
@@ -119,10 +123,10 @@ export default function ChangePasswordScreen() {
 
           {/* New Password */}
           <View style={styles.inputRow}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>New Password</Text>
+            <AppText weight="semiBold" style={[styles.label, { color: colors.textSecondary }]}>New Password</AppText>
             <View style={styles.inputWrapper}>
               <TextInput
-                style={[styles.input, { color: colors.textPrimary }]}
+                style={[styles.input, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
                 secureTextEntry={!showNew}
                 value={newPassword}
                 onChangeText={setNewPassword}
@@ -133,6 +137,7 @@ export default function ChangePasswordScreen() {
               <TouchableOpacity
                 onPress={() => setShowNew(!showNew)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
               >
                 <Ionicons
                   name={showNew ? "eye-off-outline" : "eye-outline"}
@@ -147,10 +152,10 @@ export default function ChangePasswordScreen() {
 
           {/* Confirm Password */}
           <View style={styles.inputRow}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Confirm New Password</Text>
+            <AppText weight="semiBold" style={[styles.label, { color: colors.textSecondary }]}>Confirm New Password</AppText>
             <View style={styles.inputWrapper}>
               <TextInput
-                style={[styles.input, { color: colors.textPrimary }]}
+                style={[styles.input, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
                 secureTextEntry={!showConfirm}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -161,6 +166,7 @@ export default function ChangePasswordScreen() {
               <TouchableOpacity
                 onPress={() => setShowConfirm(!showConfirm)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
               >
                 <Ionicons
                   name={showConfirm ? "eye-off-outline" : "eye-outline"}

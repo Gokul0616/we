@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   Modal,
   TouchableOpacity,
@@ -17,6 +16,8 @@ import {
   CustomAlertButton,
 } from "../services/alertService";
 import { FontFamily } from "../constants/theme";
+import { AppText } from "./common/AppText";
+import { useTheme } from "../context/ThemeContext";
 
 /**
  * Instagram-styled Android Native Alert Dialog Component
@@ -32,6 +33,7 @@ export function CustomAlert() {
     return null;
   }
 
+  const { colors, isDark } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   // Responsive compact width: scales proportionally with screen, bounded between 248px and 276px
   const dialogWidth = Math.min(Math.max(screenWidth * 0.72, 248), 276);
@@ -154,6 +156,7 @@ export function CustomAlert() {
           style={[
             styles.instagramCard,
             {
+              backgroundColor: isDark ? "#18181B" : "#FFFFFF",
               width: dialogWidth,
               opacity: fadeAnim,
               transform: [{ scale: scaleAnim }],
@@ -162,9 +165,21 @@ export function CustomAlert() {
         >
           {/* Header Title & Subtitle with Tight Spacing */}
           <View style={styles.headerSection}>
-            <Text style={styles.titleText}>{alertData.title}</Text>
+            <AppText
+              variant="subheading"
+              align="center"
+              style={[styles.titleText, { color: colors.textPrimary }]}
+            >
+              {alertData.title}
+            </AppText>
             {alertData.message ? (
-              <Text style={styles.messageText}>{alertData.message}</Text>
+              <AppText
+                variant="caption"
+                align="center"
+                style={[styles.messageText, { color: colors.textSecondary }]}
+              >
+                {alertData.message}
+              </AppText>
             ) : null}
           </View>
 
@@ -179,18 +194,22 @@ export function CustomAlert() {
                   key={`btn-${index}`}
                   activeOpacity={0.6}
                   onPress={() => handleButtonPress(btn)}
-                  style={styles.actionRow}
+                  style={[
+                    styles.actionRow,
+                    { borderTopColor: isDark ? "#27272A" : "#E2E8F0" },
+                  ]}
                 >
-                  <Text
+                  <AppText
+                    align="center"
                     style={[
                       styles.actionText,
                       isDestructive && styles.destructiveText,
-                      isCancel && styles.cancelText,
-                      !isDestructive && !isCancel && styles.defaultText,
+                      isCancel && [styles.cancelText, { color: colors.textPrimary }],
+                      !isDestructive && !isCancel && [styles.defaultText, { color: colors.primary }],
                     ]}
                   >
                     {btn.text}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               );
             })}

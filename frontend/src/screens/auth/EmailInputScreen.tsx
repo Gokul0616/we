@@ -1,22 +1,23 @@
 import React, { useState, useRef } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   TextInput,
   TouchableOpacity,
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   ScrollView,
   Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "../../constants/theme";
+import { Colors, FontFamily } from "../../constants/theme";
 import { ENDPOINTS } from "../../constants/api";
 import { apiClient } from "../../services/apiClient";
+import { AppText } from "../../components/common/AppText";
+import { AppButton } from "../../components/common/AppButton";
+import { useTheme } from "../../context/ThemeContext";
 
 interface EmailInputScreenProps {
   onContinue: (email: string) => void;
@@ -24,6 +25,7 @@ interface EmailInputScreenProps {
 }
 
 export function EmailInputScreen({ onContinue, onBack }: EmailInputScreenProps) {
+  const { colors, isDark } = useTheme();
   const [email, setEmail] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,8 +52,8 @@ export function EmailInputScreen({ onContinue, onBack }: EmailInputScreenProps) 
   };
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <SafeAreaView edges={["top", "bottom"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -59,12 +61,14 @@ export function EmailInputScreen({ onContinue, onBack }: EmailInputScreenProps) 
         {/* Navigation Bar */}
         <View style={styles.navBar}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: isDark ? colors.surface : "#F8FAFC", borderColor: colors.border }]}
             onPress={onBack}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -78,10 +82,12 @@ export function EmailInputScreen({ onContinue, onBack }: EmailInputScreenProps) 
         >
           <View style={styles.content}>
             <View style={styles.header}>
-              <Text style={styles.title}>What's your email?</Text>
-              <Text style={styles.subtitle}>
+              <AppText variant="screenTitle" style={[styles.title, { color: colors.textPrimary }]}>
+                What's your email?
+              </AppText>
+              <AppText variant="body" style={[styles.subtitle, { color: colors.textSecondary }]}>
                 We'll send a 6-digit verification code to confirm your address.
-              </Text>
+              </AppText>
             </View>
 
             {/* Input Card with Container Click-to-Focus */}
@@ -90,20 +96,24 @@ export function EmailInputScreen({ onContinue, onBack }: EmailInputScreenProps) 
               onPress={() => emailRef.current?.focus()}
               style={[
                 styles.inputCard,
-                isFocused && styles.inputCardFocused,
+                {
+                  backgroundColor: isDark ? colors.surface : "#F8FAFC",
+                  borderColor: isFocused ? colors.primary : colors.border,
+                },
+                isFocused && { backgroundColor: isDark ? colors.card : "#FFFFFF" },
               ]}
             >
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color={isFocused ? Colors.primary : "#94A3B8"}
+                color={isFocused ? colors.primary : colors.textMuted}
                 style={styles.leadingIcon}
               />
               <TextInput
                 ref={emailRef}
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="name@example.com"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -116,33 +126,26 @@ export function EmailInputScreen({ onContinue, onBack }: EmailInputScreenProps) 
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 onSubmitEditing={handleNext}
-                selectionColor={Colors.primary}
+                selectionColor={colors.primary}
               />
               {email.length > 0 && (
                 <TouchableOpacity
                   onPress={() => setEmail("")}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                  <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                (!isValidEmail || isLoading) && styles.buttonDisabled,
-              ]}
-              onPress={handleNext}
+            <AppButton
+              title="Continue"
+              size="lg"
+              loading={isLoading}
               disabled={!isValidEmail || isLoading}
-              activeOpacity={0.88}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.buttonText}>Continue</Text>
-              )}
-            </TouchableOpacity>
+              onPress={handleNext}
+              style={styles.primaryButton}
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -227,7 +230,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: "#0F172A",
+    fontFamily: FontFamily.regular,
     paddingVertical: 0,
   },
   primaryButton: {

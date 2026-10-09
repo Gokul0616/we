@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  StyleSheet,
-  Text,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Dimensions,
-  TextInput,
-  Vibration,
-  Platform,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Alert,
+  Dimensions,
+  Image,
   Keyboard,
+  KeyboardAvoidingView,
+  LayoutAnimation,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  UIManager,
+  Vibration,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -21,30 +21,31 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useTheme } from "../context/ThemeContext";
-import { FontFamily } from "../constants/theme";
+import { FontFamily, withAlpha } from "../constants/theme";
+import { AppText } from "../components/common/AppText";
+import { MediaGrid, MediaGridItem } from "../components/compose/MediaGrid";
+import { PrivacySheet, TagsSheet } from "../components/compose/Sheets";
 import { postService } from "../services/postService";
+import { requestPlace } from "../services/placePicker";
 import { toast } from "../services/toastService";
+import { showAlert } from "../services/alertService";
+import { draftService, isDraftMeaningful } from "../services/draftService";
 import { authStorage, StoredUser } from "../services/authStorage";
 import { resolveAvatarSource } from "../utils/mediaHelper";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-export interface SelectedMediaItem {
+export interface SelectedMediaItem extends MediaGridItem {
   id: string;
   uri: string;
   type: "photo" | "video";
+  duration?: number;
 }
 
-const POPULAR_LOCATIONS = [
-  "Bali, Indonesia 🌴",
-  "Santorini, Greece 🇬🇷",
-  "Tokyo, Japan ⛩️",
-  "New York, USA 🗽",
-  "Paris, France 🗼",
-  "London, UK 🎡",
-  "Milan, Italy 🇮🇹",
-  "Dubai, UAE 🏙️",
-];
+const MAX_MEDIA = 10;
+const MAX_TAGS = 8;
+const MAX_CHARS = 1000;
+const WARNING_AT = 900;
 
 const POPULAR_TAGS = [
   "#Travel",
@@ -63,6 +64,8 @@ const PRIVACY_OPTIONS = [
   { key: "private", label: "Only Me", icon: "lock-closed-outline", desc: "Visible only to you" },
 ] as const;
 
+type SheetName = "privacy" | "tags" | null;
+
 export default function CreatePostScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -72,187 +75,495 @@ export default function CreatePostScreen() {
   const [caption, setCaption] = useState("");
   const [selectedMedias, setSelectedMedias] = useState<SelectedMediaItem[]>([]);
   const [location, setLocation] = useState<string | null>(null);
+  /** Coordinates backing `location` — set together by the map picker. */
+  const [place, setPlace] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [privacyIndex, setPrivacyIndex] = useState(0);
+  const [addToStory, setAddToStory] = useState(false);
 
-  // Quick picker drawer toggles
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [showTagPicker, setShowTagPicker] = useState(false);
-  const [showPrivacyPicker, setShowPrivacyPicker] = useState(false);
+  // Sheets replace the old inline trays → zero layout jump while composing
+  const [activeSheet, setActiveSheet] = useState<SheetName>(null);
 
-  // Publishing state
+  // Publishing / upload feedback
   const [isPosting, setIsPosting] = useState(false);
+  const [overallProgress, setOverallProgress] = useState<number | null>(null);
+  const [progressLabel, setProgressLabel] = useState("");
+  const [mediaProgress, setMediaProgress] = useState<Record<string, number>>({});
+
+  // Draft lifecycle
+  const [draftReady, setDraftReady] = useState(false);
 
   const inputRef = useRef<TextInput>(null);
+  const progressRef = useRef<Record<string, number>>({});
+  // One idempotency key per composition (created lazily on first publish, inside an
+  // event handler) — a retry after a timeout returns the original post instead of
+  // creating a duplicate.
+  const clientPostIdRef = useRef<string | null>(null);
 
-  // Load current user for avatar & handle
-  useEffect(() => {
-    authStorage.getUser().then((user) => {
-      if (user) setCurrentUser(user);
-    });
-  }, []);
-
-  const topPadding = Math.max(insets.top, Platform.OS === "ios" ? 50 : 16);
-  const bottomPadding = Math.max(insets.bottom, 14);
-
-  const canPost = (caption.trim().length > 0 || selectedMedias.length > 0) && !isPosting;
   const currentPrivacy = PRIVACY_OPTIONS[privacyIndex];
 
-  // Pick Photos / Videos from Library
-  const handlePickMedia = async () => {
+  /* ---------------------------------------------------------------- */
+  /* Bootstrap: user + draft restore                                   */
+  /* ---------------------------------------------------------------- */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const [user, draft] = await Promise.all([authStorage.getUser(), draftService.load()]);
+      if (cancelled) return;
+
+      if (user) setCurrentUser(user);
+
+      if (draft && isDraftMeaningful(draft)) {
+        setCaption(draft.caption || "");
+        setSelectedMedias((draft.medias || []) as SelectedMediaItem[]);
+        setLocation(draft.location || null);
+        setPlace(
+          typeof draft.location_lat === "number" && typeof draft.location_lng === "number"
+            ? { lat: draft.location_lat, lng: draft.location_lng }
+            : null
+        );
+        setSelectedTags(draft.tags || []);
+        setAddToStory(Boolean(draft.add_to_story));
+        const idx = PRIVACY_OPTIONS.findIndex((o) => o.key === (draft.privacy as any));
+        if (idx >= 0) setPrivacyIndex(idx);
+        toast.info("Draft restored");
+      }
+      setDraftReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+      draftService.cancelPending();
+    };
+  }, []);
+
+  /* ---------------------------------------------------------------- */
+  /* Auto-save draft                                                   */
+  /* ---------------------------------------------------------------- */
+
+  useEffect(() => {
+    if (!draftReady || isPosting) return;
+    draftService.saveDebounced({
+      caption,
+      medias: selectedMedias.map((m) => ({
+        id: m.id,
+        uri: m.uri,
+        type: m.type,
+        duration: m.duration,
+      })),
+      location,
+      location_lat: place?.lat ?? null,
+      location_lng: place?.lng ?? null,
+      tags: selectedTags,
+      privacy: currentPrivacy.key,
+      add_to_story: addToStory,
+    });
+  }, [
+    caption,
+    selectedMedias,
+    location,
+    place,
+    selectedTags,
+    privacyIndex,
+    addToStory,
+    draftReady,
+    isPosting,
+    currentPrivacy.key,
+  ]);
+
+  /* ---------------------------------------------------------------- */
+  /* Derived state                                                     */
+  /* ---------------------------------------------------------------- */
+
+  const trimmedCaption = caption.trim();
+  const hasContent = trimmedCaption.length > 0 || selectedMedias.length > 0;
+  const canPost = hasContent && !isPosting;
+
+  const counterColor =
+    caption.length >= MAX_CHARS
+      ? colors.danger
+      : caption.length >= WARNING_AT
+        ? colors.warning
+        : colors.textMuted;
+
+  const topPadding = Math.max(insets.top, Platform.OS === "ios" ? 18 : 12);
+  const bottomPadding = Math.max(insets.bottom, 12);
+
+  const haptic = useCallback((ms = 12) => {
+    try {
+      Vibration.vibrate(ms);
+    } catch {
+      /* haptics are best-effort */
+    }
+  }, []);
+
+  /** Softens media tile add/remove (guarded: Android needs the flag). */
+  const animateLayout = useCallback(() => {
+    try {
+      if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+        UIManager.setLayoutAnimationEnabledExperimental(true);
+      }
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    } catch {
+      /* layout animation is a nicety */
+    }
+  }, []);
+
+  /* ---------------------------------------------------------------- */
+  /* Media selection                                                   */
+  /* ---------------------------------------------------------------- */
+
+  /** Rejects picks that would produce a video/photo mix the feed can't render. */
+  const validateAddition = useCallback(
+    (incoming: SelectedMediaItem[]): SelectedMediaItem[] | null => {
+      const wouldBe = [...selectedMedias, ...incoming];
+
+      const videoCount = wouldBe.filter((m) => m.type === "video").length;
+      if (videoCount > 1 || (videoCount === 1 && wouldBe.length > 1)) {
+        toast.error("A post can contain either photos or one video");
+        return null;
+      }
+      if (wouldBe.length > MAX_MEDIA) {
+        toast.error(`You can attach up to ${MAX_MEDIA} items`);
+        return null;
+      }
+      return incoming;
+    },
+    [selectedMedias]
+  );
+
+  const handlePickMedia = useCallback(async () => {
+    if (isPosting) return;
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(
+        showAlert(
           "Permission Required",
-          "Please grant photo library access in your settings to select photos and videos."
+          "Please grant photo library access in Settings to select photos and videos."
         );
         return;
       }
 
+      const remaining = MAX_MEDIA - selectedMedias.length;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ["images", "videos"],
         allowsMultipleSelection: true,
+        orderedSelection: true,
         quality: 0.85,
-        selectionLimit: 10,
+        selectionLimit: Math.max(1, remaining),
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const newItems: SelectedMediaItem[] = result.assets.map((asset, index) => ({
-          id: `media_${Date.now()}_${index}`,
-          uri: asset.uri,
-          type: asset.type === "video" ? "video" : "photo",
-        }));
-        setSelectedMedias((prev) => [...prev, ...newItems].slice(0, 10));
-      }
+      if (result.canceled || !result.assets?.length) return;
+
+      const incoming: SelectedMediaItem[] = result.assets.map((asset, index) => ({
+        id: `media_${Date.now()}_${index}`,
+        uri: asset.uri,
+        type: asset.type === "video" ? "video" : "photo",
+        duration: asset.duration ?? undefined,
+      }));
+
+      const validated = validateAddition(incoming);
+      if (!validated) return;
+
+      haptic();
+      animateLayout();
+      setSelectedMedias((prev) => [...prev, ...validated].slice(0, MAX_MEDIA));
     } catch (e) {
-      console.warn("handlePickMedia error:", e);
+      console.log("handlePickMedia error:", e);
       toast.error("Could not access photo library");
     }
-  };
+  }, [isPosting, selectedMedias, haptic, animateLayout, validateAddition]);
 
-  // Capture Photo with Camera
-  const handleTakePhoto = async () => {
+  const handleTakePhoto = useCallback(async () => {
+    if (isPosting) return;
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(
-          "Permission Required",
-          "Please allow camera access to take a photo."
-        );
+        showAlert("Permission Required", "Please allow camera access in Settings to take a photo.");
         return;
       }
 
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: false,
-        quality: 0.85,
-      });
+      const result = await ImagePicker.launchCameraAsync({ allowsEditing: false, quality: 0.85 });
+      if (result.canceled || !result.assets?.[0]) return;
 
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const asset = result.assets[0];
-        const newItem: SelectedMediaItem = {
+      const asset = result.assets[0];
+      const incoming: SelectedMediaItem[] = [
+        {
           id: `camera_${Date.now()}`,
           uri: asset.uri,
-          type: "photo",
-        };
-        setSelectedMedias((prev) => [...prev, newItem].slice(0, 10));
-      }
+          type: asset.type === "video" ? "video" : "photo",
+          duration: asset.duration ?? undefined,
+        },
+      ];
+
+      const validated = validateAddition(incoming);
+      if (!validated) return;
+
+      haptic();
+      animateLayout();
+      setSelectedMedias((prev) => [...prev, ...validated].slice(0, MAX_MEDIA));
     } catch (e) {
-      console.warn("handleTakePhoto error:", e);
+      console.log("handleTakePhoto error:", e);
       toast.error("Could not open camera");
     }
-  };
+  }, [isPosting, haptic, animateLayout, validateAddition]);
 
-  // Remove individual media
-  const handleRemoveMedia = (id: string) => {
-    setSelectedMedias((prev) => prev.filter((m) => m.id !== id));
-  };
+  const handleRemoveMedia = useCallback(
+    (id: string) => {
+      if (isPosting) return;
+      haptic();
+      animateLayout();
+      setSelectedMedias((prev) => prev.filter((m) => m.id !== id));
+      setMediaProgress((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      delete progressRef.current[id];
+    },
+    [isPosting, haptic, animateLayout]
+  );
 
-  // Toggle Tag Chip
-  const toggleTag = (tag: string) => {
-    if (selectedTags.includes(tag)) {
-      setSelectedTags((prev) => prev.filter((t) => t !== tag));
-    } else {
-      setSelectedTags((prev) => [...prev, tag]);
-    }
-  };
+  /* ---------------------------------------------------------------- */
+  /* Location                                                          */
+  /* ---------------------------------------------------------------- */
 
-  // Handle Cancel / Discard
+  /**
+   * Opens the full-screen in-app map picker (Apple Maps on iOS, Google Maps
+   * on Android). The route resolves a promise, so the composer's state — and
+   * the restored draft — survive the round trip untouched.
+   */
+  const handlePickLocation = useCallback(async () => {
+    if (isPosting) return;
+    Keyboard.dismiss();
+    haptic();
+
+    const picked = await requestPlace(
+      place ? { lat: place.lat, lng: place.lng, label: location ?? undefined } : undefined
+    );
+    if (!picked) return;
+
+    haptic();
+    setLocation(picked.location);
+    setPlace({ lat: picked.location_lat, lng: picked.location_lng });
+  }, [isPosting, place, location, haptic]);
+
+  const handleRemoveLocation = useCallback(() => {
+    if (isPosting) return;
+    haptic();
+    setLocation(null);
+    setPlace(null);
+  }, [isPosting, haptic]);
+
+  /* ---------------------------------------------------------------- */
+  /* Cancel / discard with draft                                       */
+  /* ---------------------------------------------------------------- */
+
   const handleCancel = () => {
     Keyboard.dismiss();
-    if (caption.trim().length > 0 || selectedMedias.length > 0) {
-      Alert.alert(
-        "Discard Post?",
-        "Are you sure you want to discard this post? Your draft will not be saved.",
-        [
-          { text: "Keep Editing", style: "cancel" },
-          {
-            text: "Discard",
-            style: "destructive",
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    } else {
+    if (isPosting) return;
+
+    if (!hasContent) {
+      draftService.clear();
       router.back();
+      return;
     }
+
+    showAlert(
+      "Discard post?",
+      "Keep editing, save your work as a draft, or discard it permanently.",
+      [
+        { text: "Keep Editing", style: "cancel" },
+        {
+          text: "Save Draft",
+          style: "default",
+          onPress: async () => {
+            // Write synchronously with the pending debounce: the screen
+            // unmounts right after `router.back()`, which cancels queued writes.
+            await draftService.saveNow({
+              caption,
+              medias: selectedMedias.map((m) => ({
+                id: m.id,
+                uri: m.uri,
+                type: m.type,
+                duration: m.duration,
+              })),
+              location,
+              location_lat: place?.lat ?? null,
+              location_lng: place?.lng ?? null,
+              tags: selectedTags,
+              privacy: currentPrivacy.key,
+              add_to_story: addToStory,
+            });
+            toast.success("Draft saved on this device");
+            router.back();
+          },
+        },
+        {
+          text: "Discard",
+          style: "destructive",
+          onPress: async () => {
+            await draftService.clear();
+            router.back();
+          },
+        },
+      ]
+    );
   };
 
-  // Publish Post directly (Fast, modern, zero clunky modals)
+  /* ---------------------------------------------------------------- */
+  /* Publish                                                           */
+  /* ---------------------------------------------------------------- */
+
+  const updateProgress = useCallback(
+    (id: string, value: number, total: number) => {
+      progressRef.current = { ...progressRef.current, [id]: value };
+      setMediaProgress(progressRef.current);
+
+      const values = selectedMedias.map((m) => progressRef.current[m.id] ?? 0);
+      const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+      const done = values.filter((v) => v >= 1).length;
+
+      setOverallProgress(0.05 + avg * 0.85);
+      setProgressLabel(
+        total > 1 ? `Uploading ${done} of ${total}` : "Uploading media"
+      );
+    },
+    [selectedMedias]
+  );
+
   const handlePublish = async () => {
     if (!canPost) return;
 
     Keyboard.dismiss();
-    try {
-      Vibration.vibrate(20);
-    } catch (_) {}
+    haptic(20);
 
     setIsPosting(true);
+    progressRef.current = {};
+    setMediaProgress({});
+    setOverallProgress(0.05);
+    setProgressLabel(
+      selectedMedias.length > 0 ? `Uploading 1 of ${selectedMedias.length}` : "Publishing"
+    );
 
     try {
-      // 1. Upload local media files if any
-      const uploadedUrls: string[] = [];
-      for (const item of selectedMedias) {
-        if (item.uri.startsWith("http://") || item.uri.startsWith("https://")) {
-          uploadedUrls.push(item.uri);
-        } else {
-          const uploaded = await postService.uploadMedia(item.uri, item.type);
-          if (uploaded) uploadedUrls.push(uploaded);
+      // 1. Parallel upload with per-file progress
+      let uploadedUrls: string[] = [];
+      if (selectedMedias.length > 0) {
+        const settled = await Promise.allSettled(
+          selectedMedias.map(async (item, index) => {
+            const url = await postService.uploadMedia(item.uri, item.type, (p) =>
+              updateProgress(item.id, p, selectedMedias.length)
+            );
+            updateProgress(item.id, 1, selectedMedias.length);
+            return { id: item.id, index, url };
+          })
+        );
+
+        const failures = settled.filter((r) => r.status === "rejected");
+        const successes = settled
+          .filter((r): r is PromiseFulfilledResult<{ id: string; index: number; url: string }> =>
+            r.status === "fulfilled"
+          )
+          .map((r) => r.value);
+
+        // Persist the remote URLs we already paid for so a retry skips them
+        if (successes.length > 0) {
+          const byId = new Map(successes.map((s) => [s.id, s.url]));
+          setSelectedMedias((prev) =>
+            prev.map((m) => (byId.has(m.id) ? { ...m, uri: byId.get(m.id)! } : m))
+          );
         }
+
+        if (failures.length > 0) {
+          throw new Error(
+            successes.length > 0
+              ? `${failures.length} file(s) failed to upload — the rest are kept, tap Post to retry.`
+              : "Couldn't upload your media. Check your connection and try again."
+          );
+        }
+
+        uploadedUrls = successes.sort((a, b) => a.index - b.index).map((s) => s.url);
       }
 
-      const primaryMedia = uploadedUrls[0];
+      // 2. Derive media_type from what actually got uploaded
       const mediaType =
-        selectedMedias.length > 1
-          ? "carousel"
-          : selectedMedias[0]?.type || "photo";
+        uploadedUrls.length === 0
+          ? "none"
+          : uploadedUrls.length > 1
+            ? "carousel"
+            : selectedMedias[0]?.type === "video"
+              ? "video"
+              : "photo";
 
-      // 2. Create post in backend & local feed cache
+      setOverallProgress(0.95);
+      setProgressLabel("Publishing");
+
+      if (!clientPostIdRef.current) {
+        clientPostIdRef.current = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      }
+
+      // 3. Create post (sync engine → HTTP fallback → local object)
       await postService.createPost({
-        content: caption.trim(),
-        media_url: primaryMedia,
+        content: trimmedCaption,
+        media_url: uploadedUrls[0],
         media_urls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
-        media_type: mediaType,
-        location: location || undefined,
+        media_type: mediaType as any,
+        // Backend requires both-or-neither for coords and labels them with the
+        // place label; fall back to a coordinate string if geocoding failed.
+        location:
+          location ||
+          (place ? `${place.lat.toFixed(4)}, ${place.lng.toFixed(4)}` : undefined),
+        location_lat: place?.lat,
+        location_lng: place?.lng,
         tags: selectedTags,
         privacy: currentPrivacy.key as any,
+        add_to_story: addToStory,
+        client_post_id: clientPostIdRef.current,
       });
 
-      setIsPosting(false);
+      setOverallProgress(1);
+      await draftService.clear();
+
       toast.success("Post shared successfully!");
       router.replace("/(tabs)");
     } catch (e: any) {
-      setIsPosting(false);
-      console.warn("Post creation error:", e);
+      console.log("Post creation error:", e);
       toast.error(e?.message || "Failed to publish post. Please try again.");
+      setIsPosting(false);
+      setOverallProgress(null);
+      setProgressLabel("");
     }
   };
+
+  /* ---------------------------------------------------------------- */
+  /* Render                                                            */
+  /* ---------------------------------------------------------------- */
+
+  const openSheet = (sheet: Exclude<SheetName, null>) => {
+    Keyboard.dismiss();
+    setActiveSheet((current) => (current === sheet ? null : sheet));
+  };
+
+  const authorName = currentUser?.full_name || currentUser?.username || "You";
+  const authorHandle = currentUser?.username ? `@${currentUser.username}` : null;
+
+  const renderChip = useCallback(
+    (node: React.ReactNode, key: string) => (
+      <View key={key} style={[styles.chip, { backgroundColor: colors.surfaceHighlight, borderColor: colors.border }]}>
+        {node}
+      </View>
+    ),
+    [colors.surfaceHighlight, colors.border]
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
 
-      {/* Top Header - Positioned safely below iOS Dynamic Island / Notch */}
+      {/* ── Header: Cancel · title · Share (matches Edit Bio) ── */}
       <View
         style={[
           styles.header,
@@ -264,46 +575,74 @@ export default function CreatePostScreen() {
         ]}
       >
         <TouchableOpacity
-          style={styles.cancelBtn}
+          style={styles.headerCancel}
           onPress={handleCancel}
           disabled={isPosting}
           hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel and close"
         >
-          <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
+          <AppText weight="medium" style={[styles.headerCancelText, { color: colors.textSecondary }]}>
             Cancel
-          </Text>
+          </AppText>
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-          New Post
-        </Text>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          New post
+        </AppText>
 
         <TouchableOpacity
-          style={[
-            styles.postBtn,
-            canPost
-              ? { backgroundColor: colors.primary }
-              : { backgroundColor: isDark ? "#27272A" : "#E2E8F0" },
-          ]}
+          style={[styles.headerSave, { opacity: canPost ? 1 : 0.65 }]}
           onPress={handlePublish}
           disabled={!canPost}
-          activeOpacity={0.85}
+          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Share post"
         >
           {isPosting ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text
-              style={[
-                styles.postBtnText,
-                { color: canPost ? "#FFFFFF" : isDark ? "#71717A" : "#94A3B8" },
-              ]}
+            <AppText
+              weight="bold"
+              style={[styles.headerSaveText, { color: canPost ? colors.primary : colors.textMuted }]}
             >
-              Post
-            </Text>
+              Share
+            </AppText>
           )}
         </TouchableOpacity>
       </View>
+
+      {/* ── Determinate upload progress rail ───────────────────── */}
+      {overallProgress !== null && (
+        <View
+          style={[
+            styles.progressHost,
+            { backgroundColor: colors.background, borderBottomColor: colors.borderLight },
+          ]}
+        >
+          <View style={[styles.progressTrack, { backgroundColor: withAlpha(colors.black, 0.12) }]}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  backgroundColor: colors.primary,
+                  width: `${Math.round(Math.max(2, Math.min(1, overallProgress)) * 100)}%`,
+                },
+              ]}
+            />
+          </View>
+          <View style={styles.progressLabelRow}>
+            <AppText variant="caption" color="textSecondary">
+              {progressLabel}
+            </AppText>
+            <AppText variant="caption" weight="bold" color="primary">
+              {Math.round(overallProgress * 100)}%
+            </AppText>
+          </View>
+        </View>
+      )}
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -315,410 +654,170 @@ export default function CreatePostScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* User Row with Avatar & Audience Pill */}
+          {/* ── Author + audience ───────────────────────────────── */}
           <View style={styles.authorRow}>
             <Image
               source={resolveAvatarSource(currentUser?.avatar_url)}
-              style={[styles.avatar, { borderColor: colors.border }]}
+              style={[styles.avatar, { backgroundColor: colors.surfaceHighlight }]}
             />
 
             <View style={styles.authorMeta}>
-              <Text
+              <AppText
+                weight="bold"
                 style={[styles.authorName, { color: colors.textPrimary }]}
                 numberOfLines={1}
               >
-                {currentUser?.full_name || currentUser?.username || "You"}
-              </Text>
-
-              {/* Audience Selector Pill */}
-              <TouchableOpacity
-                style={[
-                  styles.privacyPill,
-                  {
-                    backgroundColor: isDark ? "#18181B" : "#F1F5F9",
-                    borderColor: colors.border,
-                  },
-                ]}
-                activeOpacity={0.75}
-                onPress={() => {
-                  setShowPrivacyPicker(!showPrivacyPicker);
-                  setShowLocationPicker(false);
-                  setShowTagPicker(false);
-                }}
-              >
-                <Ionicons
-                  name={currentPrivacy.icon as any}
-                  size={13}
-                  color={colors.primary}
-                />
-                <Text style={[styles.privacyPillText, { color: colors.textPrimary }]}>
-                  {currentPrivacy.label}
-                </Text>
-                <Ionicons
-                  name="chevron-down"
-                  size={12}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
+                {authorName}
+              </AppText>
+              {authorHandle ? (
+                <AppText variant="caption" color="textMuted" numberOfLines={1}>
+                  {authorHandle}
+                </AppText>
+              ) : null}
             </View>
+
+            <TouchableOpacity
+              style={[
+                styles.audiencePill,
+                { backgroundColor: colors.surfaceHighlight, borderColor: colors.border },
+              ]}
+              activeOpacity={0.75}
+              onPress={() => openSheet("privacy")}
+              accessibilityRole="button"
+              accessibilityLabel={`Audience: ${currentPrivacy.label}. Change`}
+            >
+              <Ionicons name={currentPrivacy.icon as any} size={13} color={colors.textSecondary} />
+              <AppText
+                weight="semibold"
+                style={[styles.audiencePillText, { color: colors.textSecondary }]}
+              >
+                {currentPrivacy.label}
+              </AppText>
+              <Ionicons name="chevron-down" size={13} color={colors.textMuted} />
+            </TouchableOpacity>
           </View>
 
-          {/* Privacy Dropdown (Inline, Clean) */}
-          {showPrivacyPicker && (
-            <View
-              style={[
-                styles.inlineDropdownCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              {PRIVACY_OPTIONS.map((opt, idx) => {
-                const isSelected = privacyIndex === idx;
-                return (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={[
-                      styles.privacyOptionRow,
-                      idx < PRIVACY_OPTIONS.length - 1 && {
-                        borderBottomWidth: StyleSheet.hairlineWidth,
-                        borderBottomColor: colors.borderLight,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      setPrivacyIndex(idx);
-                      setShowPrivacyPicker(false);
-                    }}
-                  >
-                    <Ionicons
-                      name={opt.icon as any}
-                      size={18}
-                      color={isSelected ? colors.primary : colors.textSecondary}
-                    />
-                    <View style={styles.privacyOptionTextCol}>
-                      <Text
-                        style={[
-                          styles.privacyOptionTitle,
-                          {
-                            color: colors.textPrimary,
-                            fontFamily: isSelected
-                              ? FontFamily.bold
-                              : FontFamily.medium,
-                          },
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.privacyOptionDesc,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {opt.desc}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={20}
-                        color={colors.primary}
-                      />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
+          <View style={[styles.hairline, { backgroundColor: colors.borderLight }]} />
 
-          {/* Caption Input */}
+          {/* ── Caption: borderless, counter right under it ─────── */}
           <TextInput
             ref={inputRef}
             placeholder="What's on your mind?"
             placeholderTextColor={colors.textMuted}
             style={[styles.captionInput, { color: colors.textPrimary }]}
             multiline
+            autoFocus
             value={caption}
             onChangeText={setCaption}
             selectionColor={colors.primary}
-            maxLength={1000}
+            maxLength={MAX_CHARS}
             textAlignVertical="top"
+            accessibilityLabel="Post caption"
           />
 
-          {/* Location & Tag Attached Chips */}
           {(location || selectedTags.length > 0) && (
             <View style={styles.chipsContainer}>
               {location && (
                 <View
                   style={[
-                    styles.attachedChip,
-                    {
-                      backgroundColor: isDark ? "#18181B" : "#EFF6FF",
-                      borderColor: isDark ? "#27272A" : "#DBEAFE",
-                    },
+                    styles.chip,
+                    { backgroundColor: colors.surfaceHighlight, borderColor: colors.border },
                   ]}
                 >
-                  <Ionicons name="location-sharp" size={13} color={colors.primary} />
-                  <Text
-                    style={[styles.chipText, { color: colors.primary }]}
-                    numberOfLines={1}
-                  >
-                    {location}
-                  </Text>
                   <TouchableOpacity
-                    onPress={() => setLocation(null)}
+                    style={styles.chipMain}
+                    onPress={handlePickLocation}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Location ${location}. Change on the map`}
+                  >
+                    <Ionicons name="location-sharp" size={13} color={colors.primary} />
+                    <AppText
+                      weight="semibold"
+                      style={[styles.chipText, { color: colors.primary }]}
+                      numberOfLines={1}
+                    >
+                      {location}
+                    </AppText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleRemoveLocation}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove location"
                   >
                     <Ionicons name="close-circle" size={15} color={colors.primary} />
                   </TouchableOpacity>
                 </View>
               )}
 
-              {selectedTags.map((tag) => (
-                <View
-                  key={tag}
-                  style={[
-                    styles.attachedChip,
-                    {
-                      backgroundColor: isDark ? "#18181B" : "#F1F5F9",
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[styles.chipText, { color: colors.textPrimary }]}
-                    numberOfLines={1}
-                  >
-                    {tag}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => toggleTag(tag)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons
-                      name="close-circle"
-                      size={15}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Media Preview Carousel */}
-          {selectedMedias.length > 0 && (
-            <View style={styles.mediaPreviewSection}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.mediaScrollContent}
-              >
-                {selectedMedias.map((item, index) => (
-                  <View
-                    key={item.id}
-                    style={[
-                      styles.mediaCard,
-                      { borderColor: colors.border, backgroundColor: colors.surface },
-                    ]}
-                  >
-                    <Image
-                      source={{ uri: item.uri }}
-                      style={styles.mediaImage}
-                      resizeMode="cover"
-                    />
-
-                    {/* Remove button */}
+              {selectedTags.map((tag) =>
+                renderChip(
+                  <>
+                    <AppText
+                      weight="semibold"
+                      style={[styles.chipText, { color: colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {tag}
+                    </AppText>
                     <TouchableOpacity
-                      style={styles.mediaRemoveBadge}
-                      onPress={() => handleRemoveMedia(item.id)}
+                      onPress={() => setSelectedTags((prev) => prev.filter((t) => t !== tag))}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove topic ${tag}`}
                     >
-                      <Ionicons name="close" size={14} color="#FFFFFF" />
+                      <Ionicons name="close-circle" size={15} color={colors.textSecondary} />
                     </TouchableOpacity>
-
-                    {/* Video Indicator */}
-                    {item.type === "video" && (
-                      <View style={styles.videoBadge}>
-                        <Ionicons name="videocam" size={14} color="#FFFFFF" />
-                      </View>
-                    )}
-
-                    {/* Order index if multiple */}
-                    {selectedMedias.length > 1 && (
-                      <View style={styles.mediaIndexBadge}>
-                        <Text style={styles.mediaIndexText}>
-                          {index + 1}/{selectedMedias.length}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                ))}
-
-                {/* Add More Media Tile */}
-                {selectedMedias.length < 10 && (
-                  <TouchableOpacity
-                    style={[
-                      styles.addMoreMediaCard,
-                      {
-                        backgroundColor: isDark ? "#18181B" : "#F8FAFC",
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    onPress={handlePickMedia}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="add" size={28} color={colors.textSecondary} />
-                    <Text
-                      style={[
-                        styles.addMoreMediaText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Add Photo
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
+                  </>,
+                  tag
+                )
+              )}
             </View>
           )}
 
-          {/* Inline Location Tray */}
-          {showLocationPicker && (
-            <View
-              style={[
-                styles.quickPickerTray,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
+          <View style={styles.counterRow}>
+            <AppText
+              variant="caption"
+              weight={caption.length >= WARNING_AT ? "bold" : "medium"}
+              style={[styles.counter, { color: counterColor }]}
+              accessibilityLabel={`${caption.length} of ${MAX_CHARS} characters`}
             >
-              <View style={styles.trayHeader}>
-                <View style={styles.trayTitleRow}>
-                  <Ionicons name="location" size={16} color={colors.primary} />
-                  <Text style={[styles.trayTitle, { color: colors.textPrimary }]}>
-                    Add Location
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => setShowLocationPicker(false)}>
-                  <Ionicons name="close" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
+              {caption.length}/{MAX_CHARS}
+            </AppText>
+          </View>
 
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.chipsScroll}
-              >
-                {POPULAR_LOCATIONS.map((loc) => {
-                  const isSelected = location === loc;
-                  return (
-                    <TouchableOpacity
-                      key={loc}
-                      style={[
-                        styles.pickerChip,
-                        {
-                          backgroundColor: isSelected
-                            ? colors.primary
-                            : isDark
-                            ? "#18181B"
-                            : "#F1F5F9",
-                          borderColor: isSelected ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        setLocation(isSelected ? null : loc);
-                        setShowLocationPicker(false);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerChipText,
-                          {
-                            color: isSelected ? "#FFFFFF" : colors.textPrimary,
-                            fontFamily: isSelected
-                              ? FontFamily.bold
-                              : FontFamily.medium,
-                          },
-                        ]}
-                      >
-                        {loc}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+          <View style={[styles.hairline, { backgroundColor: colors.borderLight }]} />
+
+          {/* ── Media grid ──────────────────────────────────────── */}
+          {selectedMedias.length > 0 && (
+            <View style={styles.mediaSection}>
+              <MediaGrid
+                medias={selectedMedias}
+                progressById={mediaProgress}
+                onRemove={handleRemoveMedia}
+                onAdd={handlePickMedia}
+                max={MAX_MEDIA}
+                countLabel={`${selectedMedias.length}/${MAX_MEDIA}`}
+              />
             </View>
           )}
 
-          {/* Inline Topic Tags Tray */}
-          {showTagPicker && (
-            <View
-              style={[
-                styles.quickPickerTray,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View style={styles.trayHeader}>
-                <View style={styles.trayTitleRow}>
-                  <Ionicons name="pricetag" size={16} color={colors.primary} />
-                  <Text style={[styles.trayTitle, { color: colors.textPrimary }]}>
-                    Select Topics
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => setShowTagPicker(false)}>
-                  <Ionicons name="close" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.chipsScroll}
-              >
-                {POPULAR_TAGS.map((tag) => {
-                  const isSelected = selectedTags.includes(tag);
-                  return (
-                    <TouchableOpacity
-                      key={tag}
-                      style={[
-                        styles.pickerChip,
-                        {
-                          backgroundColor: isSelected
-                            ? colors.primary
-                            : isDark
-                            ? "#18181B"
-                            : "#F1F5F9",
-                          borderColor: isSelected ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => toggleTag(tag)}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerChipText,
-                          {
-                            color: isSelected ? "#FFFFFF" : colors.textPrimary,
-                            fontFamily: isSelected
-                              ? FontFamily.bold
-                              : FontFamily.medium,
-                          },
-                        ]}
-                      >
-                        {tag}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+          {/* ── Draft status (quiet) ────────────────────────────── */}
+          {hasContent && draftReady && (
+            <View style={styles.draftRow}>
+              <Ionicons name="cloud-done-outline" size={13} color={colors.textMuted} />
+              <AppText variant="caption" color="textMuted">
+                Draft saved
+              </AppText>
             </View>
           )}
         </ScrollView>
 
-        {/* Bottom Attachment Toolbar */}
+        {/* ── Bottom dock: all attach controls, thumb-reachable ──── */}
         <View
           style={[
-            styles.bottomToolbar,
+            styles.dock,
             {
               backgroundColor: colors.background,
               borderTopColor: colors.border,
@@ -726,357 +825,294 @@ export default function CreatePostScreen() {
             },
           ]}
         >
-          <View style={styles.toolbarButtons}>
-            {/* Gallery Button */}
-            <TouchableOpacity
-              style={[
-                styles.toolBtn,
-                { backgroundColor: isDark ? "#18181B" : "#F1F5F9" },
-              ]}
-              onPress={handlePickMedia}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="images-outline" size={20} color={colors.primary} />
-            </TouchableOpacity>
-
-            {/* Camera Button */}
-            <TouchableOpacity
-              style={[
-                styles.toolBtn,
-                { backgroundColor: isDark ? "#18181B" : "#F1F5F9" },
-              ]}
-              onPress={handleTakePhoto}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="camera-outline" size={20} color={colors.primary} />
-            </TouchableOpacity>
-
-            {/* Location Toggle */}
-            <TouchableOpacity
-              style={[
-                styles.toolBtn,
-                {
-                  backgroundColor: location
-                    ? colors.primary
-                    : isDark
-                    ? "#18181B"
-                    : "#F1F5F9",
-                },
-              ]}
-              onPress={() => {
-                setShowLocationPicker(!showLocationPicker);
-                setShowTagPicker(false);
-                setShowPrivacyPicker(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="location-outline"
-                size={20}
-                color={location ? "#FFFFFF" : colors.primary}
-              />
-            </TouchableOpacity>
-
-            {/* Topic Tags Toggle */}
-            <TouchableOpacity
-              style={[
-                styles.toolBtn,
-                {
-                  backgroundColor: selectedTags.length > 0
-                    ? colors.primary
-                    : isDark
-                    ? "#18181B"
-                    : "#F1F5F9",
-                },
-              ]}
-              onPress={() => {
-                setShowTagPicker(!showTagPicker);
-                setShowLocationPicker(false);
-                setShowPrivacyPicker(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="pricetag-outline"
-                size={20}
-                color={selectedTags.length > 0 ? "#FFFFFF" : colors.primary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Character Count Indicator */}
-          <View style={styles.characterCountCol}>
-            <Text style={[styles.characterCountText, { color: colors.textMuted }]}>
-              {caption.length}/1000
-            </Text>
-          </View>
+          <DockAction
+            icon="images-outline"
+            label="Gallery"
+            badge={selectedMedias.length > 0 ? `${selectedMedias.length}/${MAX_MEDIA}` : undefined}
+            onPress={handlePickMedia}
+            disabled={isPosting}
+          />
+          <DockAction
+            icon="camera-outline"
+            label="Camera"
+            onPress={handleTakePhoto}
+            disabled={isPosting}
+          />
+          <DockAction
+            icon="location-outline"
+            label="Place"
+            active={Boolean(location)}
+            onPress={handlePickLocation}
+            disabled={isPosting}
+          />
+          <DockAction
+            icon="pricetag-outline"
+            label="Topic"
+            active={selectedTags.length > 0}
+            onPress={() => openSheet("tags")}
+            disabled={isPosting}
+          />
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── Sheets ─────────────────────────────────────────────── */}
+      <PrivacySheet
+        visible={activeSheet === "privacy"}
+        onClose={() => setActiveSheet(null)}
+        options={PRIVACY_OPTIONS}
+        selectedIndex={privacyIndex}
+        onSelect={(idx) => {
+          setPrivacyIndex(idx);
+          haptic();
+        }}
+        addToStory={addToStory}
+        onToggleStory={setAddToStory}
+      />
+
+      <TagsSheet
+        visible={activeSheet === "tags"}
+        onClose={() => setActiveSheet(null)}
+        selected={selectedTags}
+        suggestions={POPULAR_TAGS}
+        max={MAX_TAGS}
+        onChange={(tags) => {
+          setSelectedTags(tags);
+          haptic();
+        }}
+      />
     </View>
   );
 }
 
+/* ---------------------------------------------------------------- */
+/* Flat icon + label control for the bottom dock                     */
+/* ---------------------------------------------------------------- */
+
+function DockAction({
+  icon,
+  label,
+  badge,
+  onPress,
+  active = false,
+  disabled = false,
+}: {
+  icon: string;
+  label: string;
+  /** Small count pill next to the icon, e.g. "3/10" on Gallery. */
+  badge?: string;
+  onPress: () => void;
+  active?: boolean;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <TouchableOpacity
+      style={[styles.dockAction, { opacity: disabled ? 0.5 : 1 }]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={badge ? `${label}, ${badge} selected` : label}
+    >
+      <View style={styles.dockIconWrap}>
+        <Ionicons
+          name={icon as any}
+          size={22}
+          color={active ? colors.primary : colors.textSecondary}
+        />
+        {badge ? (
+          <View style={[styles.dockBadge, { backgroundColor: colors.primary }]}>
+            <AppText weight="bold" style={[styles.dockBadgeText, { color: colors.white }]}>
+              {badge}
+            </AppText>
+          </View>
+        ) : null}
+      </View>
+      <AppText
+        variant="caption"
+        weight={active ? "bold" : "semibold"}
+        color={active ? "primary" : "textMuted"}
+        numberOfLines={1}
+      >
+        {label}
+      </AppText>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  flex: {
-    flex: 1,
-  },
+  root: { flex: 1 },
+  flex: { flex: 1 },
+
+  /* Header — flat, hairline, Cancel · title · Share (like Edit Bio) */
   header: {
-    height: Platform.OS === "ios" ? 104 : 64,
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    minHeight: 52,
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  cancelBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-  },
-  cancelBtnText: {
-    fontSize: 16,
-    fontFamily: FontFamily.medium,
-  },
+  headerCancel: { minWidth: 64, paddingVertical: 6 },
+  headerCancelText: { fontSize: 16, fontFamily: FontFamily.medium },
   headerTitle: {
+    flex: 1,
+    textAlign: "center",
     fontSize: 17,
     fontFamily: FontFamily.bold,
     letterSpacing: -0.2,
-    marginBottom: 6,
   },
-  postBtn: {
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    minWidth: 70,
+  headerSave: {
+    minWidth: 64,
+    paddingVertical: 6,
+    alignItems: "flex-end",
+  },
+  headerSaveText: { fontSize: 16, fontFamily: FontFamily.bold },
+
+  /* Determinate upload progress */
+  progressHost: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  progressLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+    marginTop: 5,
   },
-  postBtnText: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-  },
+
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingTop: 14,
+    paddingBottom: 28,
   },
+
+  /* Author + audience */
   authorRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    backgroundColor: "#E2E8F0",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   authorMeta: {
-    marginLeft: 12,
+    flex: 1,
+    marginLeft: 11,
     justifyContent: "center",
   },
-  authorName: {
-    fontSize: 15,
-    fontFamily: FontFamily.semiBold,
-    marginBottom: 4,
-  },
-  privacyPill: {
+  authorName: { fontSize: 15, fontFamily: FontFamily.bold, marginBottom: 3 },
+  audiencePill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignSelf: "flex-start",
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginLeft: 8,
   },
-  privacyPillText: {
-    fontSize: 12,
-    fontFamily: FontFamily.medium,
+  audiencePillText: { fontSize: 12, fontFamily: FontFamily.semiBold },
+
+  hairline: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 14,
   },
-  inlineDropdownCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 16,
-    overflow: "hidden",
-  },
-  privacyOptionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  privacyOptionTextCol: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  privacyOptionTitle: {
-    fontSize: 14,
-  },
-  privacyOptionDesc: {
-    fontSize: 12,
-    fontFamily: FontFamily.regular,
-    marginTop: 2,
-  },
+
+  /* Caption — borderless, counter directly under it */
   captionInput: {
     fontSize: 17,
     fontFamily: FontFamily.regular,
-    lineHeight: 24,
-    minHeight: 120,
+    lineHeight: 26,
+    minHeight: 190,
     paddingHorizontal: 0,
-    paddingTop: 4,
-    marginBottom: 16,
+    paddingVertical: 4,
   },
+  counterRow: {
+    alignItems: "flex-end",
+    marginTop: 6,
+  },
+  counter: { fontSize: 12.5 },
+
   chipsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 16,
+    marginTop: 10,
   },
-  attachedChip: {
+  chip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxWidth: SCREEN_WIDTH * 0.72,
   },
-  chipText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-    maxWidth: SCREEN_WIDTH * 0.65,
-  },
-  mediaPreviewSection: {
-    marginBottom: 16,
-  },
-  mediaScrollContent: {
-    gap: 12,
-  },
-  mediaCard: {
-    width: 170,
-    height: 220,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-    position: "relative",
-  },
-  mediaImage: {
-    width: "100%",
-    height: "100%",
-  },
-  mediaRemoveBadge: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  videoBadge: {
-    position: "absolute",
-    bottom: 8,
-    left: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  mediaIndexBadge: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
-  },
-  mediaIndexText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontFamily: FontFamily.bold,
-  },
-  addMoreMediaCard: {
-    width: 120,
-    height: 220,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  addMoreMediaText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-  },
-  quickPickerTray: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
-    marginBottom: 16,
-  },
-  trayHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  trayTitleRow: {
+  chipMain: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 1,
   },
-  trayTitle: {
-    fontSize: 13,
-    fontFamily: FontFamily.bold,
+  chipText: { fontSize: 13, fontFamily: FontFamily.semiBold, maxWidth: SCREEN_WIDTH * 0.5 },
+
+  mediaSection: {
+    marginTop: 16,
   },
-  chipsScroll: {
-    gap: 8,
-  },
-  pickerChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  pickerChipText: {
-    fontSize: 13,
-  },
-  bottomToolbar: {
+
+  draftRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 10,
+    gap: 6,
+    marginTop: 16,
+  },
+
+  /* Bottom dock */
+  dock: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingTop: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  toolbarButtons: {
-    flexDirection: "row",
+  dockAction: {
+    flex: 1,
     alignItems: "center",
-    gap: 10,
+    justifyContent: "center",
+    gap: 3,
+    paddingVertical: 6,
+    minHeight: 52,
   },
-  toolBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  dockIconWrap: {
+    width: 30,
+    height: 24,
     alignItems: "center",
     justifyContent: "center",
   },
-  characterCountCol: {
+  dockBadge: {
+    position: "absolute",
+    top: -7,
+    right: -16,
+    minWidth: 26,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    alignItems: "center",
     justifyContent: "center",
   },
-  characterCountText: {
-    fontSize: 12,
-    fontFamily: FontFamily.regular,
-  },
+  dockBadgeText: { fontSize: 9.5, fontFamily: FontFamily.bold },
 });

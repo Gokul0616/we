@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   ScrollView,
   TouchableOpacity,
@@ -21,6 +20,8 @@ import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { authStorage, StoredUser } from "../../services/authStorage";
+import { AppText } from "../../components/common/AppText";
+import { AppImage } from "../../components/common/AppImage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TILE_GAP = 1.5;
@@ -649,7 +650,7 @@ export function ExploreScreen() {
           onPress={() => router.push("/search")}
         >
           <Ionicons name="search" size={17} color={colors.textSecondary} style={styles.searchIcon} />
-          <Text style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>Search creators, places, tags...</Text>
+          <AppText style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>Search creators, places, tags...</AppText>
         </TouchableOpacity>
       </View>
 
@@ -682,18 +683,18 @@ export function ExploreScreen() {
                   color={isActive ? (isDark ? colors.primary : "#FFFFFF") : colors.textSecondary}
                   style={{ marginRight: 5 }}
                 />
-                <Text
+                <AppText
+                  weight={isActive ? "bold" : "semiBold"}
                   style={[
                     styles.categoryPillText,
                     { color: colors.textSecondary },
                     isActive && {
                       color: isDark ? colors.textPrimary : "#FFFFFF",
-                      fontFamily: FontFamily.bold,
                     },
                   ]}
                 >
                   {cat.label}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           })}
@@ -812,14 +813,14 @@ export function ExploreScreen() {
                   source={previewPost.author.avatar}
                   style={styles.peekAvatar}
                 />
-                <Text style={[styles.peekUsername, { color: colors.textPrimary }]} numberOfLines={1}>
+                <AppText weight="bold" style={[styles.peekUsername, { color: colors.textPrimary }]} numberOfLines={1}>
                   {previewPost.author.username}
-                </Text>
+                </AppText>
               </View>
 
               {/* Clean Media (No overlays) */}
               <View style={styles.peekMediaWrapper}>
-                <Image
+                <AppImage
                   source={previewPost.image}
                   style={styles.peekImage}
                   resizeMode="cover"
@@ -848,18 +849,18 @@ export function ExploreScreen() {
                       likedPosts[previewPost.id] ? "#ED4956" : colors.textPrimary
                     }
                   />
-                  <Text
+                  <AppText
+                    weight={likedPosts[previewPost.id] ? "semiBold" : "medium"}
                     style={[
                       styles.contextMenuLabel,
                       { color: colors.textPrimary },
                       likedPosts[previewPost.id] && {
                         color: "#ED4956",
-                        fontFamily: FontFamily.semiBold,
                       },
                     ]}
                   >
                     {likedPosts[previewPost.id] ? "Liked" : "Like"}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
 
                 {/* Repost */}
@@ -869,7 +870,7 @@ export function ExploreScreen() {
                   onPress={() => closePreview()}
                 >
                   <Ionicons name="repeat-outline" size={22} color={colors.textPrimary} />
-                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Repost</Text>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Repost</AppText>
                 </TouchableOpacity>
 
                 {/* Share */}
@@ -892,7 +893,7 @@ export function ExploreScreen() {
                     size={21}
                     color={colors.textPrimary}
                   />
-                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Share</Text>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Share</AppText>
                 </TouchableOpacity>
 
                 {/* View Profile */}
@@ -908,7 +909,7 @@ export function ExploreScreen() {
                     size={22}
                     color={colors.textPrimary}
                   />
-                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>View Profile</Text>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>View Profile</AppText>
                 </TouchableOpacity>
 
                 {/* Not interested */}
@@ -918,7 +919,7 @@ export function ExploreScreen() {
                   onPress={() => closePreview()}
                 >
                   <Ionicons name="eye-off-outline" size={21} color={colors.textPrimary} />
-                  <Text style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Not interested</Text>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: colors.textPrimary }]}>Not interested</AppText>
                 </TouchableOpacity>
 
                 {/* Report */}
@@ -932,9 +933,9 @@ export function ExploreScreen() {
                     size={22}
                     color="#ED4956"
                   />
-                  <Text style={[styles.contextMenuLabel, { color: "#ED4956" }]}>
+                  <AppText weight="medium" style={[styles.contextMenuLabel, { color: "#ED4956" }]}>
                     Report
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
 
@@ -976,7 +977,7 @@ function renderRichTile(
       delayLongPress={180}
       style={[styles.tile, { width, height }]}
     >
-      <Image
+      <AppImage
         source={post.image}
         style={{ width, height }}
         resizeMode="cover"
@@ -987,7 +988,7 @@ function renderRichTile(
         colors={["transparent", "rgba(0, 0, 0, 0.65)"]}
         style={styles.tileBottomScrim}
       >
-        <Text style={styles.tileMetricText}>{viewsOrLikes}</Text>
+        <AppText weight="bold" style={styles.tileMetricText}>{viewsOrLikes}</AppText>
       </LinearGradient>
 
       {/* Instagram Indicator Badge (Reel / Carousel) in top-right */}
@@ -1004,7 +1005,7 @@ function renderRichTile(
       {/* "You" Indicator Tag if this post is mine */}
       {post.author.isMe && (
         <View style={styles.tileMyPostTag}>
-          <Text style={styles.tileMyPostTagText}>You</Text>
+          <AppText weight="bold" style={styles.tileMyPostTagText}>You</AppText>
         </View>
       )}
     </TouchableOpacity>

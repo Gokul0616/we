@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -18,6 +17,8 @@ import {
   SettingsSection,
   SettingsSwitchRow,
 } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 export default function HiddenWordsScreen() {
   const { colors, isDark } = useTheme();
@@ -68,9 +69,9 @@ export default function HiddenWordsScreen() {
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.instruction, { color: colors.textSecondary }]}>
+        <AppText style={[styles.instruction, { color: colors.textSecondary }]}>
           Hide comments and direct messages that contain these specific words, phrases, or emojis from your account.
-        </Text>
+        </AppText>
 
         <SettingsSection title="Automated Protection">
           <SettingsSwitchRow
@@ -91,13 +92,13 @@ export default function HiddenWordsScreen() {
         </SettingsSection>
 
         {/* Custom Words Section */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+        <AppText weight="semiBold" style={[styles.sectionTitle, { color: colors.textSecondary }]}>
           Custom Words & Phrases
-        </Text>
+        </AppText>
 
         <View style={[styles.addCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TextInput
-            style={[styles.input, { color: colors.textPrimary }]}
+            style={[styles.input, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
             placeholder="Add word or phrase..."
             placeholderTextColor={colors.textMuted}
             value={newWord}
@@ -109,6 +110,8 @@ export default function HiddenWordsScreen() {
             style={[styles.addBtn, !newWord.trim() && { opacity: 0.5 }]}
             onPress={handleAddWord}
             disabled={!newWord.trim()}
+            accessibilityRole="button"
+            accessibilityLabel="Add hidden word"
           >
             <Ionicons name="add" size={20} color="#FFFFFF" />
           </TouchableOpacity>
@@ -126,20 +129,22 @@ export default function HiddenWordsScreen() {
                 },
               ]}
             >
-              <Text style={[styles.wordText, { color: colors.textPrimary }]}>{word}</Text>
+              <AppText weight="medium" style={[styles.wordText, { color: colors.textPrimary }]}>{word}</AppText>
               <TouchableOpacity
                 onPress={() => handleRemoveWord(word)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={{ marginLeft: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${word}`}
               >
                 <Ionicons name="close-circle" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           ))}
           {words.length === 0 && (
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+            <AppText style={[styles.emptyText, { color: colors.textMuted }]}>
               No custom hidden words added yet.
-            </Text>
+            </AppText>
           )}
         </View>
       </ScrollView>

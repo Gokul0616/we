@@ -1,7 +1,6 @@
 import React, { ReactNode } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Switch,
@@ -11,6 +10,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { FontFamily } from "../../constants/theme";
+import { AppText } from "../common/AppText";
 
 interface SettingsHeaderProps {
   title: string;
@@ -45,9 +45,14 @@ export const SettingsHeader = ({
         )}
       </View>
 
-      <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+      <AppText
+        variant="subheading"
+        weight="bold"
+        style={[styles.headerTitle, { color: colors.textPrimary }]}
+        numberOfLines={1}
+      >
         {title}
-      </Text>
+      </AppText>
 
       <View style={styles.headerRight}>
         {rightAction || <View style={{ width: 36 }} />}
@@ -68,9 +73,13 @@ export const SettingsSection = ({
   return (
     <View style={styles.sectionContainer}>
       {title ? (
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+        <AppText
+          variant="caption"
+          weight="semibold"
+          style={[styles.sectionTitle, { color: colors.textSecondary }]}
+        >
           {title}
-        </Text>
+        </AppText>
       ) : null}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {children}
@@ -130,25 +139,34 @@ export const SettingsRow = ({
         ) : null}
 
         <View style={styles.textContainer}>
-          <Text
+          <AppText
+            variant="body"
+            weight="semibold"
             style={[
               styles.rowTitle,
               { color: destructive ? colors.danger : colors.textPrimary },
             ]}
           >
             {title}
-          </Text>
+          </AppText>
           {subtitle ? (
-            <Text style={[styles.rowSubtitle, { color: colors.textSecondary }]}>
+            <AppText
+              variant="caption"
+              style={[styles.rowSubtitle, { color: colors.textSecondary }]}
+            >
               {subtitle}
-            </Text>
+            </AppText>
           ) : null}
         </View>
 
         {value ? (
-          <Text style={[styles.rowValue, { color: colors.textSecondary }]}>
+          <AppText
+            variant="bodySmall"
+            weight="medium"
+            style={[styles.rowValue, { color: colors.textSecondary }]}
+          >
             {value}
-          </Text>
+          </AppText>
         ) : null}
 
         {showChevron && onPress ? (
@@ -219,13 +237,20 @@ export const SettingsSwitchRow = ({
         ) : null}
 
         <View style={styles.textContainer}>
-          <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>
+          <AppText
+            variant="body"
+            weight="semibold"
+            style={[styles.rowTitle, { color: colors.textPrimary }]}
+          >
             {title}
-          </Text>
+          </AppText>
           {subtitle ? (
-            <Text style={[styles.rowSubtitle, { color: colors.textSecondary }]}>
+            <AppText
+              variant="caption"
+              style={[styles.rowSubtitle, { color: colors.textSecondary }]}
+            >
               {subtitle}
-            </Text>
+            </AppText>
           ) : null}
         </View>
 
@@ -281,13 +306,20 @@ export const SettingsRadioRow = ({
         activeOpacity={0.7}
       >
         <View style={styles.textContainer}>
-          <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>
+          <AppText
+            variant="body"
+            weight="semibold"
+            style={[styles.rowTitle, { color: colors.textPrimary }]}
+          >
             {title}
-          </Text>
+          </AppText>
           {subtitle ? (
-            <Text style={[styles.rowSubtitle, { color: colors.textSecondary }]}>
+            <AppText
+              variant="caption"
+              style={[styles.rowSubtitle, { color: colors.textSecondary }]}
+            >
               {subtitle}
-            </Text>
+            </AppText>
           ) : null}
         </View>
 

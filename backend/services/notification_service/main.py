@@ -77,23 +77,93 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from typing import Optional
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "notification_service"}
 
 @app.get("/notifications/{user_id}")
-async def get_user_notifications(user_id: str):
+async def get_user_notifications(user_id: str, filter: Optional[str] = None):
     db = get_database()
-    cursor = db.notifications.find({"recipient_id": user_id}).sort("created_at", -1).limit(50)
+    query = {"recipient_id": user_id}
+    if filter:
+        f = filter.strip().lower()
+        if f == "follows":
+            query["type"] = {"$in": ["FOLLOW", "FOLLOW_REQUEST", "FOLLOW_ACCEPTED"]}
+        elif f == "likes":
+            query["type"] = {"$in": ["LIKE", "REPOST"]}
+        elif f == "comments":
+            query["type"] = {"$in": ["COMMENT", "REPLY", "MENTION"]}
+
+    cursor = db.notifications.find(query).sort("created_at", -1).limit(50)
     notifications = []
     async for doc in cursor:
+        post_media = None
+        if doc.get("post_id"):
+            try:
+                from bson import ObjectId
+                post = await db.posts.find_one({"_id": ObjectId(str(doc["post_id"]))})
+                if not post:
+                    post = await db.posts.find_one({"id": str(doc["post_id"])})
+                if post:
+                    post_media = post.get("media_url") or (post.get("media_urls")[0] if post.get("media_urls") else None)
+            except Exception:
+                pass
+
+        # Resolve the actor's current profile info (avatar) the same way the
+        # feed resolves post authors: try the id lookup, fall back to a
+        # username lookup, and keep the notification's stored avatar when the
+        # live user record has no avatar_url — so the screen always shows the
+        # real image (or the default empty avatar).
+        actor = None
+        if doc.get("actor_id"):
+            try:
+                from bson import ObjectId
+                actor = await db.users.find_one({"_id": ObjectId(str(doc["actor_id"]))})
+            except Exception:
+                actor = None
+            if not actor:
+                try:
+                    actor = await db.users.find_one({"id": str(doc["actor_id"])})
+                except Exception:
+                    actor = None
+        if not actor and doc.get("actor_username"):
+            try:
+                actor = await db.users.find_one({"username": doc["actor_username"]})
+            except Exception:
+                actor = None
+
+        actor_avatar = doc.get("actor_avatar") or None
+        actor_full_name = doc.get("actor_fullName") or None
+        if actor:
+            if actor.get("full_name"):
+                actor_full_name = actor["full_name"]
+            if actor.get("avatar_url"):
+                actor_avatar = actor["avatar_url"]
+
+        is_following = False
+        if doc.get("actor_username"):
+            try:
+                follows = await db.follows.find_one({
+                    "follower_id": str(user_id),
+                    "target_username": doc["actor_username"],
+                })
+                is_following = follows is not None
+            except Exception:
+                is_following = False
+
         notifications.append({
             "id": str(doc["_id"]),
             "recipient_id": doc["recipient_id"],
             "actor_id": doc["actor_id"],
             "actor_username": doc["actor_username"],
+            "actor_fullName": actor_full_name,
+            "actor_avatar": actor_avatar,
+            "is_following": is_following,
             "type": doc["type"],
             "post_id": doc.get("post_id"),
+            "post_media_url": post_media,
             "read": doc.get("read", False),
             "created_at": doc["created_at"].isoformat() if isinstance(doc["created_at"], datetime) else str(doc["created_at"])
         })

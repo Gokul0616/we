@@ -1,7 +1,6 @@
 import React, { useState, useRef } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   TextInput,
   TouchableOpacity,
@@ -16,10 +15,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { WeLogo } from "../../components/WeLogo";
-import { Colors } from "../../constants/theme";
+import { Colors, FontFamily } from "../../constants/theme";
 import { ENDPOINTS } from "../../constants/api";
 import { apiClient } from "../../services/apiClient";
 import { authStorage } from "../../services/authStorage";
+import { AppText } from "../../components/common/AppText";
+import { AppButton } from "../../components/common/AppButton";
+import { useTheme } from "../../context/ThemeContext";
 
 interface LoginScreenProps {
   onSuccess: (userData: any) => void;
@@ -28,6 +30,7 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProps) {
+  const { colors, isDark } = useTheme();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -74,8 +77,8 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
   };
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <SafeAreaView edges={["top", "bottom"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -83,12 +86,14 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
         {/* Navigation Bar */}
         <View style={styles.navBar}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: isDark ? colors.surface : "#F8FAFC", borderColor: colors.border }]}
             onPress={onBack}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -102,30 +107,38 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
         >
           <View style={styles.content}>
             <View style={styles.brandHeader}>
-              <WeLogo size="md" color="#1E293B" />
-              <Text style={styles.title}>Welcome back</Text>
-              <Text style={styles.subtitle}>
+              <WeLogo size="md" color={colors.textPrimary} />
+              <AppText variant="screenTitle" style={[styles.title, { color: colors.textPrimary }]}>
+                Welcome back
+              </AppText>
+              <AppText variant="body" style={[styles.subtitle, { color: colors.textSecondary }]}>
                 Sign in to continue to your community.
-              </Text>
+              </AppText>
             </View>
 
             <View style={styles.form}>
               {/* Email or Username Field with Container Click-to-Focus */}
               <View style={styles.field}>
-                <Text style={styles.label}>Email or Username</Text>
+                <AppText variant="label" style={[styles.label, { color: colors.textPrimary }]}>
+                  Email or Username
+                </AppText>
                 <TouchableOpacity
                   activeOpacity={1}
                   onPress={() => identifierRef.current?.focus()}
                   style={[
                     styles.inputCard,
-                    focusedField === "identifier" && styles.inputCardFocused,
+                    {
+                      backgroundColor: isDark ? colors.surface : "#F8FAFC",
+                      borderColor: focusedField === "identifier" ? colors.primary : colors.border,
+                    },
+                    focusedField === "identifier" && { backgroundColor: isDark ? colors.card : "#FFFFFF" },
                   ]}
                 >
                   <TextInput
                     ref={identifierRef}
-                    style={styles.input}
+                    style={[styles.input, { color: colors.textPrimary }]}
                     placeholder="username or email"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textMuted}
                     value={identifier}
                     onChangeText={setIdentifier}
                     autoCapitalize="none"
@@ -134,14 +147,14 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
                     onFocus={() => setFocusedField("identifier")}
                     onBlur={() => setFocusedField(null)}
                     onSubmitEditing={() => passwordRef.current?.focus()}
-                    selectionColor={Colors.primary}
+                    selectionColor={colors.primary}
                   />
                   {identifier.length > 0 && (
                     <TouchableOpacity
                       onPress={() => setIdentifier("")}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                      <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                      <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                     </TouchableOpacity>
                   )}
                 </TouchableOpacity>
@@ -149,20 +162,26 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
 
               {/* Password Field with Container Click-to-Focus */}
               <View style={styles.field}>
-                <Text style={styles.label}>Password</Text>
+                <AppText variant="label" style={[styles.label, { color: colors.textPrimary }]}>
+                  Password
+                </AppText>
                 <TouchableOpacity
                   activeOpacity={1}
                   onPress={() => passwordRef.current?.focus()}
                   style={[
                     styles.inputCard,
-                    focusedField === "password" && styles.inputCardFocused,
+                    {
+                      backgroundColor: isDark ? colors.surface : "#F8FAFC",
+                      borderColor: focusedField === "password" ? colors.primary : colors.border,
+                    },
+                    focusedField === "password" && { backgroundColor: isDark ? colors.card : "#FFFFFF" },
                   ]}
                 >
                   <TextInput
                     ref={passwordRef}
-                    style={[styles.input, { flex: 1 }]}
+                    style={[styles.input, { flex: 1, color: colors.textPrimary }]}
                     placeholder="Enter your password"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textMuted}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -174,7 +193,7 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
                     onFocus={() => setFocusedField("password")}
                     onBlur={() => setFocusedField(null)}
                     onSubmitEditing={handleLogin}
-                    selectionColor={Colors.primary}
+                    selectionColor={colors.primary}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
@@ -184,33 +203,30 @@ export function LoginScreen({ onSuccess, onGoToSignUp, onBack }: LoginScreenProp
                     <Ionicons
                       name={showPassword ? "eye-off-outline" : "eye-outline"}
                       size={20}
-                      color="#64748B"
+                      color={colors.textSecondary}
                     />
                   </TouchableOpacity>
                 </TouchableOpacity>
               </View>
             </View>
 
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                (!isValid || isLoading) && styles.buttonDisabled,
-              ]}
-              onPress={handleLogin}
+            <AppButton
+              title="Log In"
+              size="lg"
+              loading={isLoading}
               disabled={!isValid || isLoading}
-              activeOpacity={0.88}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.buttonText}>Log In</Text>
-              )}
-            </TouchableOpacity>
+              onPress={handleLogin}
+              style={styles.primaryButton}
+            />
 
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
+              <AppText variant="bodySmall" style={[styles.footerText, { color: colors.textSecondary }]}>
+                {"Don't have an account? "}
+              </AppText>
               <TouchableOpacity activeOpacity={0.7} onPress={onGoToSignUp}>
-                <Text style={styles.footerLink}>Sign Up</Text>
+                <AppText variant="bodySmall" weight="bold" style={[styles.footerLink, { color: colors.primary }]}>
+                  Sign Up
+                </AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -301,7 +317,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: "#0F172A",
+    fontFamily: FontFamily.regular,
     paddingVertical: 0,
   },
   primaryButton: {

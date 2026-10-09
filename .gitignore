@@ -16,6 +16,8 @@ backend/.venv/
 .coverage
 htmlcov/
 *.sqlite3
+backend/uploads/*
+!backend/uploads/.gitkeep
 
 # ================================
 # Node.js & React Native / Expo

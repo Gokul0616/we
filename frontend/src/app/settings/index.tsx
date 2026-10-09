@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -14,6 +13,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { FontFamily } from "../../constants/theme";
+import { AppText } from "../../components/common/AppText";
 import { authStorage, StoredUser } from "../../services/authStorage";
 import { userService } from "../../services/userService";
 import { resolveAvatarSource } from "../../utils/mediaHelper";
@@ -418,9 +418,9 @@ export default function SettingsHomeScreen() {
         >
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>
           Settings
-        </Text>
+        </AppText>
         <View style={{ width: 36 }} />
       </View>
 
@@ -482,12 +482,13 @@ export default function SettingsHomeScreen() {
 
             <View style={styles.profileInfo}>
               <View style={styles.nameRow}>
-                <Text
+                <AppText
+                  weight="bold"
                   style={[styles.profileName, { color: colors.textPrimary }]}
                   numberOfLines={1}
                 >
                   {displayName}
-                </Text>
+                </AppText>
                 <Ionicons
                   name="checkmark-circle"
                   size={16}
@@ -495,12 +496,12 @@ export default function SettingsHomeScreen() {
                   style={styles.verifiedBadge}
                 />
               </View>
-              <Text
+              <AppText
                 style={[styles.profileUsername, { color: colors.textSecondary }]}
                 numberOfLines={1}
               >
                 {displayUsername}
-              </Text>
+              </AppText>
             </View>
 
             <Ionicons
@@ -531,9 +532,9 @@ export default function SettingsHomeScreen() {
 
           {filteredItems.length === 0 && (
             <View style={styles.emptySearch}>
-              <Text style={[styles.emptySearchText, { color: colors.textSecondary }]}>
+              <AppText style={[styles.emptySearchText, { color: colors.textSecondary }]}>
                 No settings found for "{searchQuery}"
-              </Text>
+              </AppText>
             </View>
           )}
         </View>

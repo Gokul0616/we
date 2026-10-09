@@ -4,7 +4,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Query, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import jwt
@@ -12,11 +12,9 @@ import jwt
 from shared.config import settings
 from shared.database import connect_to_mongo, close_mongo_connection
 from shared.redis_bus import event_bus
+from shared.file_storage import FileStorage, UPLOAD_DIR
 from sync_engine.engine import sync_engine
 from sync_engine import api_registry
-
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sync_gateway")
@@ -83,6 +81,35 @@ async def health_check():
         "registered_mutations": list(sync_engine.mutations.keys()),
         "active_subscriptions": len(sync_engine.subscriptions),
     }
+
+@app.post("/upload")
+async def upload_file(request: Request):
+    content_type = request.headers.get("content-type", "")
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme or "http")
+    host = request.headers.get("host") or "192.168.1.83:8000"
+    base_url = settings.BACKEND_BASE_URL or f"{proto}://{host}"
+
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        uploaded_file = form.get("file")
+        if not uploaded_file:
+            raise HTTPException(status_code=400, detail="No file selected for upload")
+        subfolder = str(form.get("folder") or "general")
+        return await FileStorage.save_upload_file(uploaded_file, subfolder=subfolder, base_url=base_url)
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    data = payload.get("data", "")
+    media_type = payload.get("media_type", "image/jpeg")
+    subfolder = payload.get("folder", "general")
+
+    if data.startswith("http://") or data.startswith("https://"):
+        return {"url": data, "status": "ok"}
+
+    return FileStorage.save_base64(data, media_type=media_type, subfolder=subfolder, base_url=base_url)
 
 # HTTP fallback for queries
 @app.post("/api/query")

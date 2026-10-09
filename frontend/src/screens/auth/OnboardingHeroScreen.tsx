@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   Image,
   TouchableOpacity,
@@ -13,7 +12,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { Colors } from "../../constants/theme";
+import { Colors, FontFamily } from "../../constants/theme";
+import { AppText } from "../../components/common/AppText";
+import { AppButton } from "../../components/common/AppButton";
 
 interface OnboardingSlide {
   id: string;
@@ -115,13 +116,15 @@ export function OnboardingHeroScreen({
           ]}
         >
           <View style={styles.textBlock}>
-            <Text style={[styles.titleLine, isSmallScreen && styles.titleSmall]}>
+            <AppText weight="extrabold" style={[styles.titleLine, isSmallScreen && styles.titleSmall]}>
               {item.title1}
-            </Text>
-            <Text style={[styles.titleLine, isSmallScreen && styles.titleSmall]}>
+            </AppText>
+            <AppText weight="extrabold" style={[styles.titleLine, isSmallScreen && styles.titleSmall]}>
               {item.title2}
-            </Text>
-            <Text style={styles.subtitle}>{item.description}</Text>
+            </AppText>
+            <AppText variant="body" style={styles.subtitle}>
+              {item.description}
+            </AppText>
           </View>
         </View>
       </View>
@@ -222,19 +225,22 @@ export function OnboardingHeroScreen({
         </View>
 
         {/* Get Started Button */}
-        <TouchableOpacity
-          style={styles.primaryButton}
-          activeOpacity={0.88}
+        <AppButton
+          title="Get Started"
+          size="lg"
           onPress={onGetStarted}
-        >
-          <Text style={styles.primaryButtonText}>Get Started</Text>
-        </TouchableOpacity>
+          style={styles.primaryButton}
+        />
 
         {/* Log In Footer Link */}
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Already have an account? </Text>
+          <AppText variant="bodySmall" style={styles.footerText}>
+            {"Already have an account? "}
+          </AppText>
           <TouchableOpacity activeOpacity={0.7} onPress={onLogIn}>
-            <Text style={styles.footerLink}>Log In</Text>
+            <AppText variant="bodySmall" weight="bold" style={styles.footerLink}>
+              Log In
+            </AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -269,7 +275,7 @@ const styles = StyleSheet.create({
   },
   titleLine: {
     fontSize: 34,
-    fontWeight: "800",
+    fontFamily: FontFamily.extraBold,
     color: "#FFFFFF",
     letterSpacing: -0.8,
     lineHeight: 40,
@@ -283,7 +289,7 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     color: "rgba(255, 255, 255, 0.82)",
     marginTop: 10,
-    fontWeight: "400",
+    fontFamily: FontFamily.regular,
     maxWidth: 320,
   },
   bottomControls: {

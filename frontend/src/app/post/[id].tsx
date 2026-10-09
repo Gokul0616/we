@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   StyleSheet,
-  Text,
   View,
-  ScrollView,
   TouchableOpacity,
   Image,
   Dimensions,
@@ -13,11 +11,13 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
 import { EXPLORE_POSTS } from "../../screens/explore/ExploreScreen";
 import { FEED_POSTS } from "../../screens/feed/FeedScreen";
 import { postService, PostItemData } from "../../services/postService";
@@ -148,6 +148,7 @@ export default function PostDetailScreen() {
   const [commentText, setCommentText] = useState("");
   const [commentsList, setCommentsList] = useState<CommentItem[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
+  const [isZooming, setIsZooming] = useState(false);
 
   // 2. Fetch logged in user and subscribe to changes
   useEffect(() => {
@@ -157,7 +158,7 @@ export default function PostDetailScreen() {
         if (prev.author_username === u.username) {
           return {
             ...prev,
-            author_avatar: resolveAvatarSource(u.avatar_url ? { uri: u.avatar_url } : prev.author_avatar),
+            author_avatar: resolveAvatarSource(u.avatar_url || prev.author_avatar),
             author_fullName: u.full_name || prev.author_fullName || u.username,
           };
         }
@@ -293,7 +294,7 @@ export default function PostDetailScreen() {
         setLikesCount(res.likesCount);
       }
     } catch (e) {
-      console.warn("Failed to toggle like:", e);
+      console.log("Failed to toggle like:", e);
     }
   };
 
@@ -303,9 +304,7 @@ export default function PostDetailScreen() {
     const text = commentText.trim();
     setCommentText("");
 
-    const myAvatar = currentUser?.avatar_url
-      ? { uri: currentUser.avatar_url }
-      : require("../../../assets/images/profile_avatar.jpg");
+    const myAvatar = resolveAvatarSource(currentUser?.avatar_url);
 
     const newCommentItem: CommentItem = {
       id: `cm_${Date.now()}`,
@@ -322,7 +321,7 @@ export default function PostDetailScreen() {
     try {
       await postService.addComment(postId, text);
     } catch (e) {
-      console.warn("Failed to add comment:", e);
+      console.log("Failed to add comment:", e);
     }
   };
 
@@ -352,7 +351,7 @@ export default function PostDetailScreen() {
       const res = await userService.toggleFollow(post.author_username);
       setIsFollowing(res.isFollowing);
     } catch (e) {
-      console.warn("Toggle follow error in post detail:", e);
+      console.log("Toggle follow error in post detail:", e);
     }
   };
 
@@ -385,8 +384,22 @@ export default function PostDetailScreen() {
     <SafeAreaView edges={["top", "bottom"]} style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
+      {/* Instagram-style backdrop overlay during pinch-to-zoom */}
+      {isZooming && (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: "rgba(0, 0, 0, 0.75)",
+              zIndex: 9990,
+            },
+          ]}
+        />
+      )}
+
       {/* 1. Header */}
-      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isZooming && { opacity: 0.15 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
@@ -396,10 +409,10 @@ export default function PostDetailScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerTitleWrap}>
-          <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>
+          <AppText weight="bold" style={[styles.headerSubtitle, { color: colors.textMuted }]}>
             {post.location ? post.location.toUpperCase() : "POST"}
-          </Text>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Post</Text>
+          </AppText>
+          <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Post</AppText>
         </View>
 
         <TouchableOpacity style={styles.headerRightBtn}>
@@ -411,9 +424,11 @@ export default function PostDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        scrollEnabled={!isZooming}
+        style={{ zIndex: isZooming ? 9999 : 1 }}
       >
         {/* 2. Post Author Row */}
-        <View style={styles.authorRow}>
+        <View style={[styles.authorRow, isZooming && { opacity: 0.15 }]}>
           <TouchableOpacity
             style={styles.authorLeft}
             activeOpacity={0.8}
@@ -421,11 +436,11 @@ export default function PostDetailScreen() {
           >
             <Image source={resolveAvatarSource(post.author_avatar)} style={styles.authorAvatar} />
             <View>
-              <Text style={[styles.authorUsername, { color: colors.textPrimary }]}>{post.author_username}</Text>
+              <AppText weight="bold" style={[styles.authorUsername, { color: colors.textPrimary }]}>{post.author_username}</AppText>
               {post.location ? (
-                <Text style={[styles.authorFullName, { color: colors.textSecondary }]}>{post.location}</Text>
+                <AppText style={[styles.authorFullName, { color: colors.textSecondary }]}>{post.location}</AppText>
               ) : (
-                <Text style={[styles.authorFullName, { color: colors.textSecondary }]}>{post.author_fullName}</Text>
+                <AppText style={[styles.authorFullName, { color: colors.textSecondary }]}>{post.author_fullName}</AppText>
               )}
             </View>
           </TouchableOpacity>
@@ -434,34 +449,39 @@ export default function PostDetailScreen() {
             <TouchableOpacity
               style={[styles.myPostBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}
               onPress={() => router.push("/(tabs)/profile")}
+              accessibilityRole="button"
             >
-              <Text style={[styles.myPostBadgeText, { color: colors.textSecondary }]}>Your Post</Text>
+              <AppText weight="semiBold" style={[styles.myPostBadgeText, { color: colors.textSecondary }]}>Your Post</AppText>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={[styles.followBtn, isFollowing && { backgroundColor: colors.surface }]}
               onPress={handleToggleFollow}
+              accessibilityRole="button"
             >
-              <Text style={[styles.followBtnText, isFollowing && { color: colors.textPrimary }]}>
+              <AppText weight="semiBold" style={[styles.followBtnText, isFollowing && { color: colors.textPrimary }]}>
                 {isFollowing ? "Following" : "Follow"}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           )}
         </View>
 
         {/* 3. Media Image / Video (Edge-to-Edge) */}
-        <View style={styles.mediaContainer}>
+        <View style={[styles.mediaContainer, isZooming && { zIndex: 9999, elevation: 9999 }]}>
           <PostMedia
             source={mediaSource}
             mediaType={post.media_type || (params as any).media_type}
             style={styles.mediaImage}
             resizeMode="cover"
             isDetailScreen
+            enableZoom={true}
+            onZoomChange={setIsZooming}
+            onDoubleTapLike={handleToggleLike}
           />
         </View>
 
         {/* 4. Action Buttons Bar (Like, Comment, Share, Save) */}
-        <View style={styles.actionsBar}>
+        <View style={[styles.actionsBar, isZooming && { opacity: 0.15 }]}>
           <View style={styles.actionsLeft}>
             <TouchableOpacity
               style={styles.actionBtn}
@@ -501,32 +521,33 @@ export default function PostDetailScreen() {
         </View>
 
         {/* 5. Likes Count */}
-        <View style={styles.detailsSection}>
-          <Text style={[styles.likesText, { color: colors.textPrimary }]}>
+        <View style={[styles.detailsSection, isZooming && { opacity: 0.15 }]}>
+          <AppText weight="bold" style={[styles.likesText, { color: colors.textPrimary }]}>
             {likesCount.toLocaleString()} {likesCount === 1 ? "like" : "likes"}
-          </Text>
+          </AppText>
 
           {/* Caption */}
           {post.caption ? (
-            <Text style={[styles.captionText, { color: colors.textPrimary }]}>
-              <Text
+            <AppText style={[styles.captionText, { color: colors.textPrimary }]}>
+              <AppText
+                weight="bold"
                 style={[styles.captionAuthor, { color: colors.textPrimary }]}
                 onPress={handleAuthorPress}
               >
                 {post.author_username}{" "}
-              </Text>
+              </AppText>
               {post.caption}
-            </Text>
+            </AppText>
           ) : null}
 
-          <Text style={[styles.timeAgo, { color: colors.textMuted }]}>{post.timeAgo}</Text>
+          <AppText style={[styles.timeAgo, { color: colors.textMuted }]}>{post.timeAgo}</AppText>
         </View>
 
         {/* 6. Comments Section */}
-        <View style={[styles.commentsSection, { borderTopColor: colors.border }]}>
-          <Text style={[styles.commentsHeading, { color: colors.textPrimary }]}>
+        <View style={[styles.commentsSection, { borderTopColor: colors.border }, isZooming && { opacity: 0.15 }]}>
+          <AppText weight="bold" style={[styles.commentsHeading, { color: colors.textPrimary }]}>
             Comments ({commentsList.length})
-          </Text>
+          </AppText>
 
           {loadingComments ? (
             <View style={{ paddingVertical: 16, alignItems: "center" }}>
@@ -535,23 +556,23 @@ export default function PostDetailScreen() {
           ) : commentsList.length === 0 ? (
             <View style={styles.emptyCommentsWrap}>
               <Ionicons name="chatbubbles-outline" size={32} color={colors.borderLight} />
-              <Text style={[styles.emptyCommentsText, { color: colors.textMuted }]}>
+              <AppText style={[styles.emptyCommentsText, { color: colors.textMuted }]}>
                 No comments yet. Start the conversation!
-              </Text>
+              </AppText>
             </View>
           ) : (
             commentsList.map((c) => (
               <View key={c.id} style={styles.commentRow}>
                 <Image source={resolveAvatarSource(c.author_avatar)} style={styles.commentAvatar} />
                 <View style={styles.commentContent}>
-                  <Text style={[styles.commentBody, { color: colors.textPrimary }]}>
-                    <Text style={[styles.commentAuthor, { color: colors.textPrimary }]}>{c.author_username} </Text>
+                  <AppText style={[styles.commentBody, { color: colors.textPrimary }]}>
+                    <AppText weight="bold" style={[styles.commentAuthor, { color: colors.textPrimary }]}>{c.author_username} </AppText>
                     {c.content}
-                  </Text>
+                  </AppText>
                   <View style={styles.commentMeta}>
-                    <Text style={[styles.commentTime, { color: colors.textMuted }]}>{c.created_at}</Text>
+                    <AppText style={[styles.commentTime, { color: colors.textMuted }]}>{c.created_at}</AppText>
                     <TouchableOpacity>
-                      <Text style={[styles.commentReply, { color: colors.textSecondary }]}>Reply</Text>
+                      <AppText weight="medium" style={[styles.commentReply, { color: colors.textSecondary }]}>Reply</AppText>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -568,7 +589,7 @@ export default function PostDetailScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={[styles.addCommentBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <View style={[styles.addCommentBar, { backgroundColor: colors.background, borderTopColor: colors.border }, isZooming && { opacity: 0.15 }]}>
           <Image
             source={resolveAvatarSource(currentUser?.avatar_url)}
             style={styles.myCommentAvatar}
@@ -583,8 +604,8 @@ export default function PostDetailScreen() {
             returnKeyType="send"
           />
           {commentText.trim().length > 0 && (
-            <TouchableOpacity onPress={handleAddComment} style={styles.postCommentBtn}>
-              <Text style={[styles.postCommentBtnText, { color: colors.primary }]}>Post</Text>
+            <TouchableOpacity onPress={handleAddComment} style={styles.postCommentBtn} accessibilityRole="button">
+              <AppText weight="bold" style={[styles.postCommentBtnText, { color: colors.primary }]}>Post</AppText>
             </TouchableOpacity>
           )}
         </View>

@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { Colors, FontFamily } from "../constants/theme";
+import { AppText } from "./common/AppText";
 
 interface WeLogoProps {
   size?: "sm" | "md" | "lg" | "xl";
@@ -16,30 +17,33 @@ export function WeLogo({
   taglineColor = "#334155",
 }: WeLogoProps) {
   const sizeMap = {
-    sm: { fontSize: 26, letterSpacing: -1, taglineSize: 10, marginTop: 2 },
-    md: { fontSize: 38, letterSpacing: -1.5, taglineSize: 13, marginTop: 4 },
-    lg: { fontSize: 52, letterSpacing: -2, taglineSize: 15, marginTop: 6 },
-    xl: { fontSize: 72, letterSpacing: -3, taglineSize: 18, marginTop: 8 },
+    sm: { fontSize: 26, lineHeight: 32, letterSpacing: -1, taglineSize: 10, marginTop: 2 },
+    md: { fontSize: 38, lineHeight: 46, letterSpacing: -1.5, taglineSize: 13, marginTop: 4 },
+    lg: { fontSize: 52, lineHeight: 62, letterSpacing: -2, taglineSize: 15, marginTop: 6 },
+    xl: { fontSize: 72, lineHeight: 84, letterSpacing: -3, taglineSize: 18, marginTop: 8 },
   };
 
   const current = sizeMap[size];
 
   return (
     <View style={styles.container}>
-      <Text
+      <AppText
+        weight="extrabold"
         style={[
           styles.logoText,
           {
             fontSize: current.fontSize,
+            lineHeight: current.lineHeight,
             letterSpacing: current.letterSpacing,
             color,
           },
         ]}
       >
         WE
-      </Text>
+      </AppText>
       {showTagline && (
-        <Text
+        <AppText
+          weight="semibold"
           style={[
             styles.tagline,
             {
@@ -50,7 +54,7 @@ export function WeLogo({
           ]}
         >
           Connect. Share. Belong.
-        </Text>
+        </AppText>
       )}
     </View>
   );

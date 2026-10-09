@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   useFonts,
   PlusJakartaSans_400Regular,
@@ -100,6 +101,16 @@ function RootLayoutNav() {
             presentation: "fullScreenModal",
             animation: Platform.OS === "android" ? "fade_from_bottom" : "slide_from_bottom",
             animationDuration: Platform.OS === "android" ? 220 : undefined,
+          }}
+        />
+        {/* In-app map picker — a normal route on purpose. `fullScreenModal`
+            falls back to a native modal on Android, and react-native-maps
+            renders a blank map inside those. A plain card with a bottom-up
+            animation keeps the map alive on both platforms. */}
+        <Stack.Screen
+          name="location-picker"
+          options={{
+            animation: "slide_from_bottom",
           }}
         />
         <Stack.Screen
@@ -217,10 +228,12 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <NotificationProvider>
-        <RootLayoutNav />
-      </NotificationProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <NotificationProvider>
+          <RootLayoutNav />
+        </NotificationProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

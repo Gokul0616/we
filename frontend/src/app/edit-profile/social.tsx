@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -16,6 +15,8 @@ import { userService } from "../../services/userService";
 import { authStorage } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 export default function SocialAccountsScreen() {
   const router = useRouter();
@@ -107,15 +108,26 @@ export default function SocialAccountsScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Social Accounts</Text>
-        <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={saving}>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Social Accounts</AppText>
+        <TouchableOpacity
+          style={styles.headerSaveButton}
+          onPress={handleSave}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel="Save social accounts"
+        >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+            <AppText weight="bold" style={[styles.headerSaveText, { color: colors.primary }]}>Save</AppText>
           )}
         </TouchableOpacity>
       </View>
@@ -134,9 +146,9 @@ export default function SocialAccountsScreen() {
                 <Ionicons name={p.icon as any} size={20} color={p.color} />
               </View>
               <View style={styles.socialCol}>
-                <Text style={[styles.socialPlatformName, { color: colors.textPrimary }]}>{p.name}</Text>
+                <AppText weight="bold" style={[styles.socialPlatformName, { color: colors.textPrimary }]}>{p.name}</AppText>
                 <TextInput
-                  style={[styles.socialHandleInput, { color: colors.textSecondary }]}
+                  style={[styles.socialHandleInput, { color: colors.textSecondary, fontFamily: FontFamily.regular }]}
                   value={p.val}
                   onChangeText={(text) =>
                     setSocialLinks((prev) => ({ ...prev, [p.key]: text }))
@@ -168,9 +180,11 @@ export default function SocialAccountsScreen() {
               { text: "Cancel", style: "cancel" },
             ]);
           }}
+          accessibilityRole="button"
+          accessibilityLabel="Add Social Account"
         >
           <Ionicons name="add" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-          <Text style={[styles.addSocialText, { color: colors.primary }]}>Add Social Account</Text>
+          <AppText weight="bold" style={[styles.addSocialText, { color: colors.primary }]}>Add Social Account</AppText>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

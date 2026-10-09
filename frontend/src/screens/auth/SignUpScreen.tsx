@@ -1,7 +1,6 @@
 import React from "react";
 import {
   StyleSheet,
-  Text,
   View,
   TouchableOpacity,
   StatusBar,
@@ -11,6 +10,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { WeLogo } from "../../components/WeLogo";
 import { GoogleIcon, AppleIcon, MailIcon } from "../../components/SocialIcons";
 import { Colors } from "../../constants/theme";
+import { AppText } from "../../components/common/AppText";
+import { useTheme } from "../../context/ThemeContext";
 
 interface SignUpScreenProps {
   onGoogleSignUp?: () => void;
@@ -31,20 +32,24 @@ export function SignUpScreen({
   onPrivacy,
   onBack,
 }: SignUpScreenProps) {
+  const { colors, isDark } = useTheme();
+
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <SafeAreaView edges={["top", "bottom"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* Top Navigation */}
       {onBack && (
         <View style={styles.navBar}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: isDark ? colors.surface : "#F8FAFC", borderColor: colors.border }]}
             onPress={onBack}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       )}
@@ -52,75 +57,121 @@ export function SignUpScreen({
       <View style={styles.content}>
         {/* Header Branding */}
         <View style={styles.brandHeader}>
-          <WeLogo size="md" color="#1E293B" />
-          <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>
+          <WeLogo size="md" color={colors.textPrimary} />
+          <AppText variant="screenTitle" style={[styles.title, { color: colors.textPrimary }]}>
+            Create your account
+          </AppText>
+          <AppText variant="body" align="center" style={[styles.subtitle, { color: colors.textSecondary }]}>
             Join a community of creators, thinkers and doers.
-          </Text>
+          </AppText>
         </View>
 
         {/* Auth Buttons Stack */}
         <View style={styles.buttonsStack}>
           {/* Google Button */}
           <TouchableOpacity
-            style={styles.socialButton}
+            style={[
+              styles.socialButton,
+              {
+                backgroundColor: isDark ? colors.card : "#FFFFFF",
+                borderColor: colors.border,
+              },
+            ]}
             activeOpacity={0.8}
             onPress={onGoogleSignUp}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Google"
           >
             <View style={styles.iconContainer}>
               <GoogleIcon size={20} />
             </View>
-            <Text style={styles.socialButtonText}>Continue with Google</Text>
+            <AppText variant="body" weight="semibold" style={[styles.socialButtonText, { color: colors.textPrimary }]}>
+              Continue with Google
+            </AppText>
             <View style={styles.iconSpacer} />
           </TouchableOpacity>
 
           {/* Apple Button */}
           <TouchableOpacity
-            style={styles.socialButton}
+            style={[
+              styles.socialButton,
+              {
+                backgroundColor: isDark ? colors.card : "#FFFFFF",
+                borderColor: colors.border,
+              },
+            ]}
             activeOpacity={0.8}
             onPress={onAppleSignUp}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Apple"
           >
             <View style={styles.iconContainer}>
-              <AppleIcon size={20} color="#000000" />
+              <AppleIcon size={20} color={colors.textPrimary} />
             </View>
-            <Text style={styles.socialButtonText}>Continue with Apple</Text>
+            <AppText variant="body" weight="semibold" style={[styles.socialButtonText, { color: colors.textPrimary }]}>
+              Continue with Apple
+            </AppText>
             <View style={styles.iconSpacer} />
           </TouchableOpacity>
 
           {/* Email Button */}
           <TouchableOpacity
-            style={styles.socialButton}
+            style={[
+              styles.socialButton,
+              {
+                backgroundColor: isDark ? colors.card : "#FFFFFF",
+                borderColor: colors.border,
+              },
+            ]}
             activeOpacity={0.8}
             onPress={onEmailSignUp}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with Email"
           >
             <View style={styles.iconContainer}>
-              <MailIcon size={20} color="#1E293B" />
+              <MailIcon size={20} color={colors.textPrimary} />
             </View>
-            <Text style={styles.socialButtonText}>Continue with Email</Text>
+            <AppText variant="body" weight="semibold" style={[styles.socialButtonText, { color: colors.textPrimary }]}>
+              Continue with Email
+            </AppText>
             <View style={styles.iconSpacer} />
           </TouchableOpacity>
         </View>
 
         {/* Legal Disclaimer */}
         <View style={styles.legalContainer}>
-          <Text style={styles.legalText}>
+          <AppText variant="caption" align="center" style={[styles.legalText, { color: colors.textMuted }]}>
             By continuing, you agree to our{"\n"}
-            <Text style={styles.legalLink} onPress={onTerms}>
+            <AppText
+              variant="caption"
+              weight="semibold"
+              style={[styles.legalLink, { color: colors.primary }]}
+              onPress={onTerms}
+            >
               Terms of Service
-            </Text>{" "}
+            </AppText>{" "}
             and{" "}
-            <Text style={styles.legalLink} onPress={onPrivacy}>
+            <AppText
+              variant="caption"
+              weight="semibold"
+              style={[styles.legalLink, { color: colors.primary }]}
+              onPress={onPrivacy}
+            >
               Privacy Policy
-            </Text>
+            </AppText>
             .
-          </Text>
+          </AppText>
         </View>
 
         {/* Footer Navigation */}
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Already have an account? </Text>
+          <AppText variant="bodySmall" style={[styles.footerText, { color: colors.textSecondary }]}>
+            {"Already have an account? "}
+          </AppText>
           <TouchableOpacity activeOpacity={0.7} onPress={onLogIn}>
-            <Text style={styles.footerLink}>Log In</Text>
+            <AppText variant="bodySmall" weight="bold" style={[styles.footerLink, { color: colors.primary }]}>
+              Log In
+            </AppText>
           </TouchableOpacity>
         </View>
       </View>

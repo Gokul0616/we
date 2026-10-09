@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -14,6 +13,9 @@ import { userService } from "../../services/userService";
 import { authStorage } from "../../services/authStorage";
 import { resolveAvatarSource, resolveCoverSource } from "../../utils/mediaHelper";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import { AppImage } from "../../components/common/AppImage";
+import { FontFamily } from "../../constants/theme";
 
 export default function ProfilePreviewScreen() {
   const router = useRouter();
@@ -46,11 +48,23 @@ export default function ProfilePreviewScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Profile Preview</Text>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+        <AppText variant="h3" weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          Profile Preview
+        </AppText>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Close preview"
+        >
           <Ionicons name="eye-outline" size={22} color={colors.primary} />
         </TouchableOpacity>
       </View>
@@ -58,11 +72,11 @@ export default function ProfilePreviewScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={[styles.previewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Cover */}
-          <Image source={resolveCoverSource(coverUri)} style={styles.previewCover} resizeMode="cover" />
+          <AppImage source={resolveCoverSource(coverUri)} style={styles.previewCover} resizeMode="cover" />
 
           {/* Avatar */}
           <View style={[styles.previewAvatarWrapper, { borderColor: colors.surface, backgroundColor: colors.surface }]}>
-            <Image source={resolveAvatarSource(avatarUri)} style={styles.previewAvatar} />
+            <AppImage source={resolveAvatarSource(avatarUri)} style={styles.previewAvatar} />
             <View style={[styles.previewAvatarBadge, { borderColor: colors.surface, backgroundColor: colors.primary }]}>
               <Ionicons name="camera" size={12} color="#FFFFFF" />
             </View>
@@ -71,11 +85,17 @@ export default function ProfilePreviewScreen() {
           {/* User Details */}
           <View style={styles.previewContent}>
             <View style={styles.previewNameRow}>
-              <Text style={[styles.previewName, { color: colors.textPrimary }]}>{name}</Text>
+              <AppText variant="h3" weight="bold" style={[styles.previewName, { color: colors.textPrimary }]}>
+                {name}
+              </AppText>
               <Ionicons name="checkmark-circle" size={18} color={colors.primary} style={{ marginLeft: 4 }} />
             </View>
-            <Text style={[styles.previewUsername, { color: colors.textSecondary }]}>@{username.replace(/^@/, "")}</Text>
-            <Text style={[styles.previewBio, { color: colors.textPrimary }]}>{bio}</Text>
+            <AppText variant="bodySmall" style={[styles.previewUsername, { color: colors.textSecondary }]}>
+              @{username.replace(/^@/, "")}
+            </AppText>
+            <AppText variant="body" style={[styles.previewBio, { color: colors.textPrimary }]}>
+              {bio}
+            </AppText>
 
             {/* Stats Row */}
             <View
@@ -85,16 +105,28 @@ export default function ProfilePreviewScreen() {
               ]}
             >
               <View style={styles.previewStatCol}>
-                <Text style={[styles.previewStatNum, { color: colors.textPrimary }]}>248</Text>
-                <Text style={[styles.previewStatLabel, { color: colors.textSecondary }]}>Posts</Text>
+                <AppText variant="subtitle" weight="bold" style={[styles.previewStatNum, { color: colors.textPrimary }]}>
+                  248
+                </AppText>
+                <AppText variant="caption" style={[styles.previewStatLabel, { color: colors.textSecondary }]}>
+                  Posts
+                </AppText>
               </View>
               <View style={styles.previewStatCol}>
-                <Text style={[styles.previewStatNum, { color: colors.textPrimary }]}>1.2K</Text>
-                <Text style={[styles.previewStatLabel, { color: colors.textSecondary }]}>Followers</Text>
+                <AppText variant="subtitle" weight="bold" style={[styles.previewStatNum, { color: colors.textPrimary }]}>
+                  1.2K
+                </AppText>
+                <AppText variant="caption" style={[styles.previewStatLabel, { color: colors.textSecondary }]}>
+                  Followers
+                </AppText>
               </View>
               <View style={styles.previewStatCol}>
-                <Text style={[styles.previewStatNum, { color: colors.textPrimary }]}>312</Text>
-                <Text style={[styles.previewStatLabel, { color: colors.textSecondary }]}>Following</Text>
+                <AppText variant="subtitle" weight="bold" style={[styles.previewStatNum, { color: colors.textPrimary }]}>
+                  312
+                </AppText>
+                <AppText variant="caption" style={[styles.previewStatLabel, { color: colors.textSecondary }]}>
+                  Following
+                </AppText>
               </View>
             </View>
 
@@ -102,7 +134,9 @@ export default function ProfilePreviewScreen() {
             {location ? (
               <View style={styles.previewMetaRow}>
                 <Ionicons name="location-outline" size={16} color={colors.textSecondary} style={{ marginRight: 6 }} />
-                <Text style={[styles.previewMetaText, { color: colors.textSecondary }]}>{location}</Text>
+                <AppText variant="bodySmall" weight="medium" style={[styles.previewMetaText, { color: colors.textSecondary }]}>
+                  {location}
+                </AppText>
                 <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={{ marginLeft: "auto" }} />
               </View>
             ) : null}
@@ -110,7 +144,9 @@ export default function ProfilePreviewScreen() {
             {website ? (
               <View style={styles.previewMetaRow}>
                 <Ionicons name="link-outline" size={16} color={colors.textSecondary} style={{ marginRight: 6 }} />
-                <Text style={[styles.previewMetaText, { color: colors.textSecondary }]}>{website}</Text>
+                <AppText variant="bodySmall" weight="medium" style={[styles.previewMetaText, { color: colors.textSecondary }]}>
+                  {website}
+                </AppText>
                 <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={{ marginLeft: "auto" }} />
               </View>
             ) : null}
@@ -139,8 +175,12 @@ export default function ProfilePreviewScreen() {
               style={[styles.previewEditBtn, { backgroundColor: colors.primary }]}
               activeOpacity={0.8}
               onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Return to Edit Profile"
             >
-              <Text style={styles.previewEditBtnText}>Edit Profile</Text>
+              <AppText variant="button" weight="bold" style={styles.previewEditBtnText}>
+                Edit Profile
+              </AppText>
             </TouchableOpacity>
           </View>
         </View>
@@ -169,7 +209,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
     color: "#0F172A",
   },
   scrollContent: {
@@ -231,17 +271,19 @@ const styles = StyleSheet.create({
   },
   previewName: {
     fontSize: 18,
-    fontWeight: "800",
+    fontFamily: FontFamily.bold,
     color: "#0F172A",
   },
   previewUsername: {
     fontSize: 14,
+    fontFamily: FontFamily.regular,
     color: "#64748B",
     marginTop: 2,
     marginBottom: 8,
   },
   previewBio: {
     fontSize: 14,
+    fontFamily: FontFamily.regular,
     color: "#334155",
     lineHeight: 20,
     marginBottom: 16,
@@ -260,11 +302,12 @@ const styles = StyleSheet.create({
   },
   previewStatNum: {
     fontSize: 16,
-    fontWeight: "800",
+    fontFamily: FontFamily.bold,
     color: "#0F172A",
   },
   previewStatLabel: {
     fontSize: 12,
+    fontFamily: FontFamily.regular,
     color: "#64748B",
     marginTop: 2,
   },
@@ -275,8 +318,8 @@ const styles = StyleSheet.create({
   },
   previewMetaText: {
     fontSize: 13,
+    fontFamily: FontFamily.medium,
     color: "#475569",
-    fontWeight: "500",
   },
   previewSocialIconsRow: {
     flexDirection: "row",
@@ -300,7 +343,7 @@ const styles = StyleSheet.create({
   },
   previewEditBtnText: {
     fontSize: 15,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
     color: "#FFFFFF",
   },
 });

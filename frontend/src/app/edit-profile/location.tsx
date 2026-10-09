@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -16,6 +15,8 @@ import { userService } from "../../services/userService";
 import { authStorage } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 const SUGGESTED_LOCATIONS = [
   "Bangalore, India",
@@ -70,15 +71,26 @@ export default function EditLocationScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Location</Text>
-        <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={saving}>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Location</AppText>
+        <TouchableOpacity
+          style={styles.headerSaveButton}
+          onPress={handleSave}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel="Save location"
+        >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+            <AppText weight="bold" style={[styles.headerSaveText, { color: colors.primary }]}>Save</AppText>
           )}
         </TouchableOpacity>
       </View>
@@ -88,14 +100,18 @@ export default function EditLocationScreen() {
         <View style={[styles.searchLocationBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Ionicons name="search" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
-            style={[styles.searchLocationInput, { color: colors.textPrimary }]}
+            style={[styles.searchLocationInput, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
             placeholder="Search location..."
             placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")}>
+            <TouchableOpacity
+              onPress={() => setSearch("")}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+            >
               <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
@@ -113,10 +129,12 @@ export default function EditLocationScreen() {
             ]}
           >
             <Ionicons name="location" size={18} color={colors.primary} style={{ marginRight: 8 }} />
-            <Text style={[styles.activeLocationText, { color: colors.primary }]}>{location}</Text>
+            <AppText weight="semiBold" style={[styles.activeLocationText, { color: colors.primary }]}>{location}</AppText>
             <TouchableOpacity
               onPress={() => setLocation("")}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Remove selected location"
             >
               <Ionicons name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -124,7 +142,7 @@ export default function EditLocationScreen() {
         ) : null}
 
         {/* Suggested Locations */}
-        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Suggested Locations</Text>
+        <AppText weight="bold" style={[styles.sectionHeading, { color: colors.textPrimary }]}>Suggested Locations</AppText>
         <View style={[styles.locationListCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {filtered.map((loc, idx) => {
             const isSelected = location.toLowerCase() === loc.toLowerCase();
@@ -137,9 +155,11 @@ export default function EditLocationScreen() {
                 ]}
                 activeOpacity={0.7}
                 onPress={() => setLocation(loc)}
+                accessibilityRole="button"
+                accessibilityLabel={loc}
               >
                 <Ionicons name="location-outline" size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
-                <Text style={[styles.locationItemText, { color: colors.textPrimary }]}>{loc}</Text>
+                <AppText weight="medium" style={[styles.locationItemText, { color: colors.textPrimary }]}>{loc}</AppText>
                 {isSelected && (
                   <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={{ marginLeft: "auto" }} />
                 )}

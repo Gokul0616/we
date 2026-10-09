@@ -1,7 +1,6 @@
 import React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
 import { ThemeMode, FontFamily } from "../../constants/theme";
+import { AppText } from "../../components/common/AppText";
 
 export default function AppearanceScreen() {
   const { colors, themeMode, isDark, setThemeMode, iosTabStyle, setIosTabStyle } = useTheme();
@@ -43,9 +43,9 @@ export default function AppearanceScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+        <AppText style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
           Choose how WE looks to you. Select a theme or match your phone's settings automatically.
-        </Text>
+        </AppText>
 
         {/* 3-Column Visual Theme Cards */}
         <View style={styles.previewGrid}>
@@ -54,6 +54,8 @@ export default function AppearanceScreen() {
             style={styles.previewCol}
             onPress={() => handleSelectMode("light")}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Select light theme"
           >
             <View
               style={[
@@ -90,17 +92,17 @@ export default function AppearanceScreen() {
               >
                 {themeMode === "light" && <View style={styles.radioInner} />}
               </View>
-              <Text
+              <AppText
+                weight={themeMode === "light" ? "bold" : "medium"}
                 style={[
                   styles.modeLabel,
                   {
                     color: colors.textPrimary,
-                    fontFamily: themeMode === "light" ? FontFamily.bold : FontFamily.medium,
                   },
                 ]}
               >
                 Light
-              </Text>
+              </AppText>
             </View>
           </TouchableOpacity>
 
@@ -109,6 +111,8 @@ export default function AppearanceScreen() {
             style={styles.previewCol}
             onPress={() => handleSelectMode("dark")}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Select dark theme"
           >
             <View
               style={[
@@ -145,17 +149,17 @@ export default function AppearanceScreen() {
               >
                 {themeMode === "dark" && <View style={styles.radioInner} />}
               </View>
-              <Text
+              <AppText
+                weight={themeMode === "dark" ? "bold" : "medium"}
                 style={[
                   styles.modeLabel,
                   {
                     color: colors.textPrimary,
-                    fontFamily: themeMode === "dark" ? FontFamily.bold : FontFamily.medium,
                   },
                 ]}
               >
                 Dark
-              </Text>
+              </AppText>
             </View>
           </TouchableOpacity>
 
@@ -164,6 +168,8 @@ export default function AppearanceScreen() {
             style={styles.previewCol}
             onPress={() => handleSelectMode("system")}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Match system theme"
           >
             <View
               style={[
@@ -197,26 +203,26 @@ export default function AppearanceScreen() {
               >
                 {themeMode === "system" && <View style={styles.radioInner} />}
               </View>
-              <Text
+              <AppText
+                weight={themeMode === "system" ? "bold" : "medium"}
                 style={[
                   styles.modeLabel,
                   {
                     color: colors.textPrimary,
-                    fontFamily: themeMode === "system" ? FontFamily.bold : FontFamily.medium,
                   },
                 ]}
               >
                 System
-              </Text>
+              </AppText>
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Grouped Options Card */}
         <View style={styles.optionsSection}>
-          <Text style={[styles.optionsHeader, { color: colors.textSecondary }]}>
+          <AppText weight="bold" style={[styles.optionsHeader, { color: colors.textSecondary }]}>
             THEME
-          </Text>
+          </AppText>
 
           <View style={[styles.optionsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {/* System Default Row */}
@@ -224,17 +230,18 @@ export default function AppearanceScreen() {
               style={styles.optionRow}
               onPress={() => handleSelectMode("system")}
               activeOpacity={0.7}
+              accessibilityRole="button"
             >
               <View style={[styles.optionIconBox, { backgroundColor: isDark ? "#18181B" : "#F1F5F9" }]}>
                 <Ionicons name="phone-portrait-outline" size={18} color={colors.textPrimary} />
               </View>
               <View style={styles.optionTextCol}>
-                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>
+                <AppText weight="semiBold" style={[styles.optionTitle, { color: colors.textPrimary }]}>
                   Match System
-                </Text>
-                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                </AppText>
+                <AppText style={[styles.optionDesc, { color: colors.textSecondary }]}>
                   Matches your phone's appearance automatically
-                </Text>
+                </AppText>
               </View>
               {themeMode === "system" && (
                 <Ionicons name="checkmark" size={20} color="#2563EB" />
@@ -248,17 +255,18 @@ export default function AppearanceScreen() {
               style={styles.optionRow}
               onPress={() => handleSelectMode("dark")}
               activeOpacity={0.7}
+              accessibilityRole="button"
             >
               <View style={[styles.optionIconBox, { backgroundColor: isDark ? "#18181B" : "#F1F5F9" }]}>
                 <Ionicons name="moon-outline" size={18} color="#3B82F6" />
               </View>
               <View style={styles.optionTextCol}>
-                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>
+                <AppText weight="semiBold" style={[styles.optionTitle, { color: colors.textPrimary }]}>
                   Dark Mode
-                </Text>
-                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                </AppText>
+                <AppText style={[styles.optionDesc, { color: colors.textSecondary }]}>
                   Easy on the eyes in low light
-                </Text>
+                </AppText>
               </View>
               {themeMode === "dark" && (
                 <Ionicons name="checkmark" size={20} color="#2563EB" />
@@ -272,17 +280,18 @@ export default function AppearanceScreen() {
               style={styles.optionRow}
               onPress={() => handleSelectMode("light")}
               activeOpacity={0.7}
+              accessibilityRole="button"
             >
               <View style={[styles.optionIconBox, { backgroundColor: isDark ? "#18181B" : "#F1F5F9" }]}>
                 <Ionicons name="sunny-outline" size={18} color="#F59E0B" />
               </View>
               <View style={styles.optionTextCol}>
-                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>
+                <AppText weight="semiBold" style={[styles.optionTitle, { color: colors.textPrimary }]}>
                   Light Mode
-                </Text>
-                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                </AppText>
+                <AppText style={[styles.optionDesc, { color: colors.textSecondary }]}>
                   Bright, clear look for daytime
-                </Text>
+                </AppText>
               </View>
               {themeMode === "light" && (
                 <Ionicons name="checkmark" size={20} color="#2563EB" />
@@ -294,9 +303,9 @@ export default function AppearanceScreen() {
         {/* iOS-Only Bottom Navigation Style */}
         {Platform.OS === "ios" && (
           <View style={styles.optionsSection}>
-            <Text style={[styles.optionsHeader, { color: colors.textSecondary }]}>
+            <AppText weight="bold" style={[styles.optionsHeader, { color: colors.textSecondary }]}>
               BOTTOM BAR STYLE
-            </Text>
+            </AppText>
 
             <View style={[styles.optionsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {/* Translucent Glass Option */}
@@ -304,17 +313,18 @@ export default function AppearanceScreen() {
                 style={styles.optionRow}
                 onPress={() => handleSelectTabStyle("native")}
                 activeOpacity={0.7}
+                accessibilityRole="button"
               >
                 <View style={[styles.optionIconBox, { backgroundColor: isDark ? "#18181B" : "#EFF6FF" }]}>
                   <Ionicons name="water-outline" size={18} color="#2563EB" />
                 </View>
                 <View style={styles.optionTextCol}>
-                  <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>
+                  <AppText weight="semiBold" style={[styles.optionTitle, { color: colors.textPrimary }]}>
                     Translucent Glass
-                  </Text>
-                  <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                  </AppText>
+                  <AppText style={[styles.optionDesc, { color: colors.textSecondary }]}>
                     Modern blurred look that floats over your feed
-                  </Text>
+                  </AppText>
                 </View>
                 {iosTabStyle === "native" && (
                   <Ionicons name="checkmark" size={20} color="#2563EB" />
@@ -328,17 +338,18 @@ export default function AppearanceScreen() {
                 style={styles.optionRow}
                 onPress={() => handleSelectTabStyle("custom")}
                 activeOpacity={0.7}
+                accessibilityRole="button"
               >
                 <View style={[styles.optionIconBox, { backgroundColor: isDark ? "#18181B" : "#EFF6FF" }]}>
                   <Ionicons name="browsers-outline" size={18} color="#2563EB" />
                 </View>
                 <View style={styles.optionTextCol}>
-                  <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>
+                  <AppText weight="semiBold" style={[styles.optionTitle, { color: colors.textPrimary }]}>
                     Solid Style
-                  </Text>
-                  <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                  </AppText>
+                  <AppText style={[styles.optionDesc, { color: colors.textSecondary }]}>
                     Clean, solid bar that matches your theme
-                  </Text>
+                  </AppText>
                 </View>
                 {iosTabStyle === "custom" && (
                   <Ionicons name="checkmark" size={20} color="#2563EB" />

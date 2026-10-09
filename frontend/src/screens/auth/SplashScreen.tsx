@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   Image,
   StatusBar,
@@ -12,7 +11,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "../../constants/theme";
+import { Colors, FontFamily } from "../../constants/theme";
+import { AppText } from "../../components/common/AppText";
+import { AppButton } from "../../components/common/AppButton";
 
 interface SplashScreenProps {
   onNext?: () => void;
@@ -44,13 +45,6 @@ export function SplashScreen({ onNext }: SplashScreenProps) {
         useNativeDriver: true,
       }),
     ]).start();
-
-    // Auto-advance after 3.2 seconds if not tapped
-    // const timer = setTimeout(() => {
-    //   onNext?.();
-    // }, 3200);
-
-    // return () => clearTimeout(timer);
   }, [onNext]);
 
   return (
@@ -74,13 +68,17 @@ export function SplashScreen({ onNext }: SplashScreenProps) {
             },
           ]}
         >
-          <Text style={styles.brandTitle}>WE</Text>
-          <Text style={styles.brandTagline}>Connect. Share. Belong.</Text>
-          <Text style={styles.description}>
+          <AppText weight="extrabold" style={styles.brandTitle}>
+            WE
+          </AppText>
+          <AppText variant="title" weight="bold" style={styles.brandTagline}>
+            Connect. Share. Belong.
+          </AppText>
+          <AppText variant="body" style={styles.description}>
             A next-generation social network for authentic conversations, visual content,
             private communities, direct messaging, discovery and real-time social
             interactions.
-          </Text>
+          </AppText>
         </Animated.View>
 
         {/* Mountain Landscape Photography Section */}
@@ -123,8 +121,12 @@ export function SplashScreen({ onNext }: SplashScreenProps) {
               style={styles.continueButton}
               activeOpacity={0.85}
               onPress={onNext}
+              accessibilityRole="button"
+              accessibilityLabel="Get Started"
             >
-              <Text style={styles.continueButtonText}>Get Started</Text>
+              <AppText variant="button" style={styles.continueButtonText}>
+                Get Started
+              </AppText>
               <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
             </TouchableOpacity>
           </SafeAreaView>
@@ -182,7 +184,7 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     fontSize: 58,
-    fontWeight: "900",
+    fontFamily: FontFamily.extraBold,
     color: "#0F172A",
     letterSpacing: -2.5,
     lineHeight: 64,
@@ -190,7 +192,7 @@ const styles = StyleSheet.create({
   },
   brandTagline: {
     fontSize: 20,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
     color: "#1E293B",
     letterSpacing: -0.4,
     marginBottom: 14,
@@ -199,7 +201,7 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     lineHeight: 22,
     color: "#64748B",
-    fontWeight: "400",
+    fontFamily: FontFamily.regular,
     maxWidth: 310,
   },
   imageContainer: {

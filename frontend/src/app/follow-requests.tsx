@@ -1,7 +1,6 @@
 import React from "react";
 import {
   StyleSheet,
-  Text,
   View,
   ScrollView,
   TouchableOpacity,
@@ -13,7 +12,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
+import { AppText } from "../components/common/AppText";
+import { AppButton } from "../components/common/AppButton";
 import { useNotifications, FollowRequestItem } from "../context/NotificationContext";
+import { resolveAvatarSource } from "../utils/mediaHelper";
 
 export default function FollowRequestsScreen() {
   const router = useRouter();
@@ -33,7 +35,7 @@ export default function FollowRequestsScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Follow Requests</Text>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Follow Requests</AppText>
         <View style={{ width: 32 }} />
       </View>
 
@@ -41,10 +43,10 @@ export default function FollowRequestsScreen() {
         {followRequests.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="person-add-outline" size={48} color={colors.textMuted} style={{ marginBottom: 16 }} />
-            <Text style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>No follow requests</Text>
-            <Text style={[styles.emptyStateDesc, { color: colors.textSecondary }]}>
-              When people ask to follow you, you'll see their requests here.
-            </Text>
+            <AppText weight="bold" style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>No follow requests</AppText>
+            <AppText style={[styles.emptyStateDesc, { color: colors.textSecondary }]}>
+              When people ask to follow you, {"you'll"} see their requests here.
+            </AppText>
           </View>
         ) : (
           followRequests.map((req: FollowRequestItem) => (
@@ -59,39 +61,37 @@ export default function FollowRequestsScreen() {
                 }}
                 activeOpacity={0.8}
               >
-                <Image 
-                  source={{ uri: req.actor_avatar || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=160&q=80" }} 
-                  style={styles.userAvatar} 
+                <Image
+                  source={resolveAvatarSource(req.actor_avatar)}
+                  style={styles.userAvatar}
                 />
               </TouchableOpacity>
 
               {/* User Info */}
               <View style={styles.userInfo}>
-                <Text style={[styles.usernameText, { color: colors.textPrimary }]} numberOfLines={1}>
+                <AppText weight="bold" style={[styles.usernameText, { color: colors.textPrimary }]} numberOfLines={1}>
                   {req.follower_username}
-                </Text>
-                <Text style={[styles.fullNameText, { color: colors.textSecondary }]} numberOfLines={1}>
+                </AppText>
+                <AppText style={[styles.fullNameText, { color: colors.textSecondary }]} numberOfLines={1}>
                   {req.actor_fullName || req.follower_username}
-                </Text>
+                </AppText>
               </View>
 
               {/* Action Buttons */}
               <View style={styles.actionRow}>
-                <TouchableOpacity
+                <AppButton
+                  title="Confirm"
+                  variant="primary"
+                  size="sm"
                   onPress={() => acceptFollowRequest(req.follower_id)}
-                  style={[styles.btn, styles.confirmBtn, { backgroundColor: colors.primary }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.confirmBtnText}>Confirm</Text>
-                </TouchableOpacity>
+                />
 
-                <TouchableOpacity
+                <AppButton
+                  title="Delete"
+                  variant="secondary"
+                  size="sm"
                   onPress={() => rejectFollowRequest(req.follower_id)}
-                  style={[styles.btn, styles.deleteBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.deleteBtnText, { color: colors.textPrimary }]}>Delete</Text>
-                </TouchableOpacity>
+                />
               </View>
             </View>
           ))

@@ -1,7 +1,6 @@
 import React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -16,6 +15,7 @@ import {
   SettingsSection,
   SettingsRow,
 } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
 
 const SOCIAL_LINKS = [
   { name: "Instagram", icon: "logo-instagram" as const, color: "#E1306C" },
@@ -27,7 +27,7 @@ const SOCIAL_LINKS = [
 
 export default function AboutWeScreen() {
   const router = useRouter();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <SafeAreaView
@@ -43,13 +43,13 @@ export default function AboutWeScreen() {
       >
         {/* Brand Center Hero */}
         <View style={styles.brandHero}>
-          <Text style={styles.brandTitle}>WE</Text>
-          <Text style={[styles.versionText, { color: colors.textSecondary }]}>
+          <AppText weight="bold" style={styles.brandTitle}>WE</AppText>
+          <AppText weight="semiBold" style={[styles.versionText, { color: colors.textSecondary }]}>
             Version 1.0.0
-          </Text>
-          <Text style={[styles.taglineText, { color: colors.textSecondary }]}>
+          </AppText>
+          <AppText weight="medium" style={[styles.taglineText, { color: colors.textSecondary }]}>
             Connect. Share. Belong.
-          </Text>
+          </AppText>
         </View>
 
         {/* Mission & Values */}
@@ -71,9 +71,9 @@ export default function AboutWeScreen() {
 
         {/* Follow Us Section */}
         <View style={styles.followSection}>
-          <Text style={[styles.followTitle, { color: colors.textSecondary }]}>
+          <AppText weight="semiBold" style={[styles.followTitle, { color: colors.textSecondary }]}>
             Follow Us
-          </Text>
+          </AppText>
           <View style={styles.socialRow}>
             {SOCIAL_LINKS.map((item) => (
               <TouchableOpacity
@@ -87,6 +87,8 @@ export default function AboutWeScreen() {
                 ]}
                 activeOpacity={0.7}
                 onPress={() => toast.info(`Follow WE on ${item.name}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`Follow WE on ${item.name}`}
               >
                 <Ionicons name={item.icon} size={22} color={item.color} />
               </TouchableOpacity>

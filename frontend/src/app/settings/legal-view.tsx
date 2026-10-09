@@ -1,9 +1,10 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
 
 interface DocContent {
   title: string;
@@ -121,9 +122,9 @@ export default function LegalViewScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.updatedText, { color: colors.textSecondary }]}>
+        <AppText style={[styles.updatedText, { color: colors.textSecondary }]}>
           Last updated: October 2026
-        </Text>
+        </AppText>
 
         {doc.sections.map((sec, idx) => (
           <View
@@ -133,12 +134,12 @@ export default function LegalViewScreen() {
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>
+            <AppText weight="bold" style={[styles.sectionHeading, { color: colors.textPrimary }]}>
               {sec.heading}
-            </Text>
-            <Text style={[styles.sectionBody, { color: colors.textSecondary }]}>
+            </AppText>
+            <AppText style={[styles.sectionBody, { color: colors.textSecondary }]}>
               {sec.body}
-            </Text>
+            </AppText>
           </View>
         ))}
       </ScrollView>

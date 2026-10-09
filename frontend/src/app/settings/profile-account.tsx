@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -22,6 +21,8 @@ import {
   SettingsSection,
   SettingsRow,
 } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 export default function ProfileAccountScreen() {
   const router = useRouter();
@@ -110,12 +111,14 @@ export default function ProfileAccountScreen() {
 
           <View style={styles.profileText}>
             <View style={styles.nameRow}>
-              <Text
+              <AppText
+                variant="subtitle"
+                weight="bold"
                 style={[styles.profileName, { color: colors.textPrimary }]}
                 numberOfLines={1}
               >
                 {displayName}
-              </Text>
+              </AppText>
               <Ionicons
                 name="checkmark-circle"
                 size={16}
@@ -123,18 +126,21 @@ export default function ProfileAccountScreen() {
                 style={styles.verifiedBadge}
               />
             </View>
-            <Text
+            <AppText
+              variant="bodySmall"
               style={[styles.profileUsername, { color: colors.textSecondary }]}
               numberOfLines={1}
             >
               {displayUsername}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
+              variant="caption"
+              weight="semibold"
               style={[styles.profileActionHint, { color: colors.primary }]}
               numberOfLines={1}
             >
               Change profile picture
-            </Text>
+            </AppText>
           </View>
 
           <Ionicons
@@ -281,7 +287,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
     maxWidth: "75%",
   },
   verifiedBadge: {
@@ -289,11 +295,12 @@ const styles = StyleSheet.create({
   },
   profileUsername: {
     fontSize: 13,
+    fontFamily: FontFamily.regular,
     marginTop: 2,
   },
   profileActionHint: {
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: FontFamily.semiBold,
     marginTop: 3,
   },
   editBtn: {

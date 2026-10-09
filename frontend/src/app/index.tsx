@@ -25,7 +25,7 @@ export default function IndexRoute() {
           return;
         }
       } catch (err) {
-        console.warn("⚠️ [IndexRoute] Auth session check failed:", err);
+        console.log("⚠️ [IndexRoute] Auth session check failed:", err);
       } finally {
         if (isMounted) {
           setCheckingAuth(false);

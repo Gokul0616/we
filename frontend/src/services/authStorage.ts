@@ -57,7 +57,7 @@ export const authStorage = {
       apiClient.setAuthToken(token);
       syncClient.setAuthToken(token);
     } catch (e) {
-      console.warn("⚠️ [authStorage] Failed to save auth token", e);
+      console.log("⚠️ [authStorage] Failed to save auth token", e);
     }
   },
 
@@ -73,7 +73,7 @@ export const authStorage = {
       }
       return token;
     } catch (e) {
-      console.warn("⚠️ [authStorage] Failed to get auth token", e);
+      console.log("⚠️ [authStorage] Failed to get auth token", e);
       return null;
     }
   },
@@ -85,7 +85,7 @@ export const authStorage = {
     try {
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
     } catch (e) {
-      console.warn("⚠️ [authStorage] Failed to save user details", e);
+      console.log("⚠️ [authStorage] Failed to save user details", e);
     }
   },
 
@@ -97,7 +97,7 @@ export const authStorage = {
       const data = await AsyncStorage.getItem(USER_KEY);
       return data ? JSON.parse(data) : null;
     } catch (e) {
-      console.warn("⚠️ [authStorage] Failed to parse user details", e);
+      console.log("⚠️ [authStorage] Failed to parse user details", e);
       return null;
     }
   },
@@ -111,7 +111,7 @@ export const authStorage = {
       apiClient.setAuthToken(null);
       syncClient.setAuthToken(null);
     } catch (e) {
-      console.warn("⚠️ [authStorage] Failed to clear auth storage", e);
+      console.log("⚠️ [authStorage] Failed to clear auth storage", e);
     }
   },
 };

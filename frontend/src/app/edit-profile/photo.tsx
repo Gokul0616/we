@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
   ActivityIndicator,
   Alert,
 } from "react-native";
@@ -14,19 +12,12 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { userService } from "../../services/userService";
-import { authStorage, StoredUser } from "../../services/authStorage";
+import { authStorage } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
-import { resolveAvatarSource, PRESET_AVATAR_MAP } from "../../utils/mediaHelper";
+import { resolveAvatarSource } from "../../utils/mediaHelper";
 import { useTheme } from "../../context/ThemeContext";
-
-const PRESET_AVATARS = [
-  { id: "asset:profile_gokul_avatar.jpg", source: PRESET_AVATAR_MAP["asset:profile_gokul_avatar.jpg"] },
-  { id: "asset:profile_avatar.jpg", source: PRESET_AVATAR_MAP["asset:profile_avatar.jpg"] },
-  { id: "asset:onboarding_hero.jpg", source: PRESET_AVATAR_MAP["asset:onboarding_hero.jpg"] },
-  { id: "asset:onboarding_slide_2.jpg", source: PRESET_AVATAR_MAP["asset:onboarding_slide_2.jpg"] },
-  { id: "asset:onboarding_slide_3.jpg", source: PRESET_AVATAR_MAP["asset:onboarding_slide_3.jpg"] },
-  { id: "asset:explore_food.jpg", source: PRESET_AVATAR_MAP["asset:explore_food.jpg"] },
-];
+import { AppText } from "../../components/common/AppText";
+import { AppImage } from "../../components/common/AppImage";
 
 export default function ChangeProfilePhotoScreen() {
   const router = useRouter();
@@ -64,7 +55,7 @@ export default function ChangeProfilePhotoScreen() {
         setCurrentAvatar(res.assets[0].uri);
       }
     } catch (e) {
-      console.warn("pickFromGallery error:", e);
+      console.log("pickFromGallery error:", e);
       toast.error("Failed to open gallery");
     }
   };
@@ -85,7 +76,7 @@ export default function ChangeProfilePhotoScreen() {
         setCurrentAvatar(res.assets[0].uri);
       }
     } catch (e) {
-      console.warn("takeWithCamera error:", e);
+      console.log("takeWithCamera error:", e);
       toast.error("Failed to open camera");
     }
   };
@@ -131,24 +122,29 @@ export default function ChangeProfilePhotoScreen() {
           onPress={() => router.back()}
           style={styles.headerLeft}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
         >
           <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
         </TouchableOpacity>
-        
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>
           Profile Photo
-        </Text>
-        
+        </AppText>
+
         <TouchableOpacity
           onPress={handleSave}
           disabled={!hasChanges || saving}
           style={styles.headerRight}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Save profile photo"
         >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text
+            <AppText
+              weight="bold"
               style={[
                 styles.headerSaveText,
                 { color: hasChanges ? colors.primary : colors.textSecondary },
@@ -156,14 +152,14 @@ export default function ChangeProfilePhotoScreen() {
               ]}
             >
               Save
-            </Text>
+            </AppText>
           )}
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.avatarSection}>
-          <Image
+          <AppImage
             source={resolveAvatarSource(currentAvatar)}
             style={[styles.avatar, { borderColor: colors.border }]}
           />
@@ -173,51 +169,31 @@ export default function ChangeProfilePhotoScreen() {
           <TouchableOpacity
             style={[styles.optionRow, { borderBottomColor: colors.border }]}
             onPress={pickFromGallery}
+            accessibilityRole="button"
+            accessibilityLabel="Choose from Library"
           >
-            <Text style={[styles.optionText, { color: colors.textPrimary }]}>Choose from Library</Text>
+            <AppText weight="medium" style={[styles.optionText, { color: colors.textPrimary }]}>Choose from Library</AppText>
             <Ionicons name="images-outline" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.optionRow, { borderBottomColor: colors.border }]}
             onPress={takeWithCamera}
+            accessibilityRole="button"
+            accessibilityLabel="Take Photo"
           >
-            <Text style={[styles.optionText, { color: colors.textPrimary }]}>Take Photo</Text>
+            <AppText weight="medium" style={[styles.optionText, { color: colors.textPrimary }]}>Take Photo</AppText>
             <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.optionRow}
             onPress={handleRemovePhoto}
+            accessibilityRole="button"
+            accessibilityLabel="Remove Current Photo"
           >
-            <Text style={[styles.optionText, { color: "#EF4444" }]}>Remove Current Photo</Text>
+            <AppText weight="medium" style={[styles.optionText, { color: "#EF4444" }]}>Remove Current Photo</AppText>
             <Ionicons name="trash-outline" size={20} color="#EF4444" />
           </TouchableOpacity>
         </View>
-
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-          PRESET AVATARS
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.presetsList}
-        >
-          {PRESET_AVATARS.map((item) => {
-            const isSelected = currentAvatar === item.id;
-            return (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => setCurrentAvatar(item.id)}
-                activeOpacity={0.8}
-                style={[
-                  styles.presetWrapper,
-                  { borderColor: isSelected ? colors.primary : "transparent" }
-                ]}
-              >
-                <Image source={item.source} style={styles.presetImage} />
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
       </ScrollView>
     </SafeAreaView>
   );
@@ -285,30 +261,5 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     fontWeight: "400",
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 32,
-    marginBottom: 12,
-    marginLeft: 20,
-  },
-  presetsList: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  presetWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    padding: 2,
-  },
-  presetImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 30,
   },
 });

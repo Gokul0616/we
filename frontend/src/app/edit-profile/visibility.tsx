@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -15,6 +14,8 @@ import { userService } from "../../services/userService";
 import { authStorage } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 type VisibilityType = "public" | "friends" | "private";
 
@@ -106,23 +107,38 @@ export default function ProfileVisibilityScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Profile Visibility</Text>
-        <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={saving}>
+        <AppText variant="h3" weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          Profile Visibility
+        </AppText>
+        <TouchableOpacity
+          style={styles.headerSaveButton}
+          onPress={handleSave}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel="Save profile visibility"
+        >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+            <AppText variant="button" weight="bold" style={[styles.headerSaveText, { color: colors.primary }]}>
+              Save
+            </AppText>
           )}
         </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+        <AppText variant="bodySmall" style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
           Choose who can view your profile and find you across WE. You can change this setting at any time.
-        </Text>
+        </AppText>
 
         {VISIBILITY_OPTIONS.map((opt) => {
           const isSelected = selectedVisibility === opt.type;
@@ -136,6 +152,9 @@ export default function ProfileVisibilityScreen() {
               ]}
               activeOpacity={0.8}
               onPress={() => setSelectedVisibility(opt.type)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={`${opt.title} visibility option`}
             >
               <View style={styles.cardHeaderRow}>
                 <View
@@ -148,7 +167,9 @@ export default function ProfileVisibilityScreen() {
                 </View>
                 <View style={styles.titleCol}>
                   <View style={styles.titleBadgeRow}>
-                    <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>{opt.title}</Text>
+                    <AppText variant="subtitle" weight="bold" style={[styles.optionTitle, { color: colors.textPrimary }]}>
+                      {opt.title}
+                    </AppText>
                     {opt.badge && (
                       <View
                         style={[
@@ -156,7 +177,9 @@ export default function ProfileVisibilityScreen() {
                           { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : opt.bgColor },
                         ]}
                       >
-                        <Text style={[styles.badgeText, { color: opt.color }]}>{opt.badge}</Text>
+                        <AppText variant="caption" weight="bold" style={[styles.badgeText, { color: opt.color }]}>
+                          {opt.badge}
+                        </AppText>
                       </View>
                     )}
                   </View>
@@ -172,7 +195,9 @@ export default function ProfileVisibilityScreen() {
                 </View>
               </View>
 
-              <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>{opt.description}</Text>
+              <AppText variant="bodySmall" style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                {opt.description}
+              </AppText>
             </TouchableOpacity>
           );
         })}
@@ -187,9 +212,9 @@ export default function ProfileVisibilityScreen() {
           ]}
         >
           <Ionicons name="shield-checkmark" size={18} color={colors.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.infoBannerText, { color: colors.primary }]}>
+          <AppText variant="bodySmall" weight="medium" style={[styles.infoBannerText, { color: colors.primary }]}>
             Changes take effect immediately across all client sessions and real-time gateways.
-          </Text>
+          </AppText>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -216,7 +241,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
     color: "#0F172A",
   },
   headerSaveButton: {
@@ -225,7 +250,7 @@ const styles = StyleSheet.create({
   },
   headerSaveText: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
     color: "#2563EB",
   },
   scrollContent: {
@@ -234,6 +259,7 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 14,
+    fontFamily: FontFamily.regular,
     color: "#64748B",
     lineHeight: 20,
     marginBottom: 16,
@@ -272,7 +298,7 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
     color: "#0F172A",
     marginRight: 8,
   },
@@ -283,7 +309,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
   },
   radioCircle: {
     width: 22,
@@ -305,6 +331,7 @@ const styles = StyleSheet.create({
   },
   optionDesc: {
     fontSize: 13,
+    fontFamily: FontFamily.regular,
     color: "#475569",
     lineHeight: 19,
   },
@@ -321,6 +348,7 @@ const styles = StyleSheet.create({
   infoBannerText: {
     flex: 1,
     fontSize: 13,
+    fontFamily: FontFamily.medium,
     color: "#1E40AF",
     lineHeight: 18,
   },

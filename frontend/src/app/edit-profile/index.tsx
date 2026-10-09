@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -18,6 +17,9 @@ import { authStorage } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
 import { resolveAvatarSource, resolveCoverSource } from "../../utils/mediaHelper";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import { AppImage } from "../../components/common/AppImage";
+import { FontFamily } from "../../constants/theme";
 
 export default function EditProfileMainScreen() {
   const router = useRouter();
@@ -97,19 +99,23 @@ export default function EditProfileMainScreen() {
           style={styles.headerIconButton}
           onPress={() => router.back()}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
         >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Profile</Text>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Profile</AppText>
         <TouchableOpacity
           style={styles.headerSaveButton}
           onPress={handleSaveAll}
           disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel="Save profile"
         >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+            <AppText weight="bold" style={[styles.headerSaveText, { color: colors.primary }]}>Save</AppText>
           )}
         </TouchableOpacity>
       </View>
@@ -117,25 +123,29 @@ export default function EditProfileMainScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Cover Photo Banner */}
         <View style={[styles.coverContainer, { backgroundColor: colors.surface }]}>
-          <Image source={resolveCoverSource(coverUri)} style={styles.coverImage} resizeMode="cover" />
+          <AppImage source={resolveCoverSource(coverUri)} style={styles.coverImage} resizeMode="cover" />
           <TouchableOpacity
             style={styles.changeCoverBtn}
             activeOpacity={0.85}
             onPress={() => router.push("/edit-profile/cover" as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Change cover photo"
           >
             <Ionicons name="camera-outline" size={16} color="#FFFFFF" />
-            <Text style={styles.changeCoverText}>Change Cover Photo</Text>
+            <AppText weight="semiBold" style={styles.changeCoverText}>Change Cover Photo</AppText>
           </TouchableOpacity>
         </View>
 
         {/* Circular Avatar Overlapping Cover */}
         <View style={styles.avatarRow}>
           <View style={[styles.avatarWrapper, { borderColor: colors.background }]}>
-            <Image source={resolveAvatarSource(avatarUri)} style={styles.avatarImage} />
+            <AppImage source={resolveAvatarSource(avatarUri)} style={styles.avatarImage} />
             <TouchableOpacity
               style={[styles.avatarCameraBadge, { borderColor: colors.background }]}
               activeOpacity={0.85}
               onPress={() => router.push("/edit-profile/photo" as any)}
+              accessibilityRole="button"
+              accessibilityLabel="Change avatar photo"
             >
               <Ionicons name="camera" size={15} color="#FFFFFF" />
             </TouchableOpacity>
@@ -146,9 +156,9 @@ export default function EditProfileMainScreen() {
         <View style={[styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Name Field */}
           <View style={styles.formGroup}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name</Text>
+            <AppText weight="semiBold" style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name</AppText>
             <TextInput
-              style={[styles.fieldInput, { color: colors.textPrimary }]}
+              style={[styles.fieldInput, { color: colors.textPrimary, fontFamily: FontFamily.semiBold }]}
               value={name}
               onChangeText={setName}
               placeholder="Your full name"
@@ -160,11 +170,11 @@ export default function EditProfileMainScreen() {
 
           {/* Username Field */}
           <View style={styles.formGroup}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Username</Text>
+            <AppText weight="semiBold" style={[styles.fieldLabel, { color: colors.textSecondary }]}>Username</AppText>
             <View style={styles.fieldRow}>
-              <Text style={[styles.fieldPrefix, { color: colors.textSecondary }]}>@</Text>
+              <AppText weight="semiBold" style={[styles.fieldPrefix, { color: colors.textSecondary }]}>@</AppText>
               <TextInput
-                style={[styles.fieldInput, { flex: 1, color: colors.textPrimary }]}
+                style={[styles.fieldInput, { flex: 1, color: colors.textPrimary, fontFamily: FontFamily.semiBold }]}
                 value={username.replace(/^@/, "")}
                 onChangeText={(val) => setUsername(val.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
                 placeholder="username"
@@ -181,14 +191,16 @@ export default function EditProfileMainScreen() {
             style={styles.formGroup}
             activeOpacity={0.7}
             onPress={() => router.push("/edit-profile/bio" as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Edit bio"
           >
             <View style={styles.fieldHeaderRow}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Bio</Text>
-              <Text style={[styles.charCountText, { color: colors.textMuted }]}>{bio.length}/150</Text>
+              <AppText weight="semiBold" style={[styles.fieldLabel, { color: colors.textSecondary }]}>Bio</AppText>
+              <AppText weight="medium" style={[styles.charCountText, { color: colors.textMuted }]}>{bio.length}/150</AppText>
             </View>
-            <Text style={[styles.bioPreviewText, { color: colors.textPrimary }]} numberOfLines={2}>
+            <AppText weight="medium" style={[styles.bioPreviewText, { color: colors.textPrimary }]} numberOfLines={2}>
               {bio || "Tell the world about yourself..."}
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -198,13 +210,15 @@ export default function EditProfileMainScreen() {
             style={styles.formRowGroup}
             activeOpacity={0.7}
             onPress={() => router.push("/edit-profile/location" as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Edit location"
           >
             <View style={[styles.iconCircle, { backgroundColor: isDark ? "#18181B" : "#EFF6FF" }]}>
               <Ionicons name="location-outline" size={18} color={colors.primary} />
             </View>
             <View style={styles.formRowTextCol}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Location</Text>
-              <Text style={[styles.formRowValue, { color: colors.textPrimary }]}>{location || "Set your location"}</Text>
+              <AppText weight="semiBold" style={[styles.fieldLabel, { color: colors.textSecondary }]}>Location</AppText>
+              <AppText weight="semiBold" style={[styles.formRowValue, { color: colors.textPrimary }]}>{location || "Set your location"}</AppText>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
@@ -218,13 +232,15 @@ export default function EditProfileMainScreen() {
             style={styles.formRowGroup}
             activeOpacity={0.7}
             onPress={() => router.push("/edit-profile/preview" as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Open profile preview"
           >
             <View style={[styles.iconCircle, { backgroundColor: isDark ? "#14532D" : "#F0FDF4" }]}>
               <Ionicons name="eye-outline" size={18} color={colors.success} />
             </View>
             <View style={styles.formRowTextCol}>
-              <Text style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Profile Preview</Text>
-              <Text style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>See how others see your profile</Text>
+              <AppText weight="semiBold" style={[styles.menuRowTitle, { color: colors.textPrimary }]}>Profile Preview</AppText>
+              <AppText style={[styles.menuRowSubtitle, { color: colors.textSecondary }]}>See how others see your profile</AppText>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>

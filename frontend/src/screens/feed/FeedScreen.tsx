@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   TouchableOpacity,
-  FlatList,
   StatusBar,
   Image,
   Dimensions,
@@ -12,12 +10,14 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
+import { FlatList } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Colors } from "../../constants/theme";
+import { Colors, FontFamily } from "../../constants/theme";
 import { postService, PostItemData } from "../../services/postService";
 import { syncClient } from "../../services/reactiveSyncClient";
+import { AppText } from "../../components/common/AppText";
 
 import { ExplorePost } from "../explore/ExploreScreen";
 import { PostMedia } from "../../components/common/PostMedia";
@@ -29,25 +29,56 @@ import { userService } from "../../services/userService";
 import { useNotifications } from "../../context/NotificationContext";
 
 // --- START: Extracted Memoized Post Component ---
-const PostCardItem = React.memo(({ 
-  item, 
-  currentUser, 
-  colors, 
-  handleToggleLike, 
-  handleToggleSave 
-}: { 
-  item: PostItem; 
+const PostCardItem = React.memo(({
+  item,
+  currentUser,
+  colors,
+  handleToggleLike,
+  handleToggleSave,
+  isZooming = false,
+  onZoomChange,
+}: {
+  item: PostItem;
   currentUser: StoredUser | null;
   colors: any;
   handleToggleLike: (id: string) => void;
   handleToggleSave: (id: string) => void;
+  isZooming?: boolean;
+  onZoomChange?: (isZooming: boolean) => void;
 }) => {
   const router = useRouter();
-  
+
+  const handleNavigateDetail = () => {
+    const mediaUri = typeof item.image === "object" && item.image?.uri ? item.image.uri : undefined;
+    const avatarUri = typeof item.author?.avatar === "object" && item.author?.avatar?.uri ? item.author.avatar.uri : undefined;
+    router.push({
+      pathname: "/post/[id]",
+      params: {
+        id: item.id,
+        media_url: mediaUri,
+        caption: item.caption || "",
+        location: item.location || "",
+        author_username: item.author?.username || "",
+        author_fullName: item.author?.fullName || "",
+        author_avatar: avatarUri,
+        likes_count: String(item.likesCount || 0),
+        comments_count: String(item.commentsCount || 0),
+        is_liked: item.isLiked ? "1" : "0",
+        media_type: item.mediaType || "photo",
+      },
+    });
+  };
+
   return (
-    <View style={[styles.postCard, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+    <View
+      style={[
+        styles.postCard,
+        { backgroundColor: colors.card, borderBottomColor: colors.border },
+        isZooming && { zIndex: 99999, elevation: 99999, overflow: "visible" },
+      ]}
+    >
       {/* Post Header */}
-      <View style={styles.postHeader}>
+      <View style={[styles.postHeader, isZooming && { opacity: 0.15 }]}>
         <TouchableOpacity
           style={styles.authorRow}
           activeOpacity={0.7}
@@ -69,12 +100,18 @@ const PostCardItem = React.memo(({
           <Image source={item.author.avatar} style={styles.authorAvatar} />
           <View style={styles.authorInfo}>
             <View style={styles.nameTimeRow}>
-              <Text style={[styles.authorUsername, { color: colors.textPrimary }]}>{item.author.username}</Text>
-              <Text style={styles.timeDot}>•</Text>
-              <Text style={[styles.postTime, { color: colors.textMuted }]}>{item.timeAgo}</Text>
+              <AppText variant="bodySmall" weight="bold" style={[styles.authorUsername, { color: colors.textPrimary }]}>
+                {item.author.username}
+              </AppText>
+              <AppText variant="caption" style={styles.timeDot}>•</AppText>
+              <AppText variant="caption" style={[styles.postTime, { color: colors.textMuted }]}>
+                {item.timeAgo}
+              </AppText>
             </View>
             {item.author.location ? (
-              <Text style={[styles.locationText, { color: colors.textSecondary }]}>{item.author.location}</Text>
+              <AppText variant="caption" style={[styles.locationText, { color: colors.textSecondary }]}>
+                {item.author.location}
+              </AppText>
             ) : null}
           </View>
         </TouchableOpacity>
@@ -85,35 +122,32 @@ const PostCardItem = React.memo(({
       </View>
 
       {/* Post Image with Rounded Corners & Indicator */}
-      <View style={{ position: "relative", zIndex: 10 }}>
-        <TouchableOpacity
-          style={[styles.imageWrapper, { backgroundColor: colors.surface }]}
-          activeOpacity={0.94}
-          onPress={() => {
-            const mediaUri = typeof item.image === "object" && item.image?.uri ? item.image.uri : undefined;
-            const avatarUri = typeof item.author?.avatar === "object" && item.author?.avatar?.uri ? item.author.avatar.uri : undefined;
-            router.push({
-              pathname: "/post/[id]",
-              params: {
-                id: item.id,
-                media_url: mediaUri,
-                caption: item.caption || "",
-                location: item.location || "",
-                author_username: item.author?.username || "",
-                author_fullName: item.author?.fullName || "",
-                author_avatar: avatarUri,
-                likes_count: String(item.likesCount || 0),
-                comments_count: String(item.commentsCount || 0),
-                is_liked: item.isLiked ? "1" : "0",
-                media_type: item.mediaType || "photo",
-              },
-            });
-          }}
+      <View style={{ position: "relative", zIndex: isZooming ? 99999 : 10, elevation: isZooming ? 99999 : 0 }}>
+        <View
+          style={[
+            styles.imageWrapper,
+            { backgroundColor: colors.surface },
+            isZooming && {
+              borderRadius: 0,
+              overflow: "visible",
+              zIndex: 99999,
+              elevation: 99999,
+            },
+          ]}
         >
-          <PostMedia source={item.image} mediaType={item.mediaType} style={styles.postImage} resizeMode="cover" />
-        </TouchableOpacity>
-        
-        <FeedActivityIndicator postId={item.id} />
+          <PostMedia
+            source={item.image}
+            mediaType={item.mediaType}
+            style={styles.postImage}
+            resizeMode="cover"
+            enableZoom={true}
+            onZoomChange={onZoomChange}
+            onPress={handleNavigateDetail}
+            onDoubleTapLike={() => handleToggleLike(item.id)}
+          />
+        </View>
+
+        {!isZooming && <FeedActivityIndicator postId={item.id} />}
       </View>
 
       {/* Actions Row */}
@@ -129,11 +163,15 @@ const PostCardItem = React.memo(({
               size={24}
               color={item.isLiked ? colors.danger : colors.textPrimary}
             />
-            <Text style={[styles.actionCount, { color: colors.textPrimary }, item.isLiked && styles.actionCountLiked]}>
+            <AppText
+              variant="bodySmall"
+              weight="semibold"
+              style={[styles.actionCount, { color: colors.textPrimary }, item.isLiked && styles.actionCountLiked]}
+            >
               {item.likesCount >= 1000
                 ? `${(item.likesCount / 1000).toFixed(1)}K`
                 : item.likesCount}
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -160,7 +198,9 @@ const PostCardItem = React.memo(({
             }}
           >
             <Ionicons name="chatbubble-outline" size={22} color={colors.textPrimary} />
-            <Text style={[styles.actionCount, { color: colors.textPrimary }]}>{item.commentsCount}</Text>
+            <AppText variant="bodySmall" weight="semibold" style={[styles.actionCount, { color: colors.textPrimary }]}>
+              {item.commentsCount}
+            </AppText>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
@@ -182,7 +222,9 @@ const PostCardItem = React.memo(({
 
       {/* Post Caption & Comments */}
       <View style={styles.captionContainer}>
-        <Text style={[styles.captionText, { color: colors.textPrimary }]}>{item.caption}</Text>
+        <AppText variant="body" style={[styles.captionText, { color: colors.textPrimary }]}>
+          {item.caption}
+        </AppText>
         <TouchableOpacity
           style={styles.viewCommentsBtn}
           activeOpacity={0.7}
@@ -206,9 +248,9 @@ const PostCardItem = React.memo(({
             });
           }}
         >
-          <Text style={[styles.viewCommentsText, { color: colors.textMuted }]}>
+          <AppText variant="metadata" style={[styles.viewCommentsText, { color: colors.textMuted }]}>
             View all {item.commentsCount} comments
-          </Text>
+          </AppText>
         </TouchableOpacity>
       </View>
     </View>
@@ -273,8 +315,8 @@ const mapBackendPost = (bp: any, currentUser?: StoredUser | null): PostItem => {
     image: bp.media_url && typeof bp.media_url === "string"
       ? { uri: resolveFullUrl(bp.media_url) }
       : bp.media_urls?.[0] && typeof bp.media_urls[0] === "string"
-      ? { uri: resolveFullUrl(bp.media_urls[0]) }
-      : require("../../../assets/images/home_feed_bali_post.jpg"),
+        ? { uri: resolveFullUrl(bp.media_urls[0]) }
+        : require("../../../assets/images/home_feed_bali_post.jpg"),
     likesCount: bp.likes_count || 0,
     commentsCount: bp.comments_count || 0,
     caption: bp.content || "",
@@ -297,6 +339,7 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
   const PAGE_SIZE = 15;
   const [bellIconRight, setBellIconRight] = useState<number | undefined>(undefined);
   const bellRef = useRef<View>(null);
+  const [zoomingPostId, setZoomingPostId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleUser = (u: StoredUser) => {
@@ -307,7 +350,7 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
             ...p,
             author: {
               ...p.author,
-              avatar: resolveAvatarSource(u.avatar_url ? { uri: u.avatar_url } : p.author.avatar),
+              avatar: resolveAvatarSource(u.avatar_url || p.author.avatar),
               fullName: u.full_name || p.author.fullName,
             }
           };
@@ -409,7 +452,7 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
         setHasMore(false);
       }
     } catch (e) {
-      console.warn("Failed to load more feed posts:", e);
+      console.log("Failed to load more feed posts:", e);
     } finally {
       isLoadingRef.current = false;
       setLoadingMore(false);
@@ -450,7 +493,7 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
     try {
       await syncClient.mutation("posts:like", { postId });
     } catch (e) {
-      console.warn("Like mutation failed:", e);
+      console.log("Like mutation failed:", e);
     }
   };
 
@@ -506,9 +549,9 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
                 </View>
               )}
             </View>
-            <Text style={[styles.storyUsername, { color: colors.textSecondary }]} numberOfLines={1}>
+            <AppText variant="caption" style={[styles.storyUsername, { color: colors.textSecondary }]} numberOfLines={1}>
               {story.username}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -516,22 +559,38 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
   );
 
   const renderPost = React.useCallback(({ item }: { item: PostItem }) => (
-    <PostCardItem 
-      item={item} 
-      currentUser={currentUser} 
-      colors={colors} 
-      handleToggleLike={handleToggleLike} 
-      handleToggleSave={handleToggleSave} 
+    <PostCardItem
+      item={item}
+      currentUser={currentUser}
+      colors={colors}
+      handleToggleLike={handleToggleLike}
+      handleToggleSave={handleToggleSave}
+      isZooming={zoomingPostId === item.id}
+      onZoomChange={(isZ) => setZoomingPostId(isZ ? item.id : null)}
     />
-  ), [currentUser, colors]);
+  ), [currentUser, colors, zoomingPostId]);
 
   return (
     <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
+      {/* Instagram-style full-screen dark backdrop overlay during pinch-to-zoom */}
+      {zoomingPostId && (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: "rgba(0, 0, 0, 0.78)",
+              zIndex: 99990,
+            },
+          ]}
+        />
+      )}
+
       {/* Top App Header */}
-      <View style={[styles.topBar, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>WE</Text>
+      <View style={[styles.topBar, { backgroundColor: colors.background, borderBottomColor: colors.border }, zoomingPostId && { opacity: 0.15 }]}>
+        <AppText variant="screenTitle" weight="extrabold" style={[styles.brandTitle, { color: colors.textPrimary }]}>WE</AppText>
         <View style={styles.topRightActions}>
           <TouchableOpacity
             style={styles.topIconBtn}
@@ -579,6 +638,7 @@ export function FeedScreen({ onSignOut }: FeedScreenProps = {}) {
         renderItem={renderPost}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+        scrollEnabled={!zoomingPostId}
         onEndReached={loadMoreFeedPosts}
         onEndReachedThreshold={0.5}
         ListFooterComponent={
@@ -623,9 +683,10 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     fontSize: 26,
-    fontWeight: "900",
+    lineHeight: 32,
+    fontFamily: FontFamily.extraBold,
     color: "#0F172A",
-    letterSpacing: -1,
+    letterSpacing: -0.5,
   },
   topRightActions: {
     flexDirection: "row",
@@ -700,7 +761,7 @@ const styles = StyleSheet.create({
   storyUsername: {
     marginTop: 6,
     fontSize: 12,
-    fontWeight: "500",
+    fontFamily: FontFamily.medium,
     color: "#334155",
     textAlign: "center",
     width: "100%",
@@ -741,7 +802,7 @@ const styles = StyleSheet.create({
   },
   authorUsername: {
     fontSize: 14.5,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
     color: "#0F172A",
     letterSpacing: -0.2,
   },
@@ -753,11 +814,13 @@ const styles = StyleSheet.create({
   postTime: {
     fontSize: 13,
     color: "#94A3B8",
+    fontFamily: FontFamily.regular,
   },
   locationText: {
     fontSize: 12,
     color: "#64748B",
     marginTop: 1,
+    fontFamily: FontFamily.regular,
   },
   imageWrapper: {
     marginHorizontal: 16,
@@ -794,7 +857,7 @@ const styles = StyleSheet.create({
   },
   actionCount: {
     fontSize: 13.5,
-    fontWeight: "600",
+    fontFamily: FontFamily.semiBold,
     color: "#0F172A",
   },
   actionCountLiked: {
@@ -807,6 +870,7 @@ const styles = StyleSheet.create({
   captionText: {
     fontSize: 14.5,
     lineHeight: 21,
+    fontFamily: FontFamily.regular,
     color: "#1E293B",
   },
   viewCommentsBtn: {
@@ -815,6 +879,6 @@ const styles = StyleSheet.create({
   viewCommentsText: {
     fontSize: 13,
     color: "#94A3B8",
-    fontWeight: "500",
+    fontFamily: FontFamily.medium,
   },
 });

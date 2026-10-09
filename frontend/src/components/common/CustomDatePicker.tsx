@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   Modal,
   TouchableOpacity,
@@ -11,6 +10,8 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
+import { FontFamily } from "../../constants/theme";
+import { AppText } from "./AppText";
 
 interface CustomDatePickerProps {
   visible: boolean;
@@ -119,7 +120,7 @@ const WheelPicker = ({ items, selectedValue, onValueChange, colors }: any) => {
                     color: colors.textPrimary,
                     opacity,
                     transform: [{ scale }],
-                    fontWeight: item.value === selectedValue ? "700" : "500",
+                    fontFamily: item.value === selectedValue ? FontFamily.bold : FontFamily.medium,
                   }
                 ]}
               >
@@ -191,12 +192,12 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.fullScreenContainer, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-            <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
+          <TouchableOpacity onPress={onClose} style={styles.headerBtn} accessibilityRole="button">
+            <AppText weight="medium" style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</AppText>
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Select Date</Text>
-          <TouchableOpacity onPress={handleConfirm} style={styles.headerBtn}>
-            <Text style={styles.confirmText}>Done</Text>
+          <AppText weight="bold" style={[styles.title, { color: colors.textPrimary }]}>Select Date</AppText>
+          <TouchableOpacity onPress={handleConfirm} style={styles.headerBtn} accessibilityRole="button">
+            <AppText weight="semiBold" style={styles.confirmText}>Done</AppText>
           </TouchableOpacity>
         </View>
         
@@ -208,8 +209,8 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           </View>
 
           <View style={styles.zodiacContainer}>
-            <Text style={styles.zodiacIcon}>{zodiac.icon}</Text>
-            <Text style={[styles.zodiacText, { color: colors.textPrimary }]}>{zodiac.sign}</Text>
+            <AppText style={styles.zodiacIcon}>{zodiac.icon}</AppText>
+            <AppText weight="semiBold" style={[styles.zodiacText, { color: colors.textPrimary }]}>{zodiac.sign}</AppText>
           </View>
         </View>
       </View>

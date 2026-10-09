@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   TextInput,
   ScrollView,
@@ -14,8 +13,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../constants/theme";
+import { useTheme } from "../context/ThemeContext";
+import { AppText } from "../components/common/AppText";
 import { EXPLORE_POSTS, ExplorePost } from "../screens/explore/ExploreScreen";
 import { authStorage, StoredUser } from "../services/authStorage";
+import { AppImage } from "../components/common/AppImage";
 
 const IMG_AVATAR = require("../../assets/images/profile_avatar.jpg");
 
@@ -39,6 +41,7 @@ const INITIAL_RECENT: RecentSearchItem[] = [
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [recentList, setRecentList] = useState<RecentSearchItem[]>(INITIAL_RECENT);
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
@@ -86,11 +89,11 @@ export default function SearchScreen() {
   }, [searchQuery]);
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SafeAreaView edges={["top", "bottom"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* Header with Search Input & Back */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => {
@@ -99,15 +102,15 @@ export default function SearchScreen() {
           }}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={17} color="#8E8E93" style={styles.searchIcon} />
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
+          <Ionicons name="search" size={17} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search creators, places, tags..."
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus={true}
@@ -120,37 +123,37 @@ export default function SearchScreen() {
               onPress={() => setSearchQuery("")}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="close-circle" size={17} color="#8E8E93" />
+              <Ionicons name="close-circle" size={17} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       <ScrollView
-        style={styles.content}
+        style={[styles.content, { backgroundColor: colors.background }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {searchQuery.trim().length > 0 ? (
           /* Search Results */
           <View style={styles.resultsContainer}>
-            <Text style={styles.resultsHeading}>
+            <AppText weight="bold" style={[styles.resultsHeading, { color: colors.textSecondary }]}>
               {filteredPosts.length} Results for "{searchQuery}"
-            </Text>
+            </AppText>
 
             {filteredPosts.length === 0 ? (
               <View style={styles.noResultsWrap}>
-                <Ionicons name="search-outline" size={48} color="#CBD5E1" />
-                <Text style={styles.noResultsTitle}>No results found</Text>
-                <Text style={styles.noResultsSub}>
+                <Ionicons name="search-outline" size={48} color={colors.textMuted} />
+                <AppText weight="bold" style={[styles.noResultsTitle, { color: colors.textPrimary }]}>No results found</AppText>
+                <AppText style={[styles.noResultsSub, { color: colors.textSecondary }]}>
                   Try searching for people, travel, food, or #photography
-                </Text>
+                </AppText>
               </View>
             ) : (
               filteredPosts.map((p) => (
                 <TouchableOpacity
                   key={p.id}
-                  style={styles.resultRow}
+                  style={[styles.resultRow, { borderBottomColor: colors.border }]}
                   activeOpacity={0.7}
                   onPress={() => handlePostPress(p)}
                 >
@@ -163,19 +166,19 @@ export default function SearchScreen() {
 
                   <View style={styles.resultInfo}>
                     <TouchableOpacity onPress={() => handleAuthorPress(p.author)}>
-                      <Text style={styles.resultUsername}>
+                      <AppText weight="bold" style={[styles.resultUsername, { color: colors.textPrimary }]}>
                         {p.author.username} {p.author.isMe && "• (You)"}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
-                    <Text style={styles.resultCaption} numberOfLines={1}>
+                    <AppText style={[styles.resultCaption, { color: colors.textSecondary }]} numberOfLines={1}>
                       {p.caption}
-                    </Text>
-                    <Text style={styles.resultMeta}>
+                    </AppText>
+                    <AppText weight="medium" style={[styles.resultMeta, { color: colors.textMuted }]}>
                       {p.category} · {p.likes.toLocaleString()} likes
-                    </Text>
+                    </AppText>
                   </View>
 
-                  <Image source={p.image} style={styles.resultThumb} resizeMode="cover" />
+                  <AppImage source={p.image} style={styles.resultThumb} resizeMode="cover" />
                 </TouchableOpacity>
               ))
             )}
@@ -184,16 +187,16 @@ export default function SearchScreen() {
           /* Recent Searches */
           <View style={styles.recentSection}>
             <View style={styles.recentHeaderRow}>
-              <Text style={styles.recentTitle}>Recent Searches</Text>
+              <AppText weight="bold" style={[styles.recentTitle, { color: colors.textPrimary }]}>Recent Searches</AppText>
               {recentList.length > 0 && (
                 <TouchableOpacity onPress={handleClearAll}>
-                  <Text style={styles.clearAllText}>Clear all</Text>
+                  <AppText weight="semiBold" style={[styles.clearAllText, { color: colors.primary }]}>Clear all</AppText>
                 </TouchableOpacity>
               )}
             </View>
 
             {recentList.length === 0 ? (
-              <Text style={styles.emptyRecentText}>No recent searches</Text>
+              <AppText style={[styles.emptyRecentText, { color: colors.textMuted }]}>No recent searches</AppText>
             ) : (
               recentList.map((item) => (
                 <TouchableOpacity
@@ -212,24 +215,24 @@ export default function SearchScreen() {
                     }
                   }}
                 >
-                  <View style={styles.recentIconCircle}>
+                  <View style={[styles.recentIconCircle, { backgroundColor: colors.surface }]}>
                     {item.type === "tag" ? (
-                      <Ionicons name="pricetag-outline" size={18} color="#0F172A" />
+                      <Ionicons name="pricetag-outline" size={18} color={colors.textPrimary} />
                     ) : (
-                      <Ionicons name="person-outline" size={18} color="#0F172A" />
+                      <Ionicons name="person-outline" size={18} color={colors.textPrimary} />
                     )}
                   </View>
                   <View style={styles.recentInfo}>
-                    <Text style={styles.recentItemTitle}>
+                    <AppText weight="bold" style={[styles.recentItemTitle, { color: colors.textPrimary }]}>
                       {item.title} {item.isMe && "• (You)"}
-                    </Text>
-                    <Text style={styles.recentItemSubtitle}>{item.subtitle}</Text>
+                    </AppText>
+                    <AppText style={[styles.recentItemSubtitle, { color: colors.textSecondary }]}>{item.subtitle}</AppText>
                   </View>
                   <TouchableOpacity
                     onPress={() => handleRemoveRecent(item.id)}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="close" size={18} color="#94A3B8" />
+                    <Ionicons name="close" size={18} color={colors.textMuted} />
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))

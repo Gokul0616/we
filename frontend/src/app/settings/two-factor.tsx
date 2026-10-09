@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ScrollView, StyleSheet, View, Text } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -12,6 +12,7 @@ import {
   SettingsSwitchRow,
   SettingsRow,
 } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
 
 export default function TwoFactorScreen() {
   const { colors, isDark } = useTheme();
@@ -72,12 +73,12 @@ export default function TwoFactorScreen() {
           <View style={[styles.iconCircle, { backgroundColor: isDark ? "#18181B" : "#EFF6FF" }]}>
             <Ionicons name="shield-checkmark" size={36} color="#2563EB" />
           </View>
-          <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
+          <AppText weight="bold" style={[styles.heroTitle, { color: colors.textPrimary }]}>
             Protect your WE account
-          </Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+          </AppText>
+          <AppText style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             Add an extra layer of security. We'll ask for a login code whenever you sign in on an unrecognized device.
-          </Text>
+          </AppText>
         </View>
 
         <SettingsSection title="Status">

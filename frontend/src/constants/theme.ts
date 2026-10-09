@@ -71,6 +71,21 @@ export const DarkColors: ThemeColors = {
 
 export const Colors = LightColors;
 
+/**
+ * Returns `color` (a `#RRGGBB` theme token) with the supplied alpha channel.
+ * Lets screens tint with `colors.primary` / `colors.danger` etc. and stay
+ * correct in both light and dark themes instead of hardcoding rgba values.
+ */
+export function withAlpha(color: string, opacity: number): string {
+  const hex = color.replace("#", "");
+  if (hex.length !== 6) return color;
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const a = Math.max(0, Math.min(1, opacity));
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
 export const FontFamily = {
   regular: "PlusJakartaSans_400Regular",
   medium: "PlusJakartaSans_500Medium",
@@ -101,6 +116,20 @@ export const Typography = {
     fontWeight: "600" as const,
     color: Colors.textPrimary,
   },
+  title: {
+    fontFamily: FontFamily.bold,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "700" as const,
+    color: Colors.textPrimary,
+  },
+  subheading: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "600" as const,
+    color: Colors.textPrimary,
+  },
   body: {
     fontFamily: FontFamily.regular,
     fontSize: 15,
@@ -113,6 +142,13 @@ export const Typography = {
     fontSize: 15,
     lineHeight: 22,
     fontWeight: "500" as const,
+    color: Colors.textPrimary,
+  },
+  bodySmall: {
+    fontFamily: FontFamily.regular,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "400" as const,
     color: Colors.textPrimary,
   },
   metadata: {
@@ -129,7 +165,72 @@ export const Typography = {
     fontWeight: "400" as const,
     color: Colors.textSecondary,
   },
+  label: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600" as const,
+    color: Colors.textPrimary,
+  },
+  button: {
+    fontFamily: FontFamily.bold,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "700" as const,
+    color: Colors.white,
+  },
+  link: {
+    fontFamily: FontFamily.bold,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700" as const,
+    color: Colors.primary,
+  },
+  heading: {
+    fontFamily: FontFamily.bold,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "700" as const,
+    color: Colors.textPrimary,
+  },
+  subtitle: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "600" as const,
+    color: Colors.textPrimary,
+  },
+  h1: {
+    fontFamily: FontFamily.extraBold,
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: "800" as const,
+    color: Colors.textPrimary,
+  },
+  h2: {
+    fontFamily: FontFamily.bold,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: "700" as const,
+    color: Colors.textPrimary,
+  },
+  h3: {
+    fontFamily: FontFamily.bold,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "700" as const,
+    color: Colors.textPrimary,
+  },
+  h4: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "600" as const,
+    color: Colors.textPrimary,
+  },
 };
+
+export type TypographyVariant = keyof typeof Typography;
 
 export const Spacing = {
   xs: 4,
@@ -148,3 +249,56 @@ export const Radius = {
   xl: 24,
   pill: 9999,
 };
+
+export const ButtonStyles = {
+  height: {
+    sm: 36,
+    md: 48,
+    lg: 54,
+  },
+  radius: {
+    sm: Radius.sm,
+    md: Radius.md,
+    lg: Radius.xl,
+    pill: Radius.pill,
+  },
+  typography: {
+    sm: {
+      fontFamily: FontFamily.semiBold,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    md: {
+      fontFamily: FontFamily.semiBold,
+      fontSize: 15,
+      lineHeight: 20,
+    },
+    lg: {
+      fontFamily: FontFamily.bold,
+      fontSize: 16,
+      lineHeight: 22,
+    },
+  },
+};
+
+export const InputStyles = {
+  height: {
+    sm: 42,
+    md: 48,
+    lg: 54,
+  },
+  radius: Radius.md,
+  typography: {
+    fontSize: 15,
+    fontFamily: FontFamily.regular,
+  },
+  labelTypography: {
+    fontSize: 13.5,
+    fontFamily: FontFamily.semiBold,
+  },
+  helperTypography: {
+    fontSize: 12,
+    fontFamily: FontFamily.regular,
+  },
+};
+

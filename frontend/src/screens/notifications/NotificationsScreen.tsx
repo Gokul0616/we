@@ -1,13 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   ScrollView,
   TouchableOpacity,
-  Image,
   StatusBar,
   RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,15 +17,10 @@ import { userService } from "../../services/userService";
 import { toast } from "../../services/toastService";
 import { authStorage, StoredUser } from "../../services/authStorage";
 import { useNotifications, NotificationItem } from "../../context/NotificationContext";
-import { resolveAvatarSource, resolveFullUrl } from "../../utils/mediaHelper";
-
-// Local image references
-const IMG_SANTORINI = require("../../../assets/images/explore_santorini.jpg");
-const IMG_FOOD = require("../../../assets/images/explore_food.jpg");
-const IMG_CINQUE = require("../../../assets/images/cinque_terre_post.jpg");
-const IMG_BALI = require("../../../assets/images/home_feed_bali_post.jpg");
-
-const strId = (n: any) => String(n.id || n._id || n);
+import { DEFAULT_AVATAR, resolveAvatarSource, resolveFullUrl } from "../../utils/mediaHelper";
+import { AppText } from "../../components/common/AppText";
+import { AppImage } from "../../components/common/AppImage";
+import { syncClient } from "../../services/reactiveSyncClient";
 
 const formatTimeAgo = (dateStr: string) => {
   if (!dateStr) return "just now";
@@ -52,19 +46,30 @@ export function NotificationsScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const [activeFilter, setActiveFilter] = useState<"All" | "Follows" | "Likes" | "Comments">("All");
+  const [screenNotifications, setScreenNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const { notifications, followRequests, unreadCount, markAllAsRead, clearAllNotifications, refreshNotifications } = useNotifications();
 
-  React.useEffect(() => {
+  // Show the spinner again when the active filter changes. Adjusting state
+  // during render (guarded by the previous value) is the React-sanctioned
+  // alternative to calling setState synchronously inside an effect.
+  const [prevFilter, setPrevFilter] = useState(activeFilter);
+  if (prevFilter !== activeFilter) {
+    setPrevFilter(activeFilter);
+    setLoading(true);
+  }
+
+  const { followRequests, unreadCount, markAllAsRead, clearAllNotifications, refreshNotifications } = useNotifications();
+
+  // Load current user and mark unread as read on mount
+  useEffect(() => {
     let isCancelled = false;
     authStorage.getUser().then(u => {
       if (!isCancelled) setCurrentUser(u);
     });
 
-    // Mark all as read when screen mounts
     if (unreadCount > 0) {
       markAllAsRead();
     }
@@ -74,19 +79,99 @@ export function NotificationsScreen() {
     };
   }, [unreadCount, markAllAsRead]);
 
-  const onRefresh = React.useCallback(() => {
-    setIsRefreshing(true);
-    refreshNotifications();
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
-  }, [refreshNotifications]);
+  // Merge freshly-fetched notifications, seeding per-actor follow state from
+  // the backend's `is_following` so an actor we already follow shows
+  // "Following" instead of "Follow Back". In-session toggles always win.
+  const applyNotifications = useCallback((data: unknown) => {
+    if (!Array.isArray(data)) return;
+    setScreenNotifications(data as NotificationItem[]);
+    setFollowingMap((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const n of data as NotificationItem[]) {
+        const username = n.actor_username;
+        if (
+          username &&
+          typeof (n as NotificationItem & { is_following?: boolean }).is_following === "boolean" &&
+          !(username in next)
+        ) {
+          next[username] = Boolean(
+            (n as NotificationItem & { is_following?: boolean }).is_following
+          );
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, []);
 
-  const toggleFollow = async (id: string, targetUsername: string) => {
-    const nextFollowing = !followingMap[id];
+  // Fetch notifications from backend whenever activeFilter changes
+  useEffect(() => {
+    let isCancelled = false;
+    const filterParam = activeFilter === "All" ? undefined : activeFilter.toLowerCase();
+
+    // Loading is turned on by the render-time filter adjustment above (mount
+    // starts with loading = true), never synchronously inside this effect.
+
+    // Initial backend query with the selected filter
+    userService.getNotifications(filterParam).then((data) => {
+      if (!isCancelled) {
+        applyNotifications(data);
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (!isCancelled) setLoading(false);
+    });
+
+    // Reactive sync subscription for the selected filter
+    const unsub = syncClient.subscribe(
+      "notifications:list",
+      { filter: filterParam },
+      (liveData) => {
+        if (!isCancelled) {
+          applyNotifications(liveData);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      isCancelled = true;
+      unsub();
+    };
+  }, [activeFilter, applyNotifications]);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    const filterParam = activeFilter === "All" ? undefined : activeFilter.toLowerCase();
+    try {
+      const data = await userService.getNotifications(filterParam);
+      applyNotifications(data);
+      refreshNotifications();
+    } catch (e) {
+      console.log("Failed to refresh notifications:", e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [activeFilter, refreshNotifications, applyNotifications]);
+
+  const handleClearAll = async () => {
+    try {
+      await clearAllNotifications();
+      setScreenNotifications([]);
+      toast.success("Notifications cleared");
+    } catch (e) {
+      console.log("Failed to clear notifications:", e);
+    }
+  };
+
+  // Follow state is per-actor (keyed by username), not per-notification, so a
+  // "Follow Back" tap updates every row for that user at once.
+  const toggleFollow = async (targetUsername: string) => {
+    const nextFollowing = !followingMap[targetUsername];
     setFollowingMap((prev) => ({
       ...prev,
-      [id]: nextFollowing,
+      [targetUsername]: nextFollowing,
     }));
     if (nextFollowing) {
       toast.success(`Following @${targetUsername}`);
@@ -98,10 +183,10 @@ export function NotificationsScreen() {
       const res = await userService.toggleFollow(targetUsername);
       setFollowingMap((prev) => ({
         ...prev,
-        [id]: res.isFollowing,
+        [targetUsername]: res.isFollowing,
       }));
     } catch (e) {
-      console.warn("Toggle follow error in notifications:", e);
+      console.log("Toggle follow error in notifications:", e);
     }
   };
 
@@ -121,12 +206,12 @@ export function NotificationsScreen() {
     }
   };
 
-  // Helper to map DB notifications to UI format
-  const mappedNotifications = React.useMemo(() => {
-    const items = notifications.map(n => {
+  // Map backend notifications to UI items
+  const mappedNotifications = useMemo(() => {
+    const items = screenNotifications.map(n => {
       let type: "like" | "comment" | "follow" | "mention" | "follow_request" = "like";
       let actionText = "interacted with you";
-      
+
       switch (n.type) {
         case "FOLLOW": type = "follow"; actionText = "started following you."; break;
         case "FOLLOW_REQUEST": type = "follow_request"; actionText = "requested to follow you."; break;
@@ -145,17 +230,20 @@ export function NotificationsScreen() {
         type,
         user: {
           username: n.actor_username || "system",
-          avatar: n.actor_avatar ? resolveAvatarSource(n.actor_avatar) : require("../../../assets/images/default_avatar.png")
+          avatar: n.actor_avatar ? resolveAvatarSource(n.actor_avatar) : DEFAULT_AVATAR
         },
         text: actionText,
         timeAgo: formatTimeAgo(n.created_at),
-        isFollowing: false, // Could be fetched or synced from local state
-        postImage: ["LIKE", "COMMENT", "REPLY", "MENTION", "REPOST"].includes(n.type) ? IMG_BALI : undefined, // Replace with actual post thumbnail if available
+        isFollowing: Boolean(n.is_following),
+        postImage: (() => {
+          const resolved = n.post_media_url ? resolveFullUrl(n.post_media_url) : null;
+          return resolved ? { uri: resolved } : undefined;
+        })(),
       };
     });
 
     if (items.length === 0) {
-      return []; // Return empty array to render empty state
+      return [];
     }
 
     return [
@@ -164,18 +252,20 @@ export function NotificationsScreen() {
         items: items
       }
     ];
-  }, [notifications]);
+  }, [screenNotifications]);
 
-  const filteredSections = mappedNotifications.map((section) => {
-    if (activeFilter === "All") return section;
-    const filteredItems = section.items.filter((item) => {
-      if (activeFilter === "Follows") return item.type === "follow";
-      if (activeFilter === "Likes") return item.type === "like";
-      if (activeFilter === "Comments") return item.type === "comment" || item.type === "mention";
-      return true;
-    });
-    return { ...section, items: filteredItems };
-  }).filter((section) => section.items.length > 0);
+  const filteredSections = useMemo(() => {
+    if (activeFilter === "All") return mappedNotifications;
+    return mappedNotifications.map((section) => {
+      const filteredItems = section.items.filter((item) => {
+        if (activeFilter === "Follows") return item.type === "follow" || item.type === "follow_request";
+        if (activeFilter === "Likes") return item.type === "like";
+        if (activeFilter === "Comments") return item.type === "comment" || item.type === "mention";
+        return true;
+      });
+      return { ...section, items: filteredItems };
+    }).filter((section) => section.items.length > 0);
+  }, [mappedNotifications, activeFilter]);
 
   return (
     <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: colors.background }]}>
@@ -190,9 +280,9 @@ export function NotificationsScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
-        <TouchableOpacity onPress={clearAllNotifications}>
-          <Text style={{ fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.primary }}>Clear All</Text>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</AppText>
+        <TouchableOpacity onPress={handleClearAll}>
+          <AppText weight="semiBold" style={{ fontSize: 14, color: Colors.primary }}>Clear All</AppText>
         </TouchableOpacity>
       </View>
 
@@ -210,7 +300,8 @@ export function NotificationsScreen() {
                 isActive && { backgroundColor: colors.primary },
               ]}
             >
-              <Text
+              <AppText
+                weight={isActive ? "bold" : "medium"}
                 style={[
                   styles.filterPillText,
                   { color: colors.textSecondary },
@@ -218,7 +309,7 @@ export function NotificationsScreen() {
                 ]}
               >
                 {filter}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           );
         })}
@@ -231,10 +322,10 @@ export function NotificationsScreen() {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* 3. Follow Requests Banner (Instagram Style) */}
-        {followRequests.length > 0 && (
-          <TouchableOpacity 
-            style={[styles.requestsBanner, { borderBottomColor: colors.border }]} 
+        {/* 3. Follow Requests Banner (Instagram Style - shown on All & Follows) */}
+        {followRequests.length > 0 && (activeFilter === "All" || activeFilter === "Follows") && (
+          <TouchableOpacity
+            style={[styles.requestsBanner, { borderBottomColor: colors.border }]}
             activeOpacity={0.7}
             onPress={() => router.push("/follow-requests")}
           >
@@ -243,13 +334,13 @@ export function NotificationsScreen() {
                 <Ionicons name="person-add" size={18} color={colors.textPrimary} />
               </View>
               <View>
-                <Text style={[styles.requestsTitle, { color: colors.textPrimary }]}>Follow requests</Text>
-                <Text style={[styles.requestsSubtitle, { color: colors.textSecondary }]}>Approve or ignore requests</Text>
+                <AppText weight="bold" style={[styles.requestsTitle, { color: colors.textPrimary }]}>Follow requests</AppText>
+                <AppText style={[styles.requestsSubtitle, { color: colors.textSecondary }]}>Approve or ignore requests</AppText>
               </View>
             </View>
             <View style={styles.requestsRight}>
               <View style={[styles.requestsCountBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.requestsCountText}>{followRequests.length}</Text>
+                <AppText weight="bold" style={styles.requestsCountText}>{followRequests.length}</AppText>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </View>
@@ -257,26 +348,58 @@ export function NotificationsScreen() {
         )}
 
         {/* 4. Time-Grouped Notification List OR Empty State */}
-        {filteredSections.length === 0 ? (
-          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 32 }}>
-            <Ionicons name="notifications-off-outline" size={48} color={colors.textMuted} style={{ marginBottom: 16 }} />
-            <Text style={{ fontFamily: FontFamily.bold, fontSize: 18, color: colors.textPrimary, marginBottom: 8 }}>No notifications</Text>
-            <Text style={{ fontFamily: FontFamily.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
-              When people like, comment, or interact with you, you'll see it here.
-            </Text>
+        {loading && screenNotifications.length === 0 ? (
+          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        ) : filteredSections.length === 0 ? (
+          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 32 }}>
+            <Ionicons
+              name={
+                activeFilter === "Follows"
+                  ? "person-add-outline"
+                  : activeFilter === "Likes"
+                    ? "heart-outline"
+                    : activeFilter === "Comments"
+                      ? "chatbubble-ellipses-outline"
+                      : "notifications-off-outline"
+              }
+              size={48}
+              color={colors.textMuted}
+              style={{ marginBottom: 16 }}
+            />
+            <AppText weight="bold" style={{ fontSize: 18, color: colors.textPrimary, marginBottom: 8 }}>
+              {activeFilter === "Follows"
+                ? "No follow notifications"
+                : activeFilter === "Likes"
+                  ? "No likes yet"
+                  : activeFilter === "Comments"
+                    ? "No comments yet"
+                    : "No notifications"}
+            </AppText>
+            <AppText style={{ fontSize: 14, color: colors.textSecondary, textAlign: "center", lineHeight: 20 }}>
+              {activeFilter === "Follows"
+                ? "When someone starts following you or requests to follow, you'll see it here."
+                : activeFilter === "Likes"
+                  ? "When someone likes or reposts your posts, you'll see it here."
+                  : activeFilter === "Comments"
+                    ? "When someone comments or replies to your posts, you'll see it here."
+                    : "When people like, comment, or interact with you, you'll see it here."}
+            </AppText>
           </View>
         ) : (
           filteredSections.map((section) => (
             <View key={section.title} style={styles.sectionContainer}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{section.title}</Text>
+              <AppText weight="bold" style={[styles.sectionTitle, { color: colors.textPrimary }]}>{section.title}</AppText>
 
               {section.items.map((item) => {
-                const isFollowing = !!followingMap[item.id];
+                const isFollowing = !!followingMap[item.user.username];
+                const isSelfRow = !!currentUser?.username && currentUser.username === item.user.username;
                 return (
-                  <TouchableOpacity 
-                    key={item.id} 
+                  <TouchableOpacity
+                    key={item.id}
                     style={[
-                      styles.notificationRow, 
+                      styles.notificationRow,
                       item.raw && !item.raw.read && { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }
                     ]}
                     onPress={() => item.raw && handleNotificationPress(item.raw)}
@@ -296,50 +419,59 @@ export function NotificationsScreen() {
                       }}
                       activeOpacity={0.8}
                     >
-                      <Image source={item.user.avatar} style={styles.userAvatar} />
+                      <AppImage
+                        source={item.user.avatar}
+                        style={styles.userAvatar}
+                        showLoader={false}
+                        fallbackSource={DEFAULT_AVATAR}
+                      />
                     </TouchableOpacity>
 
                     {/* Notification Description */}
                     <View style={styles.notificationContent}>
-                      <Text style={[styles.notificationText, { color: colors.textPrimary }]}>
-                        <Text style={[styles.notificationUsername, { color: colors.textPrimary }]}>
+                      <AppText style={[styles.notificationText, { color: colors.textPrimary }]}>
+                        <AppText weight="bold" style={[styles.notificationUsername, { color: colors.textPrimary }]}>
                           {item.user.username}{" "}
-                        </Text>
+                        </AppText>
                         {item.text}{" "}
-                        <Text style={[styles.notificationTime, { color: colors.textMuted }]}>{item.timeAgo}</Text>
-                      </Text>
+                        <AppText style={[styles.notificationTime, { color: colors.textMuted }]}>{item.timeAgo}</AppText>
+                      </AppText>
                     </View>
 
                     {/* Right Trailing Action: Follow/Following Button OR Post Thumbnail */}
                     {item.type === "follow" || item.type === "follow_request" ? (
+                      !isSelfRow ? (
                       <TouchableOpacity
-                        onPress={() => toggleFollow(item.id, item.user.username)}
+                        onPress={() => toggleFollow(item.user.username)}
                         style={[
                           styles.followBtn,
                           { backgroundColor: colors.primary },
                           isFollowing && { backgroundColor: colors.surface },
                         ]}
                         activeOpacity={0.8}
+                        accessibilityRole="button"
                       >
-                        <Text
+                        <AppText
+                          weight="semiBold"
                           style={[
                             styles.followBtnText,
                             isFollowing && { color: colors.textPrimary },
                           ]}
                         >
                           {isFollowing ? "Following" : "Follow Back"}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
+                      ) : null
                     ) : item.postImage ? (
                       <TouchableOpacity activeOpacity={0.8} onPress={() => item.raw && handleNotificationPress(item.raw)}>
-                        <Image
+                        <AppImage
                           source={item.postImage}
                           style={styles.postThumbnail}
                           resizeMode="cover"
                         />
                       </TouchableOpacity>
                     ) : null}
-                    
+
                     {item.raw && !item.raw.read && (
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, marginLeft: 8 }} />
                     )}

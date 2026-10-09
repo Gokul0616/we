@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,7 @@ import { toast } from "../../services/toastService";
 import { authStorage } from "../../services/authStorage";
 import { userService } from "../../services/userService";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
 
 const TOPICS = [
   { id: "tech", label: "Technology", icon: "laptop-outline" as const },
@@ -83,13 +84,15 @@ export default function InterestedTopicsScreen() {
             onPress={handleSave}
             disabled={saving}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Save interested topics"
           >
             {saving ? (
               <ActivityIndicator size="small" color="#2563EB" />
             ) : (
-              <Text style={{ fontSize: 16, fontFamily: FontFamily.bold, color: "#2563EB" }}>
+              <AppText weight="bold" style={{ fontSize: 16, color: "#2563EB" }}>
                 Save
-              </Text>
+              </AppText>
             )}
           </TouchableOpacity>
         }
@@ -100,9 +103,9 @@ export default function InterestedTopicsScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.instruction, { color: colors.textSecondary }]}>
+        <AppText style={[styles.instruction, { color: colors.textSecondary }]}>
           Select topics you love to help us personalize your feed, recommendations, and search results.
-        </Text>
+        </AppText>
 
         <View style={styles.chipsContainer}>
           {TOPICS.map((topic) => {
@@ -123,6 +126,8 @@ export default function InterestedTopicsScreen() {
                 ]}
                 onPress={() => toggleTopic(topic.id)}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={topic.label}
               >
                 <Ionicons
                   name={topic.icon}
@@ -134,19 +139,19 @@ export default function InterestedTopicsScreen() {
                   }
                   style={styles.chipIcon}
                 />
-                <Text
+                <AppText
+                  weight={isSelected ? "bold" : "medium"}
                   style={[
                     styles.chipText,
                     {
                       color: isSelected
                         ? (isDark ? "#FFFFFF" : "#2563EB")
                         : colors.textPrimary,
-                      fontFamily: isSelected ? FontFamily.bold : FontFamily.medium,
                     },
                   ]}
                 >
                   {topic.label}
-                </Text>
+                </AppText>
                 {isSelected && (
                   <Ionicons
                     name="checkmark-circle"

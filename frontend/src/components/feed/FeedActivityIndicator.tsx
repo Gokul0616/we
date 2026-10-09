@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity, Easing, Dimensions } from 'react-native';
+import { View, StyleSheet, Animated, TouchableOpacity, Easing, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useRouter } from 'expo-router';
 import { FontFamily } from '../../constants/theme';
+import { AppText } from '../common/AppText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -210,14 +211,15 @@ export function FeedActivityIndicator({ postId, isGlobal, bellIconCenterX }: Fee
                     item.icon === 'chatbubble' ? '#3B82F6' : '#10B981'
                   )}
                 />
-                <Text
+                <AppText
+                  weight="extrabold"
                   style={[
                     styles.countText,
                     { color: isGlobal ? '#FFFFFF' : colors.textPrimary },
                   ]}
                 >
                   {item.count}
-                </Text>
+                </AppText>
               </View>
             </React.Fragment>
           ))}
@@ -327,8 +329,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 14,
-    fontFamily: FontFamily.bold,
-    fontWeight: '800',
+    fontFamily: FontFamily.extraBold,
     letterSpacing: -0.3,
   },
 });

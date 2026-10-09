@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   TextInput,
   ScrollView,
@@ -16,6 +15,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors, FontFamily } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import * as Haptics from "expo-haptics";
+import { SwitchAccountModal } from "../../components/common/SwitchAccountModal";
+import { authStorage, StoredUser } from "../../services/authStorage";
+import { userService } from "../../services/userService";
+import { resolveAvatarSource } from "../../utils/mediaHelper";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -184,6 +189,22 @@ export function MessagesScreen() {
   const [activeTab, setActiveTab] = useState<"primary" | "general" | "requests">("primary");
   const [refreshing, setRefreshing] = useState(false);
 
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
+  const [showAccountSwitch, setShowAccountSwitch] = useState(false);
+
+  React.useEffect(() => {
+    authStorage.getUser().then((u) => {
+      if (u) setCurrentUser(u);
+    });
+    userService.getProfile().then((u) => {
+      if (u) setCurrentUser(u);
+    });
+    const unsub = userService.subscribe((u) => {
+      if (u) setCurrentUser(u);
+    });
+    return unsub;
+  }, []);
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     setTimeout(() => {
@@ -206,12 +227,32 @@ export function MessagesScreen() {
     <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
-      {/* 1. Instagram Direct Header */}
+      {/* 1. Instagram Direct Header with Switch Account Dropdown */}
       <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerUsername, { color: colors.textPrimary }]}>we.messages</Text>
+        <TouchableOpacity
+          style={styles.headerLeft}
+          activeOpacity={0.7}
+          onPress={() => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            } catch (_) {}
+            setShowAccountSwitch(true);
+          }}
+          onLongPress={() => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            } catch (_) {}
+            setShowAccountSwitch(true);
+          }}
+          delayLongPress={280}
+          accessibilityRole="button"
+          accessibilityLabel="Switch accounts"
+        >
+          <AppText weight="bold" style={[styles.headerUsername, { color: colors.textPrimary }]} numberOfLines={1}>
+            {currentUser?.username ? `@${currentUser.username}` : "we.messages"}
+          </AppText>
           <Ionicons name="chevron-down" size={14} color={colors.textPrimary} style={{ marginLeft: 4 }} />
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerIconBtn}>
@@ -273,9 +314,9 @@ export function MessagesScreen() {
                   note.isSelf && { backgroundColor: colors.surfaceHighlight },
                 ]}
               >
-                <Text style={[styles.noteBubbleText, { color: colors.textPrimary }]} numberOfLines={1}>
+                <AppText weight="medium" style={[styles.noteBubbleText, { color: colors.textPrimary }]} numberOfLines={1}>
                   {note.noteText}
-                </Text>
+                </AppText>
                 <View
                   style={[
                     styles.noteBubbleTail,
@@ -296,9 +337,9 @@ export function MessagesScreen() {
                 ) : null}
               </View>
 
-              <Text style={[styles.noteUsername, { color: colors.textSecondary }]} numberOfLines={1}>
+              <AppText style={[styles.noteUsername, { color: colors.textSecondary }]} numberOfLines={1}>
                 {note.user.username}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -309,45 +350,48 @@ export function MessagesScreen() {
             style={[styles.tabBtn, activeTab === "primary" && { borderBottomColor: colors.textPrimary }]}
             onPress={() => setActiveTab("primary")}
           >
-            <Text
+            <AppText
+              weight={activeTab === "primary" ? "bold" : "semiBold"}
               style={[
                 styles.tabBtnText,
                 { color: colors.textMuted },
-                activeTab === "primary" && { color: colors.textPrimary, fontFamily: FontFamily.bold },
+                activeTab === "primary" && { color: colors.textPrimary },
               ]}
             >
               Primary
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === "general" && { borderBottomColor: colors.textPrimary }]}
             onPress={() => setActiveTab("general")}
           >
-            <Text
+            <AppText
+              weight={activeTab === "general" ? "bold" : "semiBold"}
               style={[
                 styles.tabBtnText,
                 { color: colors.textMuted },
-                activeTab === "general" && { color: colors.textPrimary, fontFamily: FontFamily.bold },
+                activeTab === "general" && { color: colors.textPrimary },
               ]}
             >
               General
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === "requests" && { borderBottomColor: colors.textPrimary }]}
             onPress={() => setActiveTab("requests")}
           >
-            <Text
+            <AppText
+              weight={activeTab === "requests" ? "bold" : "semiBold"}
               style={[
                 styles.tabBtnText,
                 { color: colors.textMuted },
-                activeTab === "requests" && { color: colors.textPrimary, fontFamily: FontFamily.bold },
+                activeTab === "requests" && { color: colors.textPrimary },
               ]}
             >
               Requests (1)
-            </Text>
+            </AppText>
           </TouchableOpacity>
         </View>
 
@@ -377,7 +421,8 @@ export function MessagesScreen() {
 
                 {/* Metadata */}
                 <View style={styles.chatMeta}>
-                  <Text
+                  <AppText
+                    weight={hasUnread ? "bold" : "semiBold"}
                     style={[
                       styles.chatName,
                       { color: colors.textPrimary },
@@ -385,17 +430,18 @@ export function MessagesScreen() {
                     ]}
                   >
                     {chat.user.fullName}
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
+                    weight={hasUnread ? "semiBold" : "regular"}
                     style={[
                       styles.chatPreview,
                       { color: colors.textSecondary },
-                      hasUnread && { color: colors.textPrimary, fontFamily: FontFamily.semiBold },
+                      hasUnread && { color: colors.textPrimary },
                     ]}
                     numberOfLines={1}
                   >
                     {chat.lastMessage} · {chat.timeAgo}
-                  </Text>
+                  </AppText>
                 </View>
 
                 {/* Trailing indicator: Camera icon or Unread Blue Dot */}
@@ -413,6 +459,17 @@ export function MessagesScreen() {
           })}
         </View>
       </ScrollView>
+
+      {/* Twitter / X Style Switch Account Modal (Above Native Tabs) */}
+      <SwitchAccountModal
+        visible={showAccountSwitch}
+        onClose={() => setShowAccountSwitch(false)}
+        user={currentUser ? {
+          username: currentUser.username,
+          fullName: currentUser.full_name,
+          avatar: currentUser.avatar_url ? resolveAvatarSource(currentUser.avatar_url) : undefined,
+        } : null}
+      />
     </SafeAreaView>
   );
 }
@@ -438,7 +495,6 @@ const styles = StyleSheet.create({
   headerUsername: {
     fontFamily: FontFamily.bold,
     fontSize: 20,
-    fontWeight: "700",
     color: "#0F172A",
   },
   headerRight: {

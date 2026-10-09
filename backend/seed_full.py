@@ -104,7 +104,7 @@ async def seed_full():
         
         post_docs.append(post)
         
-    await db.posts.insert_many(post_docs)
+    inserted_posts = await db.posts.insert_many(post_docs)
     
     print("Seeding follows...")
     follows_to_insert = []
@@ -120,6 +120,37 @@ async def seed_full():
                 })
     if follows_to_insert:
         await db.follows.insert_many(follows_to_insert)
+
+    print("Seeding unread notifications for gokul...")
+    gokul_id = user_ids[0]
+    sample_post_id = str(inserted_posts.inserted_ids[0]) if inserted_posts.inserted_ids else None
+    
+    sample_actors = [
+        {"idx": 1, "type": "LIKE"},
+        {"idx": 2, "type": "COMMENT"},
+        {"idx": 3, "type": "FOLLOW"},
+        {"idx": 4, "type": "MENTION"},
+        {"idx": 5, "type": "LIKE"}
+    ]
+    
+    notifs_to_insert = []
+    for item in sample_actors:
+        actor_idx = item["idx"]
+        actor_doc = user_docs[actor_idx]
+        actor_id = user_ids[actor_idx]
+        notifs_to_insert.append({
+            "recipient_id": gokul_id,
+            "actor_id": actor_id,
+            "actor_username": actor_doc["username"],
+            "actor_fullName": actor_doc["full_name"],
+            "actor_avatar": actor_doc["avatar_url"],
+            "type": item["type"],
+            "post_id": sample_post_id,
+            "read": False,
+            "created_at": datetime.now(timezone.utc) - timedelta(minutes=random.randint(5, 120))
+        })
+    await db.notifications.insert_many(notifs_to_insert)
+    print(f"Inserted {len(notifs_to_insert)} unread notifications for gokul.")
 
     print("✅ Full DB seed complete!")
     print("\n====================")

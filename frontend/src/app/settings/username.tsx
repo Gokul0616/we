@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -19,6 +18,8 @@ import { apiClient } from "../../services/apiClient";
 import { ENDPOINTS } from "../../constants/api";
 import { toast } from "../../services/toastService";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 export default function UsernameSettingsScreen() {
   const router = useRouter();
@@ -140,11 +141,13 @@ export default function UsernameSettingsScreen() {
             disabled={!canSave}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{ opacity: canSave ? 1 : 0.35 }}
+            accessibilityRole="button"
+            accessibilityLabel="Save username"
           >
             {saving ? (
               <ActivityIndicator size="small" color="#2563EB" />
             ) : (
-              <Text style={styles.headerSaveText}>Save</Text>
+              <AppText weight="bold" style={styles.headerSaveText}>Save</AppText>
             )}
           </TouchableOpacity>
         }
@@ -155,9 +158,9 @@ export default function UsernameSettingsScreen() {
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.instruction, { color: colors.textSecondary }]}>
+        <AppText style={[styles.instruction, { color: colors.textSecondary }]}>
           You'll be able to change your username back at any time if it hasn't been claimed by someone else. Usernames can only contain letters, numbers, and underscores.
-        </Text>
+        </AppText>
 
         {/* Input Card */}
         <View
@@ -177,24 +180,25 @@ export default function UsernameSettingsScreen() {
           ]}
         >
           <View style={styles.labelRow}>
-            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+            <AppText weight="semiBold" style={[styles.inputLabel, { color: colors.textSecondary }]}>
               Username
-            </Text>
-            <Text
+            </AppText>
+            <AppText
+              weight="medium"
               style={[
                 styles.charCounter,
                 { color: isTooLong || (isTooShort && clean.length > 0) ? "#EF4444" : colors.textMuted },
               ]}
             >
               {clean.length}/18
-            </Text>
+            </AppText>
           </View>
 
           <View style={styles.inputWrapper}>
-            <Text style={[styles.atPrefix, { color: colors.textSecondary }]}>@</Text>
+            <AppText weight="semiBold" style={[styles.atPrefix, { color: colors.textSecondary }]}>@</AppText>
             <TextInput
               ref={usernameRef}
-              style={[styles.input, { color: colors.textPrimary }]}
+              style={[styles.input, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
               value={username}
               onChangeText={handleUsernameChange}
               placeholder="username"
@@ -224,6 +228,7 @@ export default function UsernameSettingsScreen() {
                   setUsernameCheck(null);
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
               >
                 <Ionicons name="close-circle" size={18} color={colors.textMuted} />
               </TouchableOpacity>
@@ -235,37 +240,37 @@ export default function UsernameSettingsScreen() {
         {isCurrent ? (
           <View style={styles.feedbackRow}>
             <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
-            <Text style={[styles.feedbackCurrent, { color: colors.textSecondary }]}>
+            <AppText weight="medium" style={[styles.feedbackCurrent, { color: colors.textSecondary }]}>
               This is your current username.
-            </Text>
+            </AppText>
           </View>
         ) : isTooLong ? (
           <View style={styles.feedbackRow}>
             <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
-            <Text style={styles.feedbackError}>
+            <AppText weight="medium" style={styles.feedbackError}>
               Username cannot exceed 18 characters.
-            </Text>
+            </AppText>
           </View>
         ) : isTooShort ? (
           <View style={styles.feedbackRow}>
             <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
-            <Text style={styles.feedbackError}>
+            <AppText weight="medium" style={styles.feedbackError}>
               Username must be at least 5 characters.
-            </Text>
+            </AppText>
           </View>
         ) : isUsernameTaken ? (
           <View style={styles.feedbackRow}>
             <Ionicons name="close-circle-outline" size={16} color="#EF4444" />
-            <Text style={styles.feedbackError}>
+            <AppText weight="medium" style={styles.feedbackError}>
               A user with that username already exists.
-            </Text>
+            </AppText>
           </View>
         ) : isUsernameAvailable ? (
           <View style={styles.feedbackRow}>
             <Ionicons name="checkmark-circle-outline" size={16} color="#10B981" />
-            <Text style={styles.feedbackSuccess}>
+            <AppText weight="medium" style={styles.feedbackSuccess}>
               @{clean} is available.
-            </Text>
+            </AppText>
           </View>
         ) : null}
       </ScrollView>

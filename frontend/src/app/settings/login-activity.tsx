@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { toast } from "../../services/toastService";
 import { showAlert } from "../../services/alertService";
 import { SettingsHeader, SettingsSection } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
 
 interface Session {
   id: string;
@@ -101,9 +102,9 @@ export default function LoginActivityScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>
+        <AppText weight="semiBold" style={[styles.sectionHeading, { color: colors.textSecondary }]}>
           Where you're logged in
-        </Text>
+        </AppText>
 
         <SettingsSection>
           {sessions.map((s, index) => (
@@ -124,28 +125,30 @@ export default function LoginActivityScreen() {
 
                 <View style={styles.sessionInfo}>
                   <View style={styles.titleRow}>
-                    <Text style={[styles.deviceText, { color: colors.textPrimary }]}>
+                    <AppText weight="semiBold" style={[styles.deviceText, { color: colors.textPrimary }]}>
                       {s.device}
-                    </Text>
+                    </AppText>
                     {s.isCurrent && (
                       <View style={styles.currentBadge}>
-                        <Text style={styles.currentBadgeText}>This Device</Text>
+                        <AppText weight="semiBold" style={styles.currentBadgeText}>This Device</AppText>
                       </View>
                     )}
                   </View>
-                  <Text style={[styles.subText, { color: colors.textSecondary }]}>
+                  <AppText style={[styles.subText, { color: colors.textSecondary }]}>
                     {s.location} • {s.time}
-                  </Text>
+                  </AppText>
                 </View>
 
                 {!s.isCurrent && (
                   <TouchableOpacity
                     onPress={() => handleLogoutSession(s.id, s.device)}
                     style={styles.logoutSmallBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Log out of ${s.device}`}
                   >
-                    <Text style={[styles.logoutSmallText, { color: colors.danger }]}>
+                    <AppText weight="semiBold" style={[styles.logoutSmallText, { color: colors.danger }]}>
                       Log out
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 )}
               </View>
@@ -166,11 +169,13 @@ export default function LoginActivityScreen() {
             style={[styles.logoutAllBtn, { borderColor: colors.border }]}
             onPress={handleLogoutOthers}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Log out of all other sessions"
           >
             <Ionicons name="log-out-outline" size={18} color={colors.danger} style={{ marginRight: 6 }} />
-            <Text style={[styles.logoutAllText, { color: colors.danger }]}>
+            <AppText weight="semiBold" style={[styles.logoutAllText, { color: colors.danger }]}>
               Log out of all other sessions
-            </Text>
+            </AppText>
           </TouchableOpacity>
         )}
       </ScrollView>

@@ -9,14 +9,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { WeLogo } from "../../components/WeLogo";
 import Svg, { Circle, Path, Defs, RadialGradient, Stop } from "react-native-svg";
 
+import { useTheme } from "../../context/ThemeContext";
+
 interface OnboardingMinimalScreenProps {
   onNext?: () => void;
 }
 
 export function OnboardingMinimalScreen({ onNext }: OnboardingMinimalScreenProps) {
+  const { colors, isDark } = useTheme();
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* Fluid Organic Gradient Background Blobs matching design */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -43,7 +47,7 @@ export function OnboardingMinimalScreen({ onNext }: OnboardingMinimalScreenProps
 
       {/* Centered Brand Presence */}
       <View style={styles.centerContent}>
-        <WeLogo size="xl" showTagline={true} color="#1E293B" taglineColor="#475569" />
+        <WeLogo size="xl" showTagline={true} color={colors.textPrimary} taglineColor={colors.textSecondary} />
       </View>
 
       <TouchableOpacity

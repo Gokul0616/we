@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -16,6 +15,7 @@ import { userService } from "../../services/userService";
 import { toast } from "../../services/toastService";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
 import { CustomDatePicker } from "../../components/common/CustomDatePicker";
+import { AppText } from "../../components/common/AppText";
 
 export default function DateOfBirthScreen() {
   const router = useRouter();
@@ -101,13 +101,15 @@ export default function DateOfBirthScreen() {
             onPress={handleSave}
             disabled={saving}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Save date of birth"
           >
             {saving ? (
               <ActivityIndicator size="small" color="#2563EB" />
             ) : (
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#2563EB" }}>
+              <AppText weight="bold" style={{ fontSize: 16, color: "#2563EB" }}>
                 Save
-              </Text>
+              </AppText>
             )}
           </TouchableOpacity>
         }
@@ -122,25 +124,27 @@ export default function DateOfBirthScreen() {
           <View style={[styles.iconCircle, { backgroundColor: isDark ? "#18181B" : "#EFF6FF" }]}>
             <Ionicons name="calendar-outline" size={36} color="#2563EB" />
           </View>
-          <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
+          <AppText weight="bold" style={[styles.heroTitle, { color: colors.textPrimary }]}>
             When is your birthday?
-          </Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+          </AppText>
+          <AppText style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             Providing your birthday helps us customize your age-appropriate experience and won't be shown publicly unless you choose to.
-          </Text>
+          </AppText>
         </View>
 
         {/* Date Selection */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Your Birthday</Text>
+          <AppText weight="semiBold" style={[styles.inputLabel, { color: colors.textSecondary }]}>Your Birthday</AppText>
           <TouchableOpacity
             style={[styles.dateDisplayBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
             activeOpacity={0.7}
             onPress={() => setPickerVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Select your date of birth"
           >
-            <Text style={[styles.dateDisplayText, { color: day && month && year ? colors.textPrimary : colors.textMuted }]}>
+            <AppText weight="medium" style={[styles.dateDisplayText, { color: day && month && year ? colors.textPrimary : colors.textMuted }]}>
               {day && month && year ? `${day.padStart(2, "0")} / ${month.padStart(2, "0")} / ${year}` : "Select your date of birth"}
-            </Text>
+            </AppText>
             <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>

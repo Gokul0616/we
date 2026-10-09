@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -16,6 +15,8 @@ import { authStorage } from "../../services/authStorage";
 import { userService } from "../../services/userService";
 import { toast } from "../../services/toastService";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 export default function EmailSettingsScreen() {
   const router = useRouter();
@@ -63,13 +64,15 @@ export default function EmailSettingsScreen() {
             onPress={handleSave}
             disabled={saving}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Save email address"
           >
             {saving ? (
               <ActivityIndicator size="small" color="#2563EB" />
             ) : (
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#2563EB" }}>
+              <AppText weight="bold" style={{ fontSize: 16, color: "#2563EB" }}>
                 Save
-              </Text>
+              </AppText>
             )}
           </TouchableOpacity>
         }
@@ -84,20 +87,20 @@ export default function EmailSettingsScreen() {
           <View style={[styles.iconCircle, { backgroundColor: isDark ? "#18181B" : "#EFF6FF" }]}>
             <Ionicons name="mail-outline" size={36} color="#2563EB" />
           </View>
-          <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
+          <AppText weight="bold" style={[styles.heroTitle, { color: colors.textPrimary }]}>
             Update your primary email
-          </Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+          </AppText>
+          <AppText style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             We use this email to verify account access, send important security notifications, and help you reset your password.
-          </Text>
+          </AppText>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Email Address</Text>
+          <AppText weight="semiBold" style={[styles.inputLabel, { color: colors.textSecondary }]}>Email Address</AppText>
           <TextInput
             style={[
               styles.input,
-              { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.surface },
+              { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.surface, fontFamily: FontFamily.regular },
             ]}
             value={email}
             onChangeText={setEmail}

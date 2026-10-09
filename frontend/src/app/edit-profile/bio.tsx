@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -15,8 +14,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { userService } from "../../services/userService";
 import { authStorage } from "../../services/authStorage";
 import { toast } from "../../services/toastService";
-
 import { useTheme } from "../../context/ThemeContext";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 const BIO_SUGGESTIONS = [
   "Developer",
@@ -64,15 +64,26 @@ export default function EditBioScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={[styles.headerRow, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Bio</Text>
-        <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={saving}>
+        <AppText weight="bold" style={[styles.headerTitle, { color: colors.textPrimary }]}>Edit Bio</AppText>
+        <TouchableOpacity
+          style={styles.headerSaveButton}
+          onPress={handleSave}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel="Save bio"
+        >
           {saving ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+            <AppText weight="bold" style={[styles.headerSaveText, { color: colors.primary }]}>Save</AppText>
           )}
         </TouchableOpacity>
       </View>
@@ -81,7 +92,7 @@ export default function EditBioScreen() {
         {/* Card Input with character counter */}
         <View style={[styles.bioCardInput, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TextInput
-            style={[styles.bioTextInput, { color: colors.textPrimary }]}
+            style={[styles.bioTextInput, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
             value={bio}
             onChangeText={(text) => {
               if (text.length <= 150) setBio(text);
@@ -91,11 +102,11 @@ export default function EditBioScreen() {
             multiline
             numberOfLines={4}
           />
-          <Text style={[styles.bioCharCounter, { color: colors.textSecondary }]}>{bio.length}/150</Text>
+          <AppText weight="medium" style={[styles.bioCharCounter, { color: colors.textSecondary }]}>{bio.length}/150</AppText>
         </View>
 
         {/* Bio Suggestions Section */}
-        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Bio Suggestions</Text>
+        <AppText weight="bold" style={[styles.sectionHeading, { color: colors.textPrimary }]}>Bio Suggestions</AppText>
         <View style={styles.suggestionsWrap}>
           {BIO_SUGGESTIONS.map((item) => (
             <TouchableOpacity
@@ -109,14 +120,16 @@ export default function EditBioScreen() {
                   setBio((prev) => `${prev} | ${item}`.slice(0, 150));
                 }
               }}
+              accessibilityRole="button"
+              accessibilityLabel={`Add suggestion ${item}`}
             >
-              <Text style={[styles.suggestionPillText, { color: colors.textPrimary }]}>{item}</Text>
+              <AppText weight="semiBold" style={[styles.suggestionPillText, { color: colors.textPrimary }]}>{item}</AppText>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Add Emojis Section */}
-        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Add Emojis</Text>
+        <AppText weight="bold" style={[styles.sectionHeading, { color: colors.textPrimary }]}>Add Emojis</AppText>
         <View style={styles.emojiRow}>
           {EMOJI_LIST.map((emoji) => (
             <TouchableOpacity
@@ -128,8 +141,10 @@ export default function EditBioScreen() {
                   setBio((prev) => `${prev} ${emoji}`.trim());
                 }
               }}
+              accessibilityRole="button"
+              accessibilityLabel={`Add emoji ${emoji}`}
             >
-              <Text style={styles.emojiText}>{emoji}</Text>
+              <AppText style={styles.emojiText}>{emoji}</AppText>
             </TouchableOpacity>
           ))}
         </View>

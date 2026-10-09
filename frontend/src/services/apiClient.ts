@@ -108,7 +108,7 @@ class ApiClient {
       try {
         await interceptor({ ...options, url, headers });
       } catch (err) {
-        console.warn("⚠️ [API REQ INTERCEPTOR ERR]", err);
+        console.log("⚠️ [API REQ INTERCEPTOR ERR]", err);
       }
     }
 
@@ -144,7 +144,7 @@ class ApiClient {
             responseData = intercepted;
           }
         } catch (err) {
-          console.warn("⚠️ [API RES INTERCEPTOR ERR]", err);
+          console.log("⚠️ [API RES INTERCEPTOR ERR]", err);
         }
       }
 

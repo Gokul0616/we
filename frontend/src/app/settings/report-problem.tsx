@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -14,6 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { toast } from "../../services/toastService";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 const CATEGORIES = [
   "Something isn't working",
@@ -57,13 +58,15 @@ export default function ReportProblemScreen() {
             onPress={handleSubmit}
             disabled={submitting}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Send problem report"
           >
             {submitting ? (
               <ActivityIndicator size="small" color="#2563EB" />
             ) : (
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#2563EB" }}>
+              <AppText weight="bold" style={{ fontSize: 16, color: "#2563EB" }}>
                 Send
-              </Text>
+              </AppText>
             )}
           </TouchableOpacity>
         }
@@ -74,12 +77,12 @@ export default function ReportProblemScreen() {
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.instruction, { color: colors.textSecondary }]}>
+        <AppText style={[styles.instruction, { color: colors.textSecondary }]}>
           Briefly explain what happened and what steps we can take to reproduce the issue.
-        </Text>
+        </AppText>
 
         {/* Category Picker */}
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Issue Type</Text>
+        <AppText weight="semiBold" style={[styles.label, { color: colors.textSecondary }]}>Issue Type</AppText>
         <View style={styles.categoryChips}>
           {CATEGORIES.map((cat) => {
             const isSelected = category === cat;
@@ -97,28 +100,30 @@ export default function ReportProblemScreen() {
                 ]}
                 onPress={() => setCategory(cat)}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={cat}
               >
-                <Text
+                <AppText
+                  weight={isSelected ? "bold" : "medium"}
                   style={[
                     styles.catText,
                     {
                       color: isSelected ? "#2563EB" : colors.textPrimary,
-                      fontWeight: isSelected ? "700" : "500",
                     },
                   ]}
                 >
                   {cat}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           })}
         </View>
 
         {/* Description Input */}
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Description</Text>
+        <AppText weight="semiBold" style={[styles.label, { color: colors.textSecondary }]}>Description</AppText>
         <View style={[styles.textAreaCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TextInput
-            style={[styles.textArea, { color: colors.textPrimary }]}
+            style={[styles.textArea, { color: colors.textPrimary, fontFamily: FontFamily.regular }]}
             placeholder="Tell us what went wrong..."
             placeholderTextColor={colors.textMuted}
             value={description}

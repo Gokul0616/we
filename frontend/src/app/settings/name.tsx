@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -10,16 +9,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { authStorage } from "../../services/authStorage";
 import { userService } from "../../services/userService";
 import { toast } from "../../services/toastService";
 import { SettingsHeader } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
+import { FontFamily } from "../../constants/theme";
 
 export default function NameSettingsScreen() {
   const router = useRouter();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -63,13 +63,15 @@ export default function NameSettingsScreen() {
             onPress={handleSave}
             disabled={saving}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Save name"
           >
             {saving ? (
               <ActivityIndicator size="small" color="#2563EB" />
             ) : (
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#2563EB" }}>
+              <AppText weight="bold" style={{ fontSize: 16, color: "#2563EB" }}>
                 Save
-              </Text>
+              </AppText>
             )}
           </TouchableOpacity>
         }
@@ -80,16 +82,18 @@ export default function NameSettingsScreen() {
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.instruction, { color: colors.textSecondary }]}>
+        <AppText style={[styles.instruction, { color: colors.textSecondary }]}>
           Help people discover your account by using the name you're known by: either your full name, nickname, or business name.
-        </Text>
+        </AppText>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Display Name</Text>
+          <AppText weight="semiBold" style={[styles.inputLabel, { color: colors.textSecondary }]}>
+            Display Name
+          </AppText>
           <TextInput
             style={[
               styles.input,
-              { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.surface },
+              { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.surface, fontFamily: FontFamily.regular },
             ]}
             value={name}
             onChangeText={setName}

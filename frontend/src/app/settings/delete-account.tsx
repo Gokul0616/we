@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -15,6 +14,8 @@ import { toast } from "../../services/toastService";
 import { authStorage } from "../../services/authStorage";
 import { userService } from "../../services/userService";
 import { SettingsHeader, SettingsRadioRow, SettingsSection } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
+import { AppButton } from "../../components/common/AppButton";
 
 const REASONS = [
   "I want to take a break",
@@ -62,12 +63,12 @@ export default function DeleteAccountScreen() {
           <View style={[styles.iconCircle, { backgroundColor: isDark ? "#450A0A" : "#FEF2F2" }]}>
             <Ionicons name="trash-outline" size={36} color="#EF4444" />
           </View>
-          <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
+          <AppText weight="bold" style={[styles.heroTitle, { color: colors.textPrimary }]}>
             Are you sure you want to delete your account?
-          </Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+          </AppText>
+          <AppText style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             This action is permanent and cannot be undone. All your posts, followers, likes, comments, and messages will be permanently removed.
-          </Text>
+          </AppText>
         </View>
 
         <SettingsSection title="Why are you deleting your account?">
@@ -82,18 +83,16 @@ export default function DeleteAccountScreen() {
           ))}
         </SettingsSection>
 
-        <TouchableOpacity
-          style={[styles.deleteBtn, deleting && { opacity: 0.7 }]}
-          onPress={handleDelete}
-          disabled={deleting}
-          activeOpacity={0.8}
-        >
-          {deleting ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={styles.deleteBtnText}>Permanently Delete Account</Text>
-          )}
-        </TouchableOpacity>
+        <View style={{ marginTop: 28 }}>
+          <AppButton
+            variant="danger"
+            size="lg"
+            title="Permanently Delete Account"
+            onPress={handleDelete}
+            loading={deleting}
+            disabled={deleting}
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

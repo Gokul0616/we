@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Any
 from bson import ObjectId
 from .engine import sync_engine, QueryContext, MutationContext
+from shared.models import PostCreate, resolve_media_type
 
 async def enrich_sync_posts(ctx: QueryContext, posts: list[dict]):
     for p in posts:
@@ -129,23 +130,83 @@ async def get_profile(ctx: QueryContext, args: dict[str, Any]):
     if user:
         if "password_hash" in user:
             del user["password_hash"]
+        uname = user.get("username", "")
+        uid = str(user.get("id") or user.get("_id", ""))
+        all_posts = await ctx.db.find("posts", {"$or": [{"author_username": uname}, {"author_id": uid}]})
+        all_followers = await ctx.db.find("follows", {"target_username": uname})
+        all_following = await ctx.db.find("follows", {"follower_username": uname})
+        user["posts_count"] = len(all_posts)
+        user["followers_count"] = len(all_followers)
+        user["following_count"] = len(all_following)
     return user
+
+async def _is_following_actor(ctx: QueryContext, follower_id: str, target_username: str | None) -> bool:
+    """Whether `follower_id` currently follows `target_username`, via the follows collection."""
+    if not target_username:
+        return False
+    try:
+        # QueryContext exposes reads through `ctx.db` (a ReactiveDBReader);
+        # `ctx.reader` only exists on MutationContext.
+        existing = await ctx.db.find("follows", {
+            "follower_id": str(follower_id),
+            "target_username": target_username,
+        }, limit=1)
+        return bool(existing)
+    except Exception:
+        return False
 
 @sync_engine.query("notifications:list")
 async def list_notifications(ctx: QueryContext, args: dict[str, Any]):
     if not ctx.auth_user:
         return []
     user_id = ctx.auth_user["sub"]
-    notifs = await ctx.db.find("notifications", {"recipient_id": user_id}, sort_field="created_at", sort_order=-1, limit=50);
+    filter_val = str(args.get("filter") or "").strip().lower()
+
+    query = {"recipient_id": user_id}
+    if filter_val == "follows":
+        query["type"] = {"$in": ["FOLLOW", "FOLLOW_REQUEST", "FOLLOW_ACCEPTED"]}
+    elif filter_val == "likes":
+        query["type"] = {"$in": ["LIKE", "REPOST"]}
+    elif filter_val == "comments":
+        query["type"] = {"$in": ["COMMENT", "REPLY", "MENTION"]}
+
+    notifs = await ctx.db.find("notifications", query, sort_field="created_at", sort_order=-1, limit=50)
     for n in notifs:
-        actor_id = n.get("actor_id")
-        if actor_id:
+        # Resolve the actor exactly like the feed resolves post authors: try the
+        # id lookup (ctx.db.get), fall back to a username lookup, and only ever
+        # overwrite with truthy values so the notification's stored avatar is
+        # preserved when the live user record has none.
+        aid = n.get("actor_id")
+        auser = n.get("actor_username")
+        actor = None
+        if aid:
             try:
-                actor = await ctx.reader.get("users", actor_id)
-                if actor:
-                    n["actor_username"] = actor.get("username", n.get("actor_username"))
-                    n["actor_fullName"] = actor.get("full_name")
-                    n["actor_avatar"] = actor.get("avatar_url")
+                actor = await ctx.db.get("users", aid)
+            except Exception:
+                pass
+        if not actor and auser:
+            try:
+                u_list = await ctx.db.find("users", {"username": auser}, limit=1)
+                actor = u_list[0] if u_list else None
+            except Exception:
+                pass
+        if actor:
+            n["actor_username"] = actor.get("username", n.get("actor_username"))
+            if actor.get("full_name"):
+                n["actor_fullName"] = actor["full_name"]
+            if actor.get("avatar_url"):
+                n["actor_avatar"] = actor["avatar_url"]
+
+        # Let the notification row say "Following" instead of "Follow Back"
+        # when the recipient already follows the actor.
+        n["is_following"] = await _is_following_actor(ctx, user_id, n.get("actor_username"))
+
+        post_id = n.get("post_id")
+        if post_id:
+            try:
+                post = await ctx.db.get("posts", str(post_id))
+                if post:
+                    n["post_media_url"] = post.get("media_url") or (post.get("media_urls")[0] if post.get("media_urls") else None)
             except Exception:
                 pass
     return notifs
@@ -321,6 +382,18 @@ async def create_post(ctx: MutationContext, args: dict[str, Any]):
     user_id = ctx.auth_user["sub"] if ctx.auth_user else "guest_user"
     username = ctx.auth_user.get("username", "guest_user") if ctx.auth_user else "guest_user"
 
+    # Same validation contract as HTTP POST /posts (shared pydantic model):
+    # caption/media limits, privacy & media_type enums, http(s)-only media URLs.
+    post_in = PostCreate(**(args or {}))
+
+    # Idempotency: retries of the same composition must not duplicate the post
+    if post_in.client_post_id:
+        existing = await ctx.reader.find(
+            "posts", {"client_post_id": post_in.client_post_id}, limit=1
+        )
+        if existing:
+            return existing[0]
+
     # Fetch latest user profile to ensure avatar and name are up-to-date
     user = None
     if user_id and user_id != "guest_user":
@@ -338,25 +411,26 @@ async def create_post(ctx: MutationContext, args: dict[str, Any]):
     author_avatar = (user.get("avatar_url") if user else None) or args.get("author_avatar") or "asset:default_avatar.png"
     author_fullName = (user.get("full_name") if user else None) or username
 
-    media_urls = args.get("media_urls", [])
-    primary_media = args.get("media_url")
-    if not primary_media and media_urls and len(media_urls) > 0:
-        primary_media = media_urls[0]
+    media_urls = list(post_in.media_urls)
+    primary_media = post_in.media_url or (media_urls[0] if media_urls else None)
 
     post_doc = {
         "author_id": user_id,
         "author_username": username,
         "author_fullName": author_fullName,
         "author_avatar": author_avatar,
-        "content": args.get("content", ""),
+        "content": post_in.content,
         "media_url": primary_media,
-        "media_urls": media_urls or ([primary_media] if primary_media else []),
-        "media_type": args.get("media_type", "photo"),
-        "location": args.get("location"),
-        "tags": args.get("tags", []),
-        "labels": args.get("labels", []),
-        "privacy": args.get("privacy", "public"),
-        "add_to_story": args.get("add_to_story", False),
+        "media_urls": media_urls,
+        "media_type": resolve_media_type(post_in.media_type, media_urls),
+        "location": post_in.location,
+        "location_lat": post_in.location_lat,
+        "location_lng": post_in.location_lng,
+        "tags": post_in.tags,
+        "labels": post_in.labels,
+        "privacy": post_in.privacy,
+        "add_to_story": post_in.add_to_story,
+        "client_post_id": post_in.client_post_id,
         "liked_by": [],
         "comments_count": 0,
         "created_at": datetime.now(timezone.utc)
@@ -375,7 +449,11 @@ async def create_post(ctx: MutationContext, args: dict[str, Any]):
             "type": "SYSTEM",
             "post_id": doc_id,
             "title": "Post Published!",
-            "message": f"Your post '{args.get('content', '')[:30]}...' is now live.",
+            "message": (
+                f"Your post '{post_in.content[:30]}...' is now live."
+                if post_in.content.strip()
+                else "Your post is now live."
+            ),
             "read": False,
             "created_at": datetime.now(timezone.utc)
         })
@@ -634,16 +712,28 @@ async def list_follow_requests(ctx: QueryContext, args: dict[str, Any]):
     user_id = ctx.auth_user["sub"]
     reqs = await ctx.db.find("follow_requests", {"target_id": user_id}, sort_field="created_at", sort_order=-1)
     for r in reqs:
-        actor_id = r.get("follower_id")
-        if actor_id:
+        # Same actor resolution as feed posts: id lookup first, username
+        # fallback, truthy-only overwrites.
+        aid = r.get("follower_id")
+        auser = r.get("follower_username")
+        actor = None
+        if aid:
             try:
-                actor = await ctx.reader.get("users", actor_id)
-                if actor:
-                    r["actor_username"] = actor.get("username", r.get("follower_username"))
-                    r["actor_fullName"] = actor.get("full_name")
-                    r["actor_avatar"] = actor.get("avatar_url")
+                actor = await ctx.db.get("users", aid)
             except Exception:
                 pass
+        if not actor and auser:
+            try:
+                u_list = await ctx.db.find("users", {"username": auser}, limit=1)
+                actor = u_list[0] if u_list else None
+            except Exception:
+                pass
+        if actor:
+            r["actor_username"] = actor.get("username", r.get("follower_username"))
+            if actor.get("full_name"):
+                r["actor_fullName"] = actor["full_name"]
+            if actor.get("avatar_url"):
+                r["actor_avatar"] = actor["avatar_url"]
     return reqs
 
 @sync_engine.mutation("users:acceptFollowRequest")
@@ -726,9 +816,28 @@ async def get_follow_status_query(ctx: QueryContext, args: dict[str, Any]):
 
     all_follows = await ctx.db.find("follows", {"target_username": target_username})
     all_following = await ctx.db.find("follows", {"follower_username": target_username})
+    all_posts = await ctx.db.find("posts", {"author_username": target_username})
     return {
         "targetUsername": target_username,
         "isFollowing": is_following,
         "followersCount": len(all_follows),
-        "followingCount": len(all_following)
+        "followingCount": len(all_following),
+        "postsCount": len(all_posts)
     }
+
+@sync_engine.query("users:getAll")
+async def get_all_users_query(ctx: QueryContext, args: dict[str, Any]):
+    limit = args.get("limit", 20)
+    users = await ctx.db.find("users", {}, limit=limit)
+    res = []
+    for u in users:
+        uid = str(u.get("id", u.get("_id", "")))
+        res.append({
+            "id": uid,
+            "username": u.get("username", ""),
+            "full_name": u.get("full_name", ""),
+            "email": u.get("email", ""),
+            "avatar_url": u.get("avatar_url", ""),
+            "bio": u.get("bio", ""),
+        })
+    return res

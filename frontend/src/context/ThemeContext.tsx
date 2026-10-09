@@ -28,10 +28,10 @@ const ThemeContext = createContext<ThemeContextType>({
   themeMode: "system",
   isDark: false,
   colors: LightColors,
-  setThemeMode: async () => {},
-  toggleTheme: () => {},
+  setThemeMode: async () => { },
+  toggleTheme: () => { },
   iosTabStyle: defaultIosTabStyle,
-  setIosTabStyle: async () => {},
+  setIosTabStyle: async () => { },
 });
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
@@ -58,18 +58,18 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       } else if (Platform.OS === "ios") {
         setIosTabStyleState("native");
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     // 3. Sync iOS tab style preference from backend user profile
     authStorage.getUser().then((user) => {
       const backendStyle = user?.content_preferences?.ios_tab_style;
       if (backendStyle === "native" || backendStyle === "custom") {
         setIosTabStyleState(backendStyle);
-        AsyncStorage.setItem(IOS_TAB_STYLE_STORAGE_KEY, backendStyle).catch(() => {});
+        AsyncStorage.setItem(IOS_TAB_STYLE_STORAGE_KEY, backendStyle).catch(() => { });
       } else if (Platform.OS === "ios") {
         setIosTabStyleState("native");
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const setThemeMode = async (mode: ThemeMode) => {
@@ -77,7 +77,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     try {
       await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
     } catch (e) {
-      console.warn("Failed saving theme mode to storage:", e);
+      console.log("Failed saving theme mode to storage:", e);
     }
   };
 
@@ -88,7 +88,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       // Persist to backend
       await userService.updateContentPreferences({ ios_tab_style: style });
     } catch (e) {
-      console.warn("Failed saving iOS tab style preference:", e);
+      console.log("Failed saving iOS tab style preference:", e);
     }
   };
 

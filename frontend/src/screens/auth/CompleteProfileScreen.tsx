@@ -1,7 +1,6 @@
 import React, { useState, useRef } from "react";
 import {
   StyleSheet,
-  Text,
   View,
   TextInput,
   TouchableOpacity,
@@ -15,12 +14,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "../../constants/theme";
+import { Colors, FontFamily } from "../../constants/theme";
 import { ENDPOINTS } from "../../constants/api";
 import { apiClient } from "../../services/apiClient";
 import { toast } from "../../services/toastService";
 import { authStorage } from "../../services/authStorage";
 import { userService } from "../../services/userService";
+import { AppText } from "../../components/common/AppText";
+import { AppButton } from "../../components/common/AppButton";
+import { useTheme } from "../../context/ThemeContext";
 
 interface CompleteProfileScreenProps {
   email: string;
@@ -33,6 +35,7 @@ export function CompleteProfileScreen({
   onCompleted,
   onBack,
 }: CompleteProfileScreenProps) {
+  const { colors, isDark } = useTheme();
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -127,8 +130,8 @@ export function CompleteProfileScreen({
   };
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <SafeAreaView edges={["top", "bottom"]} style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -136,12 +139,14 @@ export function CompleteProfileScreen({
         {/* Navigation Bar */}
         <View style={styles.navBar}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: isDark ? colors.surface : "#F8FAFC", borderColor: colors.border }]}
             onPress={onBack}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -155,29 +160,37 @@ export function CompleteProfileScreen({
         >
           <View style={styles.content}>
             <View style={styles.header}>
-              <Text style={styles.title}>Create your profile</Text>
-              <Text style={styles.subtitle}>
+              <AppText variant="screenTitle" style={[styles.title, { color: colors.textPrimary }]}>
+                Create your profile
+              </AppText>
+              <AppText variant="body" style={[styles.subtitle, { color: colors.textSecondary }]}>
                 Choose your handle and set up your account.
-              </Text>
+              </AppText>
             </View>
 
             <View style={styles.form}>
               {/* Full Name */}
               <View style={styles.field}>
-                <Text style={styles.label}>Full Name</Text>
+                <AppText variant="label" style={[styles.label, { color: colors.textPrimary }]}>
+                  Full Name
+                </AppText>
                 <TouchableOpacity
                   activeOpacity={1}
                   onPress={() => fullNameRef.current?.focus()}
                   style={[
                     styles.inputCard,
-                    focusedField === "fullName" && styles.inputCardFocused,
+                    {
+                      backgroundColor: isDark ? colors.surface : "#F8FAFC",
+                      borderColor: focusedField === "fullName" ? colors.primary : colors.border,
+                    },
+                    focusedField === "fullName" && { backgroundColor: isDark ? colors.card : "#FFFFFF" },
                   ]}
                 >
                   <TextInput
                     ref={fullNameRef}
-                    style={styles.input}
+                    style={[styles.input, { color: colors.textPrimary }]}
                     placeholder="e.g. Alex Rivera"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textMuted}
                     value={fullName}
                     onChangeText={setFullName}
                     autoCapitalize="words"
@@ -187,14 +200,14 @@ export function CompleteProfileScreen({
                     onFocus={() => setFocusedField("fullName")}
                     onBlur={() => setFocusedField(null)}
                     onSubmitEditing={() => usernameRef.current?.focus()}
-                    selectionColor={Colors.primary}
+                    selectionColor={colors.primary}
                   />
                   {fullName.length > 0 && (
                     <TouchableOpacity
                       onPress={() => setFullName("")}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                      <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                      <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                     </TouchableOpacity>
                   )}
                 </TouchableOpacity>
@@ -203,15 +216,20 @@ export function CompleteProfileScreen({
               {/* Username */}
               <View style={styles.field}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.label}>Username</Text>
-                  <Text
+                  <AppText variant="label" style={[styles.label, { color: colors.textPrimary }]}>
+                    Username
+                  </AppText>
+                  <AppText
+                    variant="caption"
+                    weight="semibold"
                     style={[
                       styles.charCounter,
+                      { color: colors.textSecondary },
                       (isTooLong || (isTooShort && username.length > 0)) && styles.charCounterError,
                     ]}
                   >
                     {username.length}/18
-                  </Text>
+                  </AppText>
                 </View>
 
                 <TouchableOpacity
@@ -219,17 +237,29 @@ export function CompleteProfileScreen({
                   onPress={() => usernameRef.current?.focus()}
                   style={[
                     styles.inputCard,
-                    focusedField === "username" && styles.inputCardFocused,
-                    (isUsernameTaken || isTooLong || isTooShort) && styles.inputCardError,
-                    isUsernameAvailable && styles.inputCardSuccess,
+                    {
+                      backgroundColor: isDark ? colors.surface : "#F8FAFC",
+                      borderColor: focusedField === "username" ? colors.primary : colors.border,
+                    },
+                    focusedField === "username" && { backgroundColor: isDark ? colors.card : "#FFFFFF" },
+                    (isUsernameTaken || isTooLong || isTooShort) && {
+                      borderColor: "#ED4956",
+                      backgroundColor: isDark ? "rgba(237, 73, 86, 0.14)" : "#FFF8F8",
+                    },
+                    isUsernameAvailable && {
+                      borderColor: "#10B981",
+                      backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "#F6FDF9",
+                    },
                   ]}
                 >
-                  <Text style={styles.atPrefix}>@</Text>
+                  <AppText variant="body" weight="bold" style={[styles.atPrefix, { color: colors.primary }]}>
+                    @
+                  </AppText>
                   <TextInput
                     ref={usernameRef}
-                    style={[styles.input, { flex: 1 }]}
+                    style={[styles.input, { flex: 1, color: colors.textPrimary }]}
                     placeholder="username"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textMuted}
                     value={username}
                     maxLength={25}
                     onChangeText={handleUsernameChange}
@@ -240,12 +270,12 @@ export function CompleteProfileScreen({
                     onFocus={() => setFocusedField("username")}
                     onBlur={() => setFocusedField(null)}
                     onSubmitEditing={() => passwordRef.current?.focus()}
-                    selectionColor={Colors.primary}
+                    selectionColor={colors.primary}
                   />
 
                   {/* Status Indicator Icon right inside input */}
                   {usernameCheck?.loading ? (
-                    <ActivityIndicator size="small" color="#94A3B8" style={{ marginRight: 4 }} />
+                    <ActivityIndicator size="small" color={colors.textMuted} style={{ marginRight: 4 }} />
                   ) : isUsernameTaken || isTooLong || isTooShort ? (
                     <Ionicons name="close-circle" size={20} color="#ED4956" />
                   ) : isUsernameAvailable ? (
@@ -258,7 +288,7 @@ export function CompleteProfileScreen({
                       }}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                      <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                      <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                     </TouchableOpacity>
                   ) : null}
                 </TouchableOpacity>
@@ -266,53 +296,59 @@ export function CompleteProfileScreen({
                 {/* Instagram-style Dynamic Feedback Message */}
                 {isTooLong ? (
                   <View style={styles.igFeedbackRow}>
-                    <Text style={styles.igTakenMessage}>
+                    <AppText variant="caption" weight="medium" style={styles.igTakenMessage}>
                       Username cannot exceed 18 characters.
-                    </Text>
+                    </AppText>
                   </View>
                 ) : isTooShort ? (
                   <View style={styles.igFeedbackRow}>
-                    <Text style={styles.igTakenMessage}>
+                    <AppText variant="caption" weight="medium" style={styles.igTakenMessage}>
                       Username must be at least 5 characters.
-                    </Text>
+                    </AppText>
                   </View>
                 ) : usernameCheck?.exists ? (
                   <View style={styles.igFeedbackRow}>
-                    <Text style={styles.igTakenMessage}>
+                    <AppText variant="caption" weight="medium" style={styles.igTakenMessage}>
                       A user with that username already exists.
-                    </Text>
+                    </AppText>
                   </View>
                 ) : isUsernameAvailable ? (
                   <View style={styles.igFeedbackRow}>
-                    <Text style={styles.igAvailableMessage}>
+                    <AppText variant="caption" weight="semibold" style={styles.igAvailableMessage}>
                       @{username} is available.
-                    </Text>
+                    </AppText>
                   </View>
                 ) : (
                   <View style={styles.igFeedbackRow}>
-                    <Text style={styles.igHelperText}>
+                    <AppText variant="caption" style={[styles.igHelperText, { color: colors.textSecondary }]}>
                       Username must be 5 to 18 letters, numbers, or underscores.
-                    </Text>
+                    </AppText>
                   </View>
                 )}
               </View>
 
               {/* Password */}
               <View style={styles.field}>
-                <Text style={styles.label}>Password</Text>
+                <AppText variant="label" style={[styles.label, { color: colors.textPrimary }]}>
+                  Password
+                </AppText>
                 <TouchableOpacity
                   activeOpacity={1}
                   onPress={() => passwordRef.current?.focus()}
                   style={[
                     styles.inputCard,
-                    focusedField === "password" && styles.inputCardFocused,
+                    {
+                      backgroundColor: isDark ? colors.surface : "#F8FAFC",
+                      borderColor: focusedField === "password" ? colors.primary : colors.border,
+                    },
+                    focusedField === "password" && { backgroundColor: isDark ? colors.card : "#FFFFFF" },
                   ]}
                 >
                   <TextInput
                     ref={passwordRef}
-                    style={[styles.input, { flex: 1 }]}
+                    style={[styles.input, { flex: 1, color: colors.textPrimary }]}
                     placeholder="At least 6 characters"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textMuted}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -323,7 +359,7 @@ export function CompleteProfileScreen({
                     onFocus={() => setFocusedField("password")}
                     onBlur={() => setFocusedField(null)}
                     onSubmitEditing={handleSubmit}
-                    selectionColor={Colors.primary}
+                    selectionColor={colors.primary}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
@@ -333,28 +369,21 @@ export function CompleteProfileScreen({
                     <Ionicons
                       name={showPassword ? "eye-off-outline" : "eye-outline"}
                       size={20}
-                      color="#64748B"
+                      color={colors.textSecondary}
                     />
                   </TouchableOpacity>
                 </TouchableOpacity>
               </View>
             </View>
 
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                (!isValid || isLoading) && styles.buttonDisabled,
-              ]}
-              onPress={handleSubmit}
+            <AppButton
+              title="Complete Registration"
+              size="lg"
+              loading={isLoading}
               disabled={!isValid || isLoading}
-              activeOpacity={0.88}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.buttonText}>Complete Registration</Text>
-              )}
-            </TouchableOpacity>
+              onPress={handleSubmit}
+              style={styles.primaryButton}
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -365,7 +394,6 @@ export function CompleteProfileScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
   keyboardView: {
     flex: 1,
@@ -385,9 +413,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -484,14 +510,14 @@ const styles = StyleSheet.create({
   },
   atPrefix: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: FontFamily.bold,
     color: Colors.primary,
     marginRight: 6,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    color: "#0F172A",
+    fontFamily: FontFamily.regular,
     paddingVertical: 0,
   },
   primaryButton: {

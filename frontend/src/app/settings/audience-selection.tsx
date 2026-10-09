@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, Text } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
@@ -9,6 +9,7 @@ import {
   SettingsSection,
   SettingsRadioRow,
 } from "../../components/settings/SettingsUI";
+import { AppText } from "../../components/common/AppText";
 
 const OPTIONS = [
   { id: "Everyone", label: "Everyone", description: "Anyone on WE can interact" },
@@ -41,10 +42,12 @@ export default function AudienceSelectionScreen() {
           <TouchableOpacity
             onPress={handleSave}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Save audience selection"
           >
-            <Text style={{ fontSize: 16, fontWeight: "700", color: "#2563EB" }}>
+            <AppText weight="bold" style={{ fontSize: 16, color: "#2563EB" }}>
               Save
-            </Text>
+            </AppText>
           </TouchableOpacity>
         }
       />
